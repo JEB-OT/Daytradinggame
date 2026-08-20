@@ -1,41 +1,60 @@
-// Headless bot that plays whole runs, to sanity-check the difficulty curve.
-import { RNG, randomSeedString } from '../src/engine/rng.js';
+// Headless bot that plays whole runs, used to tune the difficulty curve.
+import { RNG } from '../src/engine/rng.js';
 import * as S from '../src/game/state.js';
-import { bestFromHand, PATTERNS } from '../src/game/patterns.js';
+import { bestFromBoard, FORMATIONS, convictionOf } from '../src/game/formations.js';
 import { previewTrade } from '../src/game/scoring.js';
-import { PERKS } from '../src/game/perks.js';
+import { BROKERS } from '../src/game/brokers.js';
 import { ALL_CONSUMABLES } from '../src/game/consumables.js';
 
-function pickPlay(st) {
+const opts = (st) => ({
+  fourCard: st.mods.fourCard, shortcut: st.mods.shortcut,
+  smeared: st.mods.smeared, marchOfThree: st.mods.marchOfThree,
+});
+
+/** Try several placements and keep the best-projected one. */
+function pickPlacement(st) {
   const s = st.session;
-  const opts = { fourCard: st.mods.fourCard, shortcut: st.mods.shortcut, smeared: st.mods.smeared };
-  const best = bestFromHand(s.hand, opts);
+  const o = opts(st);
+  const best = bestFromBoard(s.board, o);
   if (!best) return null;
-  // Try the raw best plus a few greedy variants; keep the highest projected P/L.
-  let bestScore = -1, bestSel = best.cards;
-  const candidates = [best.cards];
-  const byRank = s.hand.slice().sort((a, b) => b.rank - a.rank);
-  candidates.push(byRank.slice(0, 5));
-  candidates.push(byRank.slice(0, 1));
+  const byBody = s.board.slice().sort((a, b) => b.body - a.body);
+  const candidates = [
+    best.candles,
+    best.candles.slice().sort((a, b) => a.body - b.body),
+    best.candles.slice().sort((a, b) => b.body - a.body),
+    byBody.slice(0, 5),
+    byBody.slice(0, 1),
+  ];
+  let top = null;
   for (const cand of candidates) {
     if (!cand.length) continue;
-    const held = s.hand.filter((c) => !cand.includes(c));
+    const held = s.board.filter((c) => !cand.includes(c));
     const pv = previewTrade(st, cand, held, new RNG('sim'));
-    if (pv && pv.pl > bestScore) { bestScore = pv.pl; bestSel = cand; }
+    if (pv && (!top || pv.pl > top.pl)) top = { pl: pv.pl, candles: cand, scoring: pv.scoringCandles };
   }
-  return { cards: bestSel, projected: bestScore };
+  return top;
 }
 
-function chooseDirection(st) {
+/** Expected value of each call, accounting for signal accuracy and conviction. */
+function chooseDirection(st, scoring) {
   const s = st.session;
-  if (st.mods.hideSignal) return s.market.regime.bias >= 0.5 ? 'LONG' : 'SHORT';
-  const sig = s.market.readSignal(st.mods.accuracy, { perfect: st.mods.perfectSignal });
-  const wantLong = sig.up;
-  // Respect the Wash Sale boss.
-  if (s.boss === 'washSale' && s.lastDirection) {
-    return s.lastDirection === 'LONG' ? 'SHORT' : 'LONG';
-  }
-  return wantLong ? 'LONG' : 'SHORT';
+  const m = st.mods;
+  const acc = m.perfectSignal ? 1 : Math.min(1, Math.max(0.05, m.accuracy + (s.market.regime.accuracy || 0)));
+  let signalUp = null;
+  if (!m.hideSignal) signalUp = s.market.readSignal(m.accuracy, { perfect: m.perfectSignal }).up;
+
+  const ev = (dir) => {
+    const conv = m.noConviction ? 1 : convictionOf(scoring, dir, m).mult;
+    let pCorrect;
+    if (signalUp === null) pCorrect = dir === 'LONG' ? s.market.regime.bias : 1 - s.market.regime.bias;
+    else pCorrect = (dir === 'LONG') === signalUp ? acc : 1 - acc;
+    const win = s.market.directionMult(dir);
+    return conv * (pCorrect * win + (1 - pCorrect) * m.redMult);
+  };
+
+  let best = ev('LONG') >= ev('SHORT') ? 'LONG' : 'SHORT';
+  if (s.boss === 'washSale' && s.lastDirection) best = s.lastDirection === 'LONG' ? 'SHORT' : 'LONG';
+  return best;
 }
 
 function playDeadline(st, slotIndex) {
@@ -46,43 +65,34 @@ function playDeadline(st, slotIndex) {
     if (s.profit >= s.quota) return true;
     if (s.tradesLeft <= 0) return false;
 
-    const pick = pickPlay(st);
+    const pick = pickPlacement(st);
     if (!pick) return false;
 
-    // Chase a better pattern while there is still runway to do so.
     const needed = s.quota - s.profit;
-    const expected = pick.projected * 0.8; // rough direction haircut
-    const canFinish = expected * s.tradesLeft >= needed;
-    const order = PATTERNS[bestFromHand(s.hand, {}).key].order;
+    const canFinish = pick.pl * 0.9 * s.tradesLeft >= needed;
+    const order = FORMATIONS[bestFromBoard(s.board, opts(st)).key].order;
     if (s.discardsLeft > 0 && s.tradesLeft > 1 && (!canFinish || order <= 1)) {
       const keep = new Set();
-      // Keep whatever is already paired/suited, throw the rest.
       const counts = new Map();
-      for (const c of s.hand) counts.set(c.rank, (counts.get(c.rank) || 0) + 1);
-      const sectorCounts = new Map();
-      for (const c of s.hand) sectorCounts.set(c.sector, (sectorCounts.get(c.sector) || 0) + 1);
-      const topSector = [...sectorCounts.entries()].sort((a, b) => b[1] - a[1])[0];
-      for (const c of s.hand) {
-        if (counts.get(c.rank) > 1) keep.add(c.uid);
+      for (const c of s.board) counts.set(c.body, (counts.get(c.body) || 0) + 1);
+      const sectors = new Map();
+      for (const c of s.board) sectors.set(c.sector, (sectors.get(c.sector) || 0) + 1);
+      const topSector = [...sectors.entries()].sort((a, b) => b[1] - a[1])[0];
+      for (const c of s.board) {
+        if (counts.get(c.body) > 1) keep.add(c.uid);
         else if (topSector && topSector[1] >= 3 && c.sector === topSector[0]) keep.add(c.uid);
       }
-      const junk = s.hand.filter((c) => !keep.has(c.uid)).slice(0, 5);
-      if (junk.length >= 2) {
-        s.selected = junk.map((c) => c.uid);
-        S.discardSelected(st);
-        continue;
-      }
+      for (const c of pick.candles) keep.add(c.uid);
+      const junk = s.board.filter((c) => !keep.has(c.uid)).slice(0, 5);
+      if (junk.length >= 2) { s.selected = junk.map((c) => c.uid); S.sweepSelected(st); continue; }
     }
-    s.selected = pick.cards.map((c) => c.uid);
-    let dir = chooseDirection(st);
-    let legal = S.checkTradeLegal(st, dir);
-    if (legal?.block) {
+
+    s.selected = pick.candles.map((c) => c.uid);
+    let dir = chooseDirection(st, pick.scoring || pick.candles);
+    if (S.checkTradeLegal(st, dir)?.block) {
       dir = dir === 'LONG' ? 'SHORT' : 'LONG';
-      legal = S.checkTradeLegal(st, dir);
-      if (legal?.block) {
-        // Pattern ban: play something else.
-        const alt = s.hand.slice(0, 1);
-        s.selected = alt.map((c) => c.uid);
+      if (S.checkTradeLegal(st, dir)?.block) {
+        s.selected = s.board.slice(0, 1).map((c) => c.uid);
         if (S.checkTradeLegal(st, dir)?.block) return false;
       }
     }
@@ -97,32 +107,26 @@ function playDeadline(st, slotIndex) {
 function shopTurn(st) {
   S.openShop(st);
   const shop = st.shop;
-  // Buy a license when we can comfortably afford it.
   if (shop.license && !shop.license.sold && st.cash >= 14) S.buyLicense(st);
-  // Greedily buy perks, then consumables.
+  const rank = { common: 0, uncommon: 1, rare: 2, legendary: 3 };
   for (let pass = 0; pass < 2; pass++) {
     for (let i = 0; i < shop.items.length; i++) {
       const it = shop.items[i];
       if (it.sold) continue;
       const price = S.itemPrice(st, it.cost);
-      const keepReserve = 4;
-      if (st.cash - price < keepReserve) continue;
-      if (it.type === 'perk' && !S.hasPerkRoom(st)) {
-        // Replace the cheapest perk if the new one is rarer.
-        const rank = { common: 0, uncommon: 1, rare: 2, legendary: 3 };
-        const worst = st.perks.slice().sort((a, b) => rank[PERKS[a.key].rarity] - rank[PERKS[b.key].rarity])[0];
-        if (worst && rank[PERKS[it.key].rarity] > rank[PERKS[worst.key].rarity]) S.sellPerk(st, worst.uid);
+      if (st.cash - price < 4) continue;
+      if (it.type === 'broker' && !S.hasBrokerRoom(st)) {
+        const worst = st.brokers.slice().sort((a, b) => rank[BROKERS[a.key].rarity] - rank[BROKERS[b.key].rarity])[0];
+        if (worst && rank[BROKERS[it.key].rarity] > rank[BROKERS[worst.key].rarity]) S.sellBroker(st, worst.uid);
         else continue;
       }
       S.buyShopItem(st, i);
     }
   }
-  // Buy one pack if flush.
   if (st.cash >= 12) {
     for (let i = 0; i < shop.packs.length; i++) {
       if (shop.packs[i].sold) continue;
-      const r = S.buyPack(st, i);
-      if (r.ok) {
+      if (S.buyPack(st, i).ok) {
         while (st.shop.pack) {
           let took = false;
           for (let o = 0; o < st.shop.pack.options.length; o++) {
@@ -135,7 +139,6 @@ function shopTurn(st) {
       break;
     }
   }
-  // Use any consumables that need no selection.
   for (const c of [...st.consumables]) {
     const d = ALL_CONSUMABLES[c.key];
     if (d.select && d.select[1] === 0) S.useConsumable(st, c.uid, []);
@@ -149,10 +152,9 @@ export function simulate(seed) {
   while (guard++ < 200) {
     for (let i = 0; i < 3; i++) {
       st.deadlineIndex = i;
-      const won = playDeadline(st, i);
-      if (!won) {
+      if (!playDeadline(st, i)) {
         return { week: st.week, deadline: i, cleared: st.stats.deadlinesCleared, bosses: st.stats.bossesCleared,
-          best: st.stats.bestPL, perks: st.perks.length, seed: st.seed };
+          best: st.stats.bestPL, marches: st.stats.marches, seed: st.seed };
       }
       S.finishDeadline(st);
       shopTurn(st);
@@ -161,7 +163,7 @@ export function simulate(seed) {
     if (st.week > 9) break;
   }
   return { week: st.week, deadline: 3, cleared: st.stats.deadlinesCleared, bosses: st.stats.bossesCleared,
-    best: st.stats.bestPL, perks: st.perks.length, won: true, seed: st.seed };
+    best: st.stats.bestPL, marches: st.stats.marches, won: true, seed: st.seed };
 }
 
 const N = +(process.argv[2] || 200);
@@ -170,16 +172,18 @@ for (let i = 0; i < N; i++) {
   try { results.push(simulate('SIM' + i)); }
   catch (e) { console.log('CRASH on SIM' + i + ':', e.message); if (process.env.STACK) console.log(e.stack); }
 }
-const hist = {};
-for (const r of results) hist[r.week] = (hist[r.week] || 0) + 1;
-const deaths = {};
-for (const r of results) if (!r.won) { const k = `w${r.week}d${r.deadline + 1}`; deaths[k] = (deaths[k] || 0) + 1; }
-console.log('\n  deaths by deadline: ' + Object.entries(deaths).sort().map(([k, v]) => `${k}:${v}`).join('  '));
+const hist = {}, deaths = {};
+for (const r of results) {
+  hist[r.week] = (hist[r.week] || 0) + 1;
+  if (!r.won) { const k = `w${r.week}d${r.deadline + 1}`; deaths[k] = (deaths[k] || 0) + 1; }
+}
 const wins = results.filter((r) => r.won).length;
 const avgDl = results.reduce((a, r) => a + r.cleared, 0) / results.length;
+const avgMarch = results.reduce((a, r) => a + r.marches, 0) / results.length;
 
+console.log('\n  deaths by deadline: ' + Object.entries(deaths).sort().map(([k, v]) => `${k}:${v}`).join('  '));
 console.log(`\n  ${results.length}/${N} runs completed without crashing`);
-console.log(`  reached week: ` + Object.keys(hist).sort((a, b) => a - b).map((w) => `w${w}:${hist[w]}`).join('  '));
-console.log(`  avg deadlines cleared: ${avgDl.toFixed(1)}`);
+console.log('  reached week: ' + Object.keys(hist).sort((a, b) => a - b).map((w) => `w${w}:${hist[w]}`).join('  '));
+console.log(`  avg deadlines cleared: ${avgDl.toFixed(1)} · avg marches printed: ${avgMarch.toFixed(1)}`);
 console.log(`  full clears (week 9+): ${wins} (${(100 * wins / results.length).toFixed(0)}%)`);
-console.log(`  median best trade: $${results.map(r=>r.best).sort((a,b)=>a-b)[Math.floor(results.length/2)]}`);
+console.log(`  median best trade: $${results.map((r) => r.best).sort((a, b) => a - b)[Math.floor(results.length / 2)]}`);

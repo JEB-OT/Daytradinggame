@@ -2,20 +2,20 @@ import * as S from './game/state.js';
 import { RNG } from './engine/rng.js';
 import { money, bignum } from './engine/util.js';
 import { previewTrade } from './game/scoring.js';
-import { PATTERNS, patternStats } from './game/patterns.js';
-import { PERKS, perkSellValue } from './game/perks.js';
-import { ALL_CONSUMABLES } from './game/consumables.js';
+import { convictionOf } from './game/formations.js';
+import { BROKERS, brokerSellValue } from './game/brokers.js';
 import { BOSSES } from './game/bosses.js';
-import { REGIMES } from './game/market.js';
-import { sortCards, SECTORS } from './game/cards.js';
+import { sortCandles } from './game/candles.js';
 import { ChartView } from './ui/chart.js';
-import { cardEl, perkEl, consumableEl, hideTip } from './ui/components.js';
+import { candleEl, brokerEl, consumableEl, hideTip } from './ui/components.js';
 import * as FX from './ui/fx.js';
-import { sfx, toast, shake, burst, popText, particles } from './ui/fx.js';
+import { sfx, toast, shake, popText, particles } from './ui/fx.js';
 import * as OV from './ui/overlays.js';
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const SORT_MODES = ['body', 'sector', 'polarity'];
+const SORT_LABEL = { body: 'BODY', sector: 'SECTOR', polarity: 'BULL/BEAR' };
 
 class Game {
   constructor() {
@@ -24,24 +24,17 @@ class Game {
     this.busy = false;
     this.muted = localStorage.getItem('margincall.muted') === '1';
     FX.setMuted(this.muted);
-    this.sortMode = 'rank';
-    this.pendingConsumable = null;
+    this.sortMode = 'body';
+    this.arrangeMode = 'rising';
     this.bindGlobal();
   }
 
   // ---------------------------------------------------------------- lifecycle
   hasSave() { return !!localStorage.getItem(S.SAVE_KEY); }
-
-  save() {
-    if (!this.state) return;
-    try { localStorage.setItem(S.SAVE_KEY, S.serialize(this.state)); } catch {}
-  }
+  save() { if (this.state) { try { localStorage.setItem(S.SAVE_KEY, S.serialize(this.state)); } catch {} } }
   clearSave() { localStorage.removeItem(S.SAVE_KEY); }
 
-  toTitle() {
-    this.state = null;
-    OV.titleScreen(this, this.hasSave());
-  }
+  toTitle() { this.state = null; OV.titleScreen(this, this.hasSave()); }
 
   startRun(seed) {
     this.state = S.newRun(seed);
@@ -74,10 +67,11 @@ class Game {
     const st = this.state;
     S.startDeadline(st, i);
     st.session.sortMode = this.sortMode;
+    st.session.board = sortCandles(st.session.board, this.sortMode);
     this.chart.setMarket(st.session.market);
     OV.closeOverlay();
     this.render();
-    this.dealAnimation();
+    this.renderBoard(st.session.board.map((c) => c.uid));
     this.save();
   }
 
@@ -88,18 +82,9 @@ class Game {
     OV.bonusScreen(this, r.bonus);
   }
 
-  afterSkip() {
-    this.render();
-    OV.deadlineSelect(this);
-    this.save();
-  }
+  afterSkip() { this.render(); OV.deadlineSelect(this); this.save(); }
 
-  openFloor() {
-    S.openShop(this.state);
-    this.render();
-    OV.shopScreen(this);
-    this.save();
-  }
+  openFloor() { S.openShop(this.state); this.render(); OV.shopScreen(this); this.save(); }
 
   leaveFloor() {
     const st = this.state;
@@ -115,16 +100,15 @@ class Game {
   }
 
   winScreen() {
+    const st = this.state;
     const sheet = OV.showOverlay(`
       <div class="title-wrap">
         <div class="go-title win">CASHED OUT</div>
-        <div class="sub" style="margin-top:12px">
-          Eight weeks. Every quota met. You survived the desk — most don't.
-        </div>
+        <div class="sub" style="margin-top:12px">Eight weeks. Every quota met. You survived the desk — most don't.</div>
         <div class="go-stats">
-          <div class="deck-stat"><label>DEADLINES</label><b>${this.state.stats.deadlinesCleared}</b></div>
-          <div class="deck-stat"><label>BOSSES</label><b>${this.state.stats.bossesCleared}</b></div>
-          <div class="deck-stat"><label>BEST TRADE</label><b>$${bignum(this.state.stats.bestPL)}</b></div>
+          <div class="stat-box"><label>DEADLINES</label><b>${st.stats.deadlinesCleared}</b></div>
+          <div class="stat-box"><label>BOSSES</label><b>${st.stats.bossesCleared}</b></div>
+          <div class="stat-box"><label>BEST TRADE</label><b>$${bignum(st.stats.bestPL)}</b></div>
         </div>
         <div class="title-actions">
           <button class="btn primary" id="w-endless">KEEP GOING (ENDLESS)</button>
@@ -136,9 +120,7 @@ class Game {
   }
 
   gameOver() {
-    sfx.fail();
-    shake(true);
-    this.clearSave();
+    sfx.fail(); shake(true); this.clearSave();
     setTimeout(() => OV.gameOverScreen(this, false), 700);
   }
 
@@ -146,8 +128,6 @@ class Game {
   render() {
     const st = this.state;
     if (!st) return;
-    const s = st.session;
-
     $('t-week').textContent = st.week;
     $('t-deadline').textContent = `${Math.min(3, st.deadlineIndex + 1)} / 3`;
     const cashEl = $('t-cash');
@@ -159,9 +139,9 @@ class Game {
     $('t-slots').textContent = `${S.slotsUsed(st)}/${st.mods.slots}`;
 
     this.renderDeadlineCard();
-    this.renderPerks();
+    this.renderBrokers();
     this.renderConsumables();
-    this.renderHand();
+    this.renderBoard();
     this.renderResources();
     this.renderTape();
     this.renderMarket();
@@ -189,38 +169,33 @@ class Game {
     $('dl-quota').textContent = money(s.quota);
     $('dl-reward').innerHTML = `Clears for <b>$${s.slot.reward}</b>`;
     const bd = $('dl-boss');
-    if (boss) { bd.hidden = false; bd.innerHTML = `<b>BOSS RULE</b>${boss.blurb}${s.bossGraceLeft > 0 ? '<br><span style="color:var(--green)">(waived this trade)</span>' : ''}`; }
-    else bd.hidden = true;
-    const pctv = Math.min(100, (s.profit / s.quota) * 100);
-    $('dl-progress-fill').style.width = pctv + '%';
+    if (boss) {
+      bd.hidden = false;
+      bd.innerHTML = `<b>BOSS RULE</b>${boss.blurb}${s.bossGraceLeft > 0 ? '<br><span style="color:var(--green)">(waived this trade)</span>' : ''}`;
+    } else bd.hidden = true;
+    $('dl-progress-fill').style.width = Math.min(100, (s.profit / s.quota) * 100) + '%';
     $('dl-profit').textContent = '$' + bignum(s.profit);
   }
 
   renderResources() {
     const st = this.state, s = st.session;
-    const set = (id, v, warn) => {
-      const el = $(id); el.textContent = v;
-      el.classList.toggle('zero', warn && v === 0);
-    };
+    const set = (id, v, warn) => { const el = $(id); el.textContent = v; el.classList.toggle('zero', !!warn && v === 0); };
     set('r-trades', s ? s.tradesLeft : st.mods.trades, true);
-    set('r-discards', s ? s.discardsLeft : st.mods.discards, true);
+    set('r-sweeps', s ? s.discardsLeft : st.mods.discards, true);
     set('r-greens', s ? s.greens : 0);
     set('r-streak', s ? s.greenStreak : 0);
-    $('r-deck').textContent = st.deck.length;
-    $('r-draw').textContent = s ? s.drawPile.length : st.deck.length;
+    $('r-book').textContent = st.book.length;
+    $('r-draw').textContent = s ? s.drawPile.length : st.book.length;
   }
 
   renderTape() {
     const s = this.state.session;
     const list = $('tape-list');
-    if (!s || !s.history.length) {
-      list.innerHTML = '<div class="tape-empty">no trades booked</div>';
-      return;
-    }
+    if (!s || !s.history.length) { list.innerHTML = '<div class="tape-empty">no trades booked</div>'; return; }
     list.innerHTML = s.history.slice().reverse().map((h) => `
       <div class="tape-row ${h.correct ? 'green' : 'red'}">
-        <span class="t-dir">${h.direction === 'LONG' ? '\u25b2' : '\u25bc'}</span>
-        <span class="t-pat">${h.pattern}</span>
+        <span class="t-dir">${h.direction === 'LONG' ? '▲' : '▼'}</span>
+        <span class="t-pat">${h.formation}</span>
         <span class="t-pl">$${bignum(h.pl)}</span>
       </div>`).join('');
   }
@@ -255,31 +230,31 @@ class Game {
     conf.textContent = sig.perfect ? 'certain' : Math.round(sig.accuracy * 100) + '% confidence';
   }
 
-  renderPerks() {
+  renderBrokers() {
     const st = this.state;
-    const row = $('perk-row');
+    const row = $('broker-row');
     row.innerHTML = '';
-    $('perk-count').textContent = `${S.slotsUsed(st)}/${st.mods.slots}`;
-    st.perks.forEach((p, i) => {
-      const disabled = st.session && st.mods.disableFirstPerk && i === 0 && !(st.session.bossGraceLeft > 0);
-      const el = perkEl(p, st, { disabled });
+    $('broker-count').textContent = `${S.slotsUsed(st)}/${st.mods.slots}`;
+    st.brokers.forEach((b) => {
+      const disabled = st.session && st.mods.disableFirstBroker && st.brokers[0] === b && !(st.session.bossGraceLeft > 0);
+      const el = brokerEl(b, st, { disabled });
       el.draggable = true;
-      el.addEventListener('dragstart', (e) => { this.dragUid = p.uid; e.dataTransfer.effectAllowed = 'move'; hideTip(); });
+      el.addEventListener('dragstart', () => { this.dragUid = b.uid; hideTip(); });
       el.addEventListener('dragover', (e) => e.preventDefault());
       el.addEventListener('drop', (e) => {
         e.preventDefault();
-        const from = st.perks.findIndex((q) => q.uid === this.dragUid);
-        const to = st.perks.findIndex((q) => q.uid === p.uid);
+        const from = st.brokers.findIndex((q) => q.uid === this.dragUid);
+        const to = st.brokers.findIndex((q) => q.uid === b.uid);
         if (from < 0 || to < 0 || from === to) return;
-        const [moved] = st.perks.splice(from, 1);
-        st.perks.splice(to, 0, moved);
+        const [moved] = st.brokers.splice(from, 1);
+        st.brokers.splice(to, 0, moved);
         sfx.select(); this.render(); this.save();
       });
       el.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        const val = perkSellValue(p, st);
-        const r = S.sellPerk(st, p.uid);
-        if (r.ok) { sfx.cash(); toast(`Sold ${PERKS[p.key].name} for $${val}`, 'good'); this.render(); this.save(); }
+        const name = BROKERS[b.key].name;
+        const r = S.sellBroker(st, b.uid);
+        if (r.ok) { sfx.cash(); toast(`Sold ${name} for $${r.value}`, 'good'); this.render(); this.save(); }
       });
       row.appendChild(el);
     });
@@ -297,49 +272,60 @@ class Game {
       const el = consumableEl(c, st);
       el.onclick = () => this.useConsumable(c);
       el.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        S.sellConsumable(st, c.uid); sfx.cash(); this.render(); this.save();
+        e.preventDefault(); S.sellConsumable(st, c.uid); sfx.cash(); this.render(); this.save();
       });
       row.appendChild(el);
     });
     for (let i = st.consumables.length; i < st.mods.chartSlots; i++) {
-      const e = document.createElement('div'); e.className = 'slot-empty'; row.appendChild(e);
+      const e = document.createElement('div'); e.className = 'slot-empty narrow'; row.appendChild(e);
     }
   }
 
-  renderHand(animateNew = []) {
+  renderBoard(animateNew = []) {
     const st = this.state, s = st.session;
-    const row = $('hand-row');
+    const row = $('board-row');
     row.innerHTML = '';
     if (!s) return;
-    s.hand.forEach((c, i) => {
-      const el = cardEl(c);
-      if (s.selected.includes(c.uid)) el.classList.add('selected');
+    s.board.forEach((c, i) => {
+      const idx = s.selected.indexOf(c.uid);
+      const el = candleEl(c, { order: idx >= 0 ? idx + 1 : null });
+      if (idx >= 0) el.classList.add('selected');
       if (animateNew.includes(c.uid)) { el.classList.add('dealing'); el.style.animationDelay = (i * 45) + 'ms'; }
-      el.onclick = () => this.toggleCard(c.uid);
+      el.onclick = () => this.toggleCandle(c.uid);
       row.appendChild(el);
     });
   }
 
   updatePreview() {
     const st = this.state, s = st.session;
-    const sel = s ? S.selectedCards(st) : [];
+    const sel = s ? S.selectedCandles(st) : [];
     if (!s || !sel.length) {
-      $('pattern-name').textContent = '—';
-      $('pattern-level').textContent = '';
+      $('formation-name').textContent = '—';
+      $('formation-level').textContent = '';
       $('sc-volume').textContent = '0';
       $('sc-leverage').textContent = '0';
       $('sc-pl').textContent = '$0';
+      $('conviction-label').innerHTML = '<span style="color:var(--ink-faint)">place candles to read conviction</span>';
       this.updateActions();
       return;
     }
-    const held = s.hand.filter((c) => !s.selected.includes(c.uid));
+    const held = s.board.filter((c) => !s.selected.includes(c.uid));
     const pv = previewTrade(st, sel, held, new RNG('preview' + s.tradeIndex));
-    $('pattern-name').textContent = pv.patternName;
-    $('pattern-level').textContent = 'lv.' + pv.level;
+    $('formation-name').textContent = pv.formationName;
+    $('formation-level').textContent = 'lv.' + pv.level;
     this.setChip('sc-volume', bignum(pv.volume));
     this.setChip('sc-leverage', bignum(pv.leverage));
     $('sc-pl').textContent = '$' + bignum(pv.pl);
+
+    if (st.mods.noConviction) {
+      $('conviction-label').innerHTML = '<span style="color:var(--red)">CONVICTION SUPPRESSED</span>';
+    } else {
+      const cl = convictionOf(pv.scoringCandles, 'LONG', st.mods);
+      const cs = convictionOf(pv.scoringCandles, 'SHORT', st.mods);
+      const fmt = (glyph, c, col) =>
+        `<b style="color:${c.mult > 1 ? c.color : 'var(--ink-faint)'}">${glyph} ×${c.mult.toFixed(2)}</b>`;
+      $('conviction-label').innerHTML = `${fmt('▲', cl)} <span style="color:var(--ink-faint)">·</span> ${fmt('▼', cs)}`;
+    }
     this.updateActions();
   }
 
@@ -356,37 +342,50 @@ class Game {
     const canTrade = !!(has && s.tradesLeft > 0 && !this.busy);
     $('btn-long').disabled = !canTrade;
     $('btn-short').disabled = !canTrade;
-    $('btn-discard').disabled = !(has && s.discardsLeft > 0 && !this.busy);
-    $('btn-sort').textContent = this.sortMode === 'rank' ? 'RANK' : 'SECTOR';
+    $('btn-sweep').disabled = !(has && s.discardsLeft > 0 && !this.busy);
+    $('btn-arrange').disabled = !(s && s.selected.length > 1 && !this.busy);
+    $('btn-arrange').textContent = this.arrangeMode === 'rising' ? 'ARRANGE ▲' : 'ARRANGE ▼';
+    $('btn-sort').textContent = SORT_LABEL[this.sortMode];
   }
 
   // ---------------------------------------------------------------- input
-  toggleCard(uid) {
+  toggleCandle(uid) {
     const st = this.state, s = st.session;
     if (!s || this.busy) return;
     const was = s.selected.includes(uid);
     S.toggleSelect(st, uid);
-    if (s.selected.includes(uid) !== was) (was ? sfx.deselect() : sfx.select());
-    this.renderHand();
+    const now = s.selected.includes(uid);
+    if (now !== was) (was ? sfx.deselect() : sfx.select());
+    else if (!now) { sfx.err(); toast('You can place at most 5 candles', 'bad'); }
+    this.renderBoard();
     this.updatePreview();
   }
 
-  sortHand() {
+  arrange() {
+    const st = this.state, s = st.session;
+    if (!s || this.busy || s.selected.length < 2) return;
+    S.arrangeSelection(st, this.arrangeMode);
+    this.arrangeMode = this.arrangeMode === 'rising' ? 'falling' : 'rising';
+    sfx.select();
+    this.renderBoard();
+    this.updatePreview();
+  }
+
+  sortBoard() {
     const st = this.state, s = st.session;
     if (!s) return;
-    this.sortMode = this.sortMode === 'rank' ? 'sector' : 'rank';
+    this.sortMode = SORT_MODES[(SORT_MODES.indexOf(this.sortMode) + 1) % SORT_MODES.length];
     s.sortMode = this.sortMode;
-    s.hand = sortCards(s.hand, this.sortMode);
+    s.board = sortCandles(s.board, this.sortMode);
     sfx.select();
-    this.renderHand();
+    this.renderBoard();
     this.updateActions();
   }
 
-  discard() {
+  sweep() {
     const st = this.state, s = st.session;
     if (!s || this.busy) return;
-    const cards = S.selectedCards(st);
-    const r = S.discardSelected(st);
+    const r = S.sweepSelected(st);
     if (r.blocked) { sfx.err(); return toast(r.blocked, 'bad'); }
     sfx.play();
     if (r.created) toast(`${r.created} Chart filed`, 'good');
@@ -396,7 +395,6 @@ class Game {
 
   useConsumable(inst) {
     const st = this.state;
-    const d = ALL_CONSUMABLES[inst.key];
     const selected = st.session ? [...st.session.selected] : [];
     const r = S.useConsumable(st, inst.uid, selected);
     if (r.ok) { sfx.buy(); toast(r.msg, 'good'); this.render(); this.save(); }
@@ -414,19 +412,18 @@ class Game {
     this.updateActions();
     hideTip();
 
-    const playedCards = S.selectedCards(st);
     const res = S.playTrade(st, direction);
     if (res.blocked) { this.busy = false; sfx.err(); return toast(res.blocked, 'bad'); }
 
-    // lay the position out on the table
-    const area = $('played-cards');
+    const area = $('played-candles');
     area.innerHTML = '';
     $('position-ghost').classList.add('hide');
-    $('hand-row').innerHTML = '';
-    const scoringIds = new Set(res.scoringCards.map((c) => c.uid));
+    this.renderBoard();                       // the refilled board stays visible
+    $('board-row').classList.add('settling');
+    const scoringIds = new Set(res.scoringCandles.map((c) => c.uid));
     const els = new Map();
-    playedCards.forEach((c) => {
-      const el = cardEl(c, { reveal: true });
+    res.played.forEach((c, i) => {
+      const el = candleEl(c, { reveal: true, order: i + 1 });
       el.classList.add('played');
       if (!scoringIds.has(c.uid)) el.classList.add('dim');
       area.appendChild(el);
@@ -435,31 +432,27 @@ class Game {
     sfx.play();
     await sleep(220);
 
-    // the tape prints
     this.chart.pulse(res.tape.up);
     this.renderMarket();
     await sleep(160);
 
-    // walk the resolution
-    $('pattern-name').textContent = res.patternName;
-    $('pattern-level').textContent = 'lv.' + res.level;
-    let vol = 0, lev = 0;
+    $('formation-name').textContent = res.formationName;
+    $('formation-level').textContent = 'lv.' + res.level;
     for (const step of res.steps) {
-      vol = step.volume; lev = step.leverage;
-      this.setChip('sc-volume', bignum(vol));
-      this.setChip('sc-leverage', bignum(lev));
-      $('sc-pl').textContent = '$' + bignum(Math.floor(vol * lev));
+      this.setChip('sc-volume', bignum(step.volume));
+      this.setChip('sc-leverage', bignum(step.leverage));
+      $('sc-pl').textContent = '$' + bignum(Math.floor(step.volume * step.leverage));
 
-      const anchor = step.cardUid ? els.get(step.cardUid)
-        : step.perkUid ? $('perk-row').querySelector(`[data-uid="${step.perkUid}"]`)
+      const anchor = step.candleUid ? els.get(step.candleUid)
+        : step.brokerUid ? $('broker-row').querySelector(`[data-uid="${step.brokerUid}"]`)
         : null;
       if (anchor) {
         anchor.classList.remove('scoring', 'trigger');
         void anchor.offsetWidth;
-        anchor.classList.add(step.perkUid ? 'trigger' : 'scoring');
+        anchor.classList.add(step.brokerUid ? 'trigger' : 'scoring');
       }
-      if (['volume', 'cardVolume', 'leverage', 'xleverage', 'xvolume', 'money'].includes(step.kind)) {
-        const kind = step.kind === 'cardVolume' ? 'volume' : step.kind;
+      if (['volume', 'candleVolume', 'leverage', 'xleverage', 'xvolume', 'money'].includes(step.kind)) {
+        const kind = step.kind === 'candleVolume' ? 'volume' : step.kind;
         popText(anchor || area, step.text, kind);
         sfx.chipTick(res.steps.indexOf(step));
       } else if (step.kind === 'green') {
@@ -474,29 +467,26 @@ class Game {
       await sleep(step.kind === 'green' || step.kind === 'red' ? 520 : 128);
     }
 
-    // final number
     $('sc-pl').textContent = '$' + bignum(res.pl);
-    FX.burst('$' + bignum(res.pl), res.capped ? 'CAPPED BY THE CEILING' : res.patternName.toUpperCase(),
+    FX.burst('$' + bignum(res.pl), res.capped ? 'CAPPED BY THE CEILING' : res.formationName.toUpperCase(),
       res.correct ? 'green' : 'red');
     if (res.correct) sfx.cash();
     await sleep(420);
 
     if (res.money) toast(`${res.money > 0 ? '+' : '-'}$${Math.abs(res.money)} in fees & rebates`, res.money > 0 ? 'good' : 'bad');
-    if (res.destroyedCards?.length) {
-      for (const c of res.destroyedCards) {
-        const el = els.get(c.uid);
-        if (el) el.classList.add('shatter');
-      }
-      toast(`${res.destroyedCards.length} ticker(s) destroyed`, 'bad');
+    if (res.destroyedCandles?.length) {
+      for (const c of res.destroyedCandles) els.get(c.uid)?.classList.add('shatter');
+      toast(`${res.destroyedCandles.length} candle(s) destroyed`, 'bad');
       await sleep(300);
     }
 
     this.renderDeadlineCard();
     this.renderResources();
     this.renderTape();
-    this.renderPerks();
+    this.renderBrokers();
     await sleep(260);
     area.innerHTML = '';
+    $('board-row').classList.remove('settling');
     $('position-ghost').classList.remove('hide');
     this.busy = false;
     this.render();
@@ -510,7 +500,7 @@ class Game {
     sfx.clear();
     const area = $('play-area').getBoundingClientRect();
     particles(area.left + area.width / 2, area.top + area.height / 2, '#ffd94a', 40, 220);
-    FX.burst('QUOTA MET', 'CLOSE THE BOOKS', 'green');
+    FX.burst('QUOTA MET', 'CLOSE THE BOOKS', 'gold');
     await sleep(900);
     const payout = S.finishDeadline(this.state);
     this.render();
@@ -518,22 +508,17 @@ class Game {
     this.save();
   }
 
-  async dealAnimation() {
-    const s = this.state.session;
-    this.renderHand(s.hand.map((c) => c.uid));
-    await sleep(120);
-  }
-
   // ---------------------------------------------------------------- global
   bindGlobal() {
     $('btn-long').onclick = () => this.play('LONG');
     $('btn-short').onclick = () => this.play('SHORT');
-    $('btn-discard').onclick = () => this.discard();
-    $('btn-sort').onclick = () => this.sortHand();
+    $('btn-sweep').onclick = () => this.sweep();
+    $('btn-arrange').onclick = () => this.arrange();
+    $('btn-sort').onclick = () => this.sortBoard();
     $('btn-help').onclick = () => OV.helpScreen(this);
     $('btn-menu').onclick = () => (this.state ? OV.menuScreen(this) : OV.titleScreen(this, this.hasSave()));
-    $('btn-portfolio').onclick = () => this.state && OV.portfolioScreen(this, () => OV.closeOverlay());
-    $('btn-patterns').onclick = () => this.state && OV.patternScreen(this, () => OV.closeOverlay());
+    $('btn-book').onclick = () => this.state && OV.bookScreen(this, () => OV.closeOverlay());
+    $('btn-formations').onclick = () => this.state && OV.formationScreen(this, () => OV.closeOverlay());
 
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT') return;
@@ -549,18 +534,15 @@ class Game {
       if (OV.overlayOpen() || !s || this.busy) return;
       if (k === 'l') { e.preventDefault(); this.play('LONG'); }
       else if (k === 's') { e.preventDefault(); this.play('SHORT'); }
-      else if (k === 'd') { e.preventDefault(); this.discard(); }
-      else if (k === ' ') { e.preventDefault(); this.sortHand(); }
-      else if (/^[1-9]$/.test(k)) {
-        const idx = +k - 1;
-        if (s.hand[idx]) this.toggleCard(s.hand[idx].uid);
-      } else if (k === '0') {
-        if (s.hand[9]) this.toggleCard(s.hand[9].uid);
-      }
+      else if (k === 'w') { e.preventDefault(); this.sweep(); }
+      else if (k === 'a') { e.preventDefault(); this.arrange(); }
+      else if (k === ' ') { e.preventDefault(); this.sortBoard(); }
+      else if (/^[1-9]$/.test(k)) { const c = s.board[+k - 1]; if (c) this.toggleCandle(c.uid); }
+      else if (k === '0') { const c = s.board[9]; if (c) this.toggleCandle(c.uid); }
     });
 
     window.addEventListener('contextmenu', (e) => {
-      if (e.target.closest('.perk, .consumable')) e.preventDefault();
+      if (e.target.closest('.broker, .consumable')) e.preventDefault();
     });
   }
 }

@@ -1,43 +1,37 @@
-import { SECTOR_KEYS, SECTORS, makeCard, RANKS, ENHANCEMENT_KEYS, STAMPS } from './cards.js';
-import { PATTERN_KEYS, PATTERNS } from './patterns.js';
+import { SECTOR_KEYS, SECTORS, makeCandle, BODIES, MAX_BODY, MIN_BODY, STAMPS } from './candles.js';
+import { FORMATION_KEYS, FORMATIONS } from './formations.js';
 
 // ---------------------------------------------------------------------------
-// Three consumable families:
-//   CHARTS    (tarot-likes)  — reshape your portfolio
-//   CONTRACTS (planet-likes) — permanently level a chart pattern
-//   RUMORS    (spectral-likes) — huge upside, real cost
+//   CHARTS    reshape the candles in your book
+//   CONTRACTS permanently level a formation
+//   RUMORS    high upside, real cost
 //
 // use(api) where api = {
-//   state, rng, selected[], notify(msg),
-//   addCard(card), destroyCard(card), createChart(n), createContract(n),
-//   createRumor(n), levelPattern(key, n), copyPerk(), destroyRandomPerk(),
-//   editionRandomPerk(edition), stampCard(card, stamp)
+//   state, rng, selected[],
+//   addCandle, destroyCandle, createChart(n), createContract(n), createRumor(n),
+//   levelFormation(key, n), copyBroker(), destroyRandomBroker(), editionRandomBroker(e)
 // }
-// Each returns { ok:boolean, msg?:string }
 // ---------------------------------------------------------------------------
 
 const need = (api, min, max) => {
   const n = api.selected.length;
-  if (n < min) return `Select ${min === max ? min : `${min}-${max}`} ticker${max > 1 ? 's' : ''}`;
+  if (n < min) return `Select ${min === max ? min : `${min}-${max}`} candle${max > 1 ? 's' : ''}`;
   if (n > max) return `Select at most ${max}`;
   return null;
 };
 
 const enhancer = (key, name, art, enh, min, max, blurb) => ({
-  key, name, art, family: 'chart', cost: 3,
-  select: [min, max],
-  text: blurb,
+  key, name, art, family: 'chart', cost: 3, select: [min, max], text: blurb,
   use: (api) => {
     const err = need(api, min, max); if (err) return { ok: false, msg: err };
     for (const c of api.selected) { c.enhancement = enh; c.debuffed = false; }
-    return { ok: true, msg: `${api.selected.length} ticker(s) → ${name}` };
+    return { ok: true, msg: `${api.selected.length} candle(s) → ${name}` };
   },
 });
 
 const sectorShift = (key, name, art, sector) => ({
-  key, name, art, family: 'chart', cost: 3,
-  select: [1, 3],
-  text: `Convert up to 3 selected tickers to ${SECTORS[sector].name} ${SECTORS[sector].glyph}`,
+  key, name, art, family: 'chart', cost: 3, select: [1, 3],
+  text: `Rotate up to 3 selected candles into ${SECTORS[sector].name} ${SECTORS[sector].glyph}`,
   use: (api) => {
     const err = need(api, 1, 3); if (err) return { ok: false, msg: err };
     for (const c of api.selected) c.sector = sector;
@@ -49,14 +43,15 @@ export const CHARTS = {};
 function addChart(list) { for (const c of list) CHARTS[c.key] = c; }
 
 addChart([
-  enhancer('analyst', 'The Analyst', '📊', 'bluechip', 1, 1, 'Turn 1 selected ticker into a Blue Chip (+30 Volume)'),
-  enhancer('quant', 'The Quant', '🧮', 'leveraged', 1, 1, 'Turn 1 selected ticker into Leveraged (+4 Leverage)'),
-  enhancer('gambler', 'The Gambler', '🎰', 'volatile', 1, 1, 'Turn 1 selected ticker Volatile (x2 Leverage, may shatter)'),
-  enhancer('landlord', 'The Landlord', '🏘️', 'dividend', 1, 2, 'Turn up to 2 selected tickers into Dividend payers ($3 held)'),
-  enhancer('custodian', 'The Custodian', '🛡️', 'hedged', 1, 2, 'Turn up to 2 selected tickers Hedged (x1.5 Leverage in hand)'),
-  enhancer('wildcard', 'The Wildcard', '🃏', 'wild', 1, 2, 'Turn up to 2 selected tickers Diversified (all sectors)'),
-  enhancer('lottery', 'The Lottery', '🎟️', 'penny', 1, 2, 'Turn up to 2 selected tickers into Penny Stocks'),
-  enhancer('vault', 'The Vault', '🔒', 'restricted', 1, 1, 'Turn 1 selected ticker Restricted (+50 Volume, no rank or sector)'),
+  enhancer('analyst', 'The Analyst', '📊', 'blockTick', 1, 1, 'Turn 1 selected candle into a Block Tick (+30 Volume)'),
+  enhancer('quant', 'The Quant', '🧮', 'leveraged', 1, 1, 'Turn 1 selected candle Leveraged (+4 Leverage)'),
+  enhancer('gambler', 'The Gambler', '🎰', 'volatile', 1, 1, 'Turn 1 selected candle Volatile (x2 Leverage, may shatter)'),
+  enhancer('landlord', 'The Landlord', '🏘️', 'dividend', 1, 2, 'Turn up to 2 selected candles into Dividend payers'),
+  enhancer('custodian', 'The Custodian', '🛡️', 'hedged', 1, 2, 'Turn up to 2 selected candles Hedged (x1.5 Leverage while held)'),
+  enhancer('wildcard', 'The Wildcard', '🃏', 'wild', 1, 2, 'Turn up to 2 selected candles Rotating (counts as every sector)'),
+  enhancer('lottery', 'The Lottery', '🎟️', 'penny', 1, 2, 'Turn up to 2 selected candles into Penny candles'),
+  enhancer('vault', 'The Vault', '🔒', 'sealed', 1, 1, 'Seal 1 selected candle (+50 Volume, no body, sector or polarity)'),
+  enhancer('pivot', 'The Pivot', '🔀', 'swing', 1, 2, 'Turn up to 2 selected candles into Swing candles (count as bull AND bear)'),
 
   sectorShift('techWave', 'Tech Wave', '💻', 'TECH'),
   sectorShift('oilShock', 'Oil Shock', '🛢️', 'ENERGY'),
@@ -64,52 +59,76 @@ addChart([
   sectorShift('altSeason', 'Alt Season', '🌕', 'CRYPTO'),
 
   { key: 'pump', name: 'Pump', art: '🚀', family: 'chart', cost: 3, select: [1, 2],
-    text: 'Increase the rank of up to 2 selected tickers by 1',
+    text: 'Grow the body of up to 2 selected candles by 1',
     use: (api) => {
       const err = need(api, 1, 2); if (err) return { ok: false, msg: err };
-      for (const c of api.selected) c.rank = c.rank >= 14 ? 2 : c.rank + 1;
-      return { ok: true, msg: 'Ranks pumped' };
+      for (const c of api.selected) c.body = c.body >= MAX_BODY ? MIN_BODY : c.body + 1;
+      return { ok: true, msg: 'Bodies pumped' };
     } },
 
   { key: 'dump', name: 'Dump', art: '📉', family: 'chart', cost: 3, select: [1, 2],
-    text: 'Decrease the rank of up to 2 selected tickers by 1',
+    text: 'Shrink the body of up to 2 selected candles by 1',
     use: (api) => {
       const err = need(api, 1, 2); if (err) return { ok: false, msg: err };
-      for (const c of api.selected) c.rank = c.rank <= 2 ? 14 : c.rank - 1;
-      return { ok: true, msg: 'Ranks dumped' };
+      for (const c of api.selected) c.body = c.body <= MIN_BODY ? MAX_BODY : c.body - 1;
+      return { ok: true, msg: 'Bodies dumped' };
+    } },
+
+  { key: 'theFlip', name: 'The Flip', art: '🔁', family: 'chart', cost: 3, select: [1, 3],
+    text: 'Invert the polarity of up to 3 selected candles',
+    use: (api) => {
+      const err = need(api, 1, 3); if (err) return { ok: false, msg: err };
+      for (const c of api.selected) c.bull = !c.bull;
+      return { ok: true, msg: 'Polarity flipped' };
+    } },
+
+  { key: 'greenDay', name: 'Green Day', art: '🐂', family: 'chart', cost: 3, select: [1, 3],
+    text: 'Turn up to 3 selected candles BULL',
+    use: (api) => {
+      const err = need(api, 1, 3); if (err) return { ok: false, msg: err };
+      for (const c of api.selected) c.bull = true;
+      return { ok: true, msg: 'Everything is green' };
+    } },
+
+  { key: 'redDay', name: 'Red Day', art: '🐻', family: 'chart', cost: 3, select: [1, 3],
+    text: 'Turn up to 3 selected candles BEAR',
+    use: (api) => {
+      const err = need(api, 1, 3); if (err) return { ok: false, msg: err };
+      for (const c of api.selected) c.bull = false;
+      return { ok: true, msg: 'Everything is red' };
     } },
 
   { key: 'buyback', name: 'Buyback', art: '🔥', family: 'chart', cost: 3, select: [1, 2],
-    text: 'Destroy up to 2 selected tickers',
+    text: 'Burn up to 2 selected candles out of your book',
     use: (api) => {
       const err = need(api, 1, 2); if (err) return { ok: false, msg: err };
       const n = api.selected.length;
-      for (const c of api.selected.slice()) api.destroyCard(c);
-      return { ok: true, msg: `${n} ticker(s) retired` };
+      for (const c of api.selected.slice()) api.destroyCandle(c);
+      return { ok: true, msg: `${n} candle(s) retired` };
     } },
 
   { key: 'split', name: 'Stock Split', art: '🪞', family: 'chart', cost: 4, select: [1, 1],
-    text: 'Add a perfect copy of 1 selected ticker to your portfolio',
+    text: 'Add a perfect copy of 1 selected candle to your book',
     use: (api) => {
       const err = need(api, 1, 1); if (err) return { ok: false, msg: err };
-      const src = api.selected[0];
-      api.addCard(makeCard(src.sector, src.rank, {
-        enhancement: src.enhancement, edition: src.edition, stamp: src.stamp, bonusVolume: src.bonusVolume,
+      const s = api.selected[0];
+      api.addCandle(makeCandle(s.sector, s.body, s.bull, {
+        enhancement: s.enhancement, edition: s.edition, stamp: s.stamp, bonusVolume: s.bonusVolume,
       }));
-      return { ok: true, msg: 'Shares split' };
+      return { ok: true, msg: 'Split' };
     } },
 
   { key: 'merger', name: 'Merger', art: '🤝', family: 'chart', cost: 4, select: [2, 2],
-    text: 'Convert the right selected ticker into a copy of the left one',
+    text: 'Turn the second selected candle into a copy of the first',
     use: (api) => {
       const err = need(api, 2, 2); if (err) return { ok: false, msg: err };
       const [a, b] = api.selected;
-      Object.assign(b, { sector: a.sector, rank: a.rank, enhancement: a.enhancement, edition: a.edition, stamp: a.stamp, bonusVolume: a.bonusVolume });
+      Object.assign(b, { sector: a.sector, body: a.body, bull: a.bull, enhancement: a.enhancement, edition: a.edition, stamp: a.stamp, bonusVolume: a.bonusVolume });
       return { ok: true, msg: 'Merged' };
     } },
 
   { key: 'filing', name: 'The Filing', art: '📮', family: 'chart', cost: 4, select: [1, 1],
-    text: 'Add a random stamp to 1 selected ticker',
+    text: 'Add a random stamp to 1 selected candle',
     use: (api) => {
       const err = need(api, 1, 1); if (err) return { ok: false, msg: err };
       const stamp = api.rng.pick(Object.keys(STAMPS));
@@ -126,46 +145,61 @@ addChart([
     use: (api) => { const n = api.createContract(1); return n ? { ok: true, msg: 'Contract signed' } : { ok: false, msg: 'No room' }; } },
 
   { key: 'fireSale', name: 'Fire Sale', art: '💰', family: 'chart', cost: 3, select: [0, 0],
-    text: 'Gain $4 per perk on your desk (max $30)',
+    text: 'Gain $4 per broker on your desk (max $30)',
     use: (api) => {
-      const amt = Math.min(30, 4 * api.state.perks.length);
+      const amt = Math.min(30, 4 * api.state.brokers.length);
       api.state.cash += amt;
       return { ok: true, msg: `+$${amt}` };
     } },
 
   { key: 'roadshow', name: 'Roadshow', art: '🚌', family: 'chart', cost: 4, select: [0, 0],
-    text: 'Add a Laminated edition to a random ticker in your portfolio',
+    text: 'Laminate a random candle in your book',
     use: (api) => {
-      const pool = api.state.deck.filter((c) => !c.edition);
+      const pool = api.state.book.filter((c) => !c.edition);
       if (!pool.length) return { ok: false, msg: 'Nothing to laminate' };
       api.rng.pick(pool).edition = 'laminated';
       return { ok: true, msg: 'Laminated' };
     } },
 
   { key: 'ipo', name: 'The IPO', art: '🔔', family: 'chart', cost: 4, select: [0, 0],
-    text: 'Add 2 random Alpha (A) tickers to your portfolio',
+    text: 'Add 2 random body-13 candles to your book',
     use: (api) => {
-      for (let i = 0; i < 2; i++) api.addCard(makeCard(api.rng.pick(SECTOR_KEYS), 14));
-      return { ok: true, msg: 'Two Alphas listed' };
+      for (let i = 0; i < 2; i++) api.addCandle(makeCandle(api.rng.pick(SECTOR_KEYS), MAX_BODY, api.rng.chance(0.5)));
+      return { ok: true, msg: 'Two marubozu listed' };
+    } },
+
+  { key: 'ladderPrint', name: 'Ladder Print', art: '🪜', family: 'chart', cost: 4, select: [0, 0],
+    text: 'Add three rising BULL candles (bodies 4, 5, 6) to your book',
+    use: (api) => {
+      const s = api.rng.pick(SECTOR_KEYS);
+      for (const b of [4, 5, 6]) api.addCandle(makeCandle(s, b, true));
+      return { ok: true, msg: 'Soldiers recruited' };
+    } },
+
+  { key: 'crowPrint', name: 'Crow Print', art: '🐦‍⬛', family: 'chart', cost: 4, select: [0, 0],
+    text: 'Add three falling BEAR candles (bodies 10, 9, 8) to your book',
+    use: (api) => {
+      const s = api.rng.pick(SECTOR_KEYS);
+      for (const b of [10, 9, 8]) api.addCandle(makeCandle(s, b, false));
+      return { ok: true, msg: 'Crows released' };
     } },
 ]);
-
 export const CHART_KEYS = Object.keys(CHARTS);
 
 // ---------------------------------------------------------------------------
 export const CONTRACTS = {};
 const CONTRACT_ART = {
-  flatline: '➖', doubleBottom: '⑂', headShoulders: '👤', tripleTop: '⛰️', breakout: '📶',
-  rotation: '🔃', bullFlag: '🚩', quadWitching: '🧙', goldenCross: '✝️', insiderTip: '🤫',
-  marketCorner: '📐', monopoly: '👑',
+  tick: '➖', tweezer: '⑂', doubleTweezer: '⑃', triple: '⛰️', soldiers: '🎺', crows: '🐦‍⬛',
+  staircase: '📶', cluster: '🔃', pillars: '🏛️', fourWinds: '🧭', goldenStair: '✨',
+  fiveAlarm: '🚨', megaCluster: '🌐', perfectStorm: '🌀',
 };
-for (const key of PATTERN_KEYS) {
-  const p = PATTERNS[key];
+for (const key of FORMATION_KEYS) {
+  const f = FORMATIONS[key];
   CONTRACTS['ct_' + key] = {
-    key: 'ct_' + key, name: `${p.name} Contract`, art: CONTRACT_ART[key] || '📜',
-    family: 'contract', cost: 3, pattern: key, select: [0, 0], secret: p.secret,
-    text: `Level up ${p.name} (+${p.volInc} Volume, +${p.levInc} Leverage)`,
-    use: (api) => { api.levelPattern(key, 1); return { ok: true, msg: `${p.name} upgraded` }; },
+    key: 'ct_' + key, name: `${f.name} Contract`, art: CONTRACT_ART[key] || '📜',
+    family: 'contract', cost: 3, formation: key, select: [0, 0], secret: f.secret,
+    text: `Level up ${f.name} (+${f.volInc} Volume, +${f.levInc} Leverage)`,
+    use: (api) => { api.levelFormation(key, 1); return { ok: true, msg: `${f.name} upgraded` }; },
   };
 }
 export const CONTRACT_KEYS = Object.keys(CONTRACTS);
@@ -176,106 +210,124 @@ function addRumor(list) { for (const r of list) RUMORS[r.key] = { family: 'rumor
 
 addRumor([
   { key: 'nakedShort', name: 'Naked Short', art: '🩲', select: [1, 1],
-    text: 'Add a Reissue Stamp to 1 selected ticker, then destroy 1 random ticker',
+    text: 'Add a Reissue Stamp to 1 selected candle, then burn a random one',
     use: (api) => {
-      const err = need(api, 1, 1); if (err) return { ok: false, msg: err };
+      const e = need(api, 1, 1); if (e) return { ok: false, msg: e };
       api.selected[0].stamp = 'reissue';
-      const pool = api.state.deck.filter((c) => c !== api.selected[0]);
-      if (pool.length) api.destroyCard(api.rng.pick(pool));
+      const pool = api.state.book.filter((c) => c !== api.selected[0]);
+      if (pool.length) api.destroyCandle(api.rng.pick(pool));
       return { ok: true, msg: 'Reissued' };
     } },
 
   { key: 'blockTrade', name: 'Block Trade', art: '🧱', select: [1, 1],
-    text: 'Add a Hold Stamp to 1 selected ticker',
+    text: 'Add a Hold Stamp to 1 selected candle',
     use: (api) => { const e = need(api, 1, 1); if (e) return { ok: false, msg: e }; api.selected[0].stamp = 'hold'; return { ok: true, msg: 'Held' }; } },
 
   { key: 'kickback', name: 'Kickback', art: '🤑', select: [1, 1],
-    text: 'Add a Payout Stamp to 1 selected ticker',
+    text: 'Add a Payout Stamp to 1 selected candle',
     use: (api) => { const e = need(api, 1, 1); if (e) return { ok: false, msg: e }; api.selected[0].stamp = 'payout'; return { ok: true, msg: 'Stamped' }; } },
 
   { key: 'paperTrail', name: 'Paper Trail', art: '🧻', select: [1, 1],
-    text: 'Add a Filing Stamp to 1 selected ticker',
+    text: 'Add a Filing Stamp to 1 selected candle',
     use: (api) => { const e = need(api, 1, 1); if (e) return { ok: false, msg: e }; api.selected[0].stamp = 'filing'; return { ok: true, msg: 'Filed' }; } },
 
   { key: 'gilding', name: 'Gilding', art: '✨', select: [0, 0],
-    text: 'Add a Laminated edition to a random perk (+50 Volume)',
-    use: (api) => api.editionRandomPerk('laminated') },
+    text: 'Laminate a random broker (+50 Volume)',
+    use: (api) => api.editionRandomBroker('laminated') },
 
   { key: 'nakedCall', name: 'Naked Call', art: '🌈', select: [0, 0],
-    text: 'Add a Holographic edition to a random perk (+10 Leverage)',
-    use: (api) => api.editionRandomPerk('holographic') },
+    text: 'Make a random broker Holographic (+10 Leverage)',
+    use: (api) => api.editionRandomBroker('holographic') },
 
   { key: 'quantModel', name: 'Quant Model', art: '🧊', select: [0, 0],
-    text: 'Add an Algorithmic edition to a random perk (x1.5 Leverage)',
-    use: (api) => api.editionRandomPerk('algorithmic') },
+    text: 'Make a random broker Algorithmic (x1.5 Leverage)',
+    use: (api) => api.editionRandomBroker('algorithmic') },
 
   { key: 'offBookDeal', name: 'Off-Book Deal', art: '🕶️', select: [0, 0],
-    text: 'Add an Off-Book edition to a random perk (+1 slot), then destroy another random perk',
+    text: 'Make a random broker Off-Book (+1 slot), then fire another at random',
     use: (api) => {
-      const r = api.editionRandomPerk('offbook');
+      const r = api.editionRandomBroker('offbook');
       if (!r.ok) return r;
-      api.destroyRandomPerk(r.spared);
+      api.destroyRandomBroker(r.spared);
       return { ok: true, msg: 'Kept off the books' };
     } },
 
   { key: 'hostileTakeover', name: 'Hostile Takeover', art: '⚔️', select: [0, 0],
-    text: 'Create a copy of a random perk on your desk (needs a slot)',
-    use: (api) => api.copyPerk() },
+    text: 'Clone a random broker on your desk (needs a slot)',
+    use: (api) => api.copyBroker() },
 
   { key: 'restructure', name: 'Restructure', art: '🏗️', select: [0, 0],
-    text: 'Convert all tickers in your hand to a single random sector',
+    text: 'Rotate every candle on your board into one random sector',
     use: (api) => {
-      const hand = api.state.session?.hand || [];
-      if (!hand.length) return { ok: false, msg: 'No hand to restructure' };
+      const board = api.state.session?.board || [];
+      if (!board.length) return { ok: false, msg: 'No board to restructure' };
       const s = api.rng.pick(SECTOR_KEYS);
-      for (const c of hand) c.sector = s;
-      return { ok: true, msg: `Hand rotated to ${SECTORS[s].name}` };
+      for (const c of board) c.sector = s;
+      return { ok: true, msg: `Board rotated to ${SECTORS[s].name}` };
+    } },
+
+  { key: 'squeezePlay', name: 'Squeeze Play', art: '🗜️', select: [0, 0],
+    text: 'Turn every candle on your board BULL and step their bodies into a rising ladder',
+    use: (api) => {
+      const board = api.state.session?.board || [];
+      if (!board.length) return { ok: false, msg: 'No board' };
+      board.forEach((c, i) => { c.bull = true; c.body = Math.min(MAX_BODY, 2 + i); });
+      return { ok: true, msg: 'Ladder printed' };
+    } },
+
+  { key: 'capitulation', name: 'Capitulation', art: '🩸', select: [0, 0],
+    text: 'Turn every candle on your board BEAR and step their bodies into a falling ladder',
+    use: (api) => {
+      const board = api.state.session?.board || [];
+      if (!board.length) return { ok: false, msg: 'No board' };
+      board.forEach((c, i) => { c.bull = false; c.body = Math.max(MIN_BODY, MAX_BODY - i); });
+      return { ok: true, msg: 'Crows released' };
     } },
 
   { key: 'insiderWhisper', name: 'Insider Whisper', art: '🤐', select: [0, 0],
-    text: 'Convert all tickers in your hand into copies of a random one of them',
+    text: 'Turn every candle on your board into a copy of a random one of them',
     use: (api) => {
-      const hand = api.state.session?.hand || [];
-      if (hand.length < 2) return { ok: false, msg: 'Need a hand' };
-      const src = api.rng.pick(hand);
-      for (const c of hand) if (c !== src) Object.assign(c, { sector: src.sector, rank: src.rank, enhancement: src.enhancement, edition: src.edition });
+      const board = api.state.session?.board || [];
+      if (board.length < 2) return { ok: false, msg: 'Need a board' };
+      const src = api.rng.pick(board);
+      for (const c of board) if (c !== src) Object.assign(c, { sector: src.sector, body: src.body, bull: src.bull, enhancement: src.enhancement, edition: src.edition });
       return { ok: true, msg: 'Everyone got the same tip' };
     } },
 
   { key: 'shellGame', name: 'Shell Game', art: '🥥', select: [0, 0],
-    text: 'Permanently +2 hand size, then destroy 2 random tickers',
+    text: 'Permanently +2 board size, then burn 2 random candles',
     use: (api) => {
       api.state.permanent.handSize += 2;
-      for (let i = 0; i < 2; i++) { const pool = api.state.deck; if (pool.length > 5) api.destroyCard(api.rng.pick(pool)); }
-      return { ok: true, msg: '+2 hand size' };
+      for (let i = 0; i < 2; i++) if (api.state.book.length > 5) api.destroyCandle(api.rng.pick(api.state.book));
+      return { ok: true, msg: '+2 board size' };
     } },
 
   { key: 'blackout', name: 'Blackout', art: '⬛', select: [0, 0],
-    text: 'Turn every ticker in your hand Restricted (+50 Volume, no rank or sector)',
+    text: 'Seal every candle on your board (+50 Volume each, no body or polarity)',
     use: (api) => {
-      const hand = api.state.session?.hand || [];
-      if (!hand.length) return { ok: false, msg: 'No hand' };
-      for (const c of hand) c.enhancement = 'restricted';
-      return { ok: true, msg: 'Hand went dark' };
+      const board = api.state.session?.board || [];
+      if (!board.length) return { ok: false, msg: 'No board' };
+      for (const c of board) c.enhancement = 'sealed';
+      return { ok: true, msg: 'Board went dark' };
     } },
 
   { key: 'dilution', name: 'Dilution', art: '💧', select: [0, 0],
-    text: 'Add 4 random tickers of the same random rank to your portfolio',
+    text: 'Add 4 random candles sharing one random body size to your book',
     use: (api) => {
-      const rank = api.rng.pick(RANKS).rank;
-      for (let i = 0; i < 4; i++) api.addCard(makeCard(api.rng.pick(SECTOR_KEYS), rank));
-      return { ok: true, msg: 'Shares diluted' };
+      const body = api.rng.pick(BODIES);
+      for (let i = 0; i < 4; i++) api.addCandle(makeCandle(api.rng.pick(SECTOR_KEYS), body, api.rng.chance(0.5)));
+      return { ok: true, msg: 'Book diluted' };
     } },
 
   { key: 'chapter11', name: 'Chapter 11', art: '🧨', select: [0, 0],
-    text: 'Lose all cash, then level up the pattern you have played the most by 3',
+    text: 'Lose all cash, then level up your most-printed formation by 3',
     use: (api) => {
       const lost = api.state.cash;
       api.state.cash = 0;
-      let best = PATTERN_KEYS[0], n = -1;
-      for (const k of PATTERN_KEYS) { const c = api.state.patterns[k].played; if (c > n) { n = c; best = k; } }
-      api.levelPattern(best, 3);
-      return { ok: true, msg: `Lost $${lost}, ${PATTERNS[best].name} +3` };
+      let best = FORMATION_KEYS[0], n = -1;
+      for (const k of FORMATION_KEYS) { const c = api.state.formations[k].played; if (c > n) { n = c; best = k; } }
+      api.levelFormation(best, 3);
+      return { ok: true, msg: `Lost $${lost}, ${FORMATIONS[best].name} +3` };
     } },
 
   { key: 'frontOffice', name: 'Front Office', art: '🏢', select: [0, 0],
@@ -287,7 +339,7 @@ addRumor([
     } },
 
   { key: 'totalRecall', name: 'Total Recall', art: '🌀', select: [0, 0],
-    text: 'Permanently -1 hand size, +1 desk slot, +1 Chart slot',
+    text: 'Permanently -1 board size, +1 desk slot, +1 Chart slot',
     use: (api) => {
       api.state.permanent.handSize -= 1;
       api.state.permanent.slots += 1;
@@ -295,10 +347,9 @@ addRumor([
       return { ok: true, msg: 'Desk reorganised' };
     } },
 
-  { key: 'theSqueeze', name: 'The Squeeze', art: '🗜️', select: [0, 0],
-    text: 'Level up every chart pattern by 1',
-    cost: 6,
-    use: (api) => { for (const k of PATTERN_KEYS) api.levelPattern(k, 1); return { ok: true, msg: 'Everything levelled' }; } },
+  { key: 'theSqueeze', name: 'Melt-Up', art: '🌡️', select: [0, 0], cost: 6,
+    text: 'Level up every formation by 1',
+    use: (api) => { for (const k of FORMATION_KEYS) api.levelFormation(k, 1); return { ok: true, msg: 'Everything levelled' }; } },
 ]);
 export const RUMOR_KEYS = Object.keys(RUMORS);
 
@@ -315,7 +366,7 @@ export function rollChart(rng, exclude = []) {
   return rng.pick(pool.length ? pool : CHART_KEYS);
 }
 export function rollContract(rng, discovered = []) {
-  const pool = CONTRACT_KEYS.filter((k) => !CONTRACTS[k].secret || discovered.includes(CONTRACTS[k].pattern));
-  return rng.pick(pool.length ? pool : CONTRACT_KEYS.slice(0, 9));
+  const pool = CONTRACT_KEYS.filter((k) => !CONTRACTS[k].secret || discovered.includes(CONTRACTS[k].formation));
+  return rng.pick(pool.length ? pool : CONTRACT_KEYS.slice(0, 11));
 }
 export function rollRumor(rng) { return rng.pick(RUMOR_KEYS); }

@@ -1,45 +1,46 @@
-import { evaluate, patternStats, PATTERNS } from './patterns.js';
-import { baseVolume, hasRank, isFace, matchesSector, ENHANCEMENTS } from './cards.js';
-import { PERKS } from './perks.js';
+import { evaluate, formationStats, FORMATIONS, convictionOf } from './formations.js';
+import { baseVolume, hasBody, isWide, matchesSector, matchesDirection, polarityOf, bodyOf } from './candles.js';
+import { BROKERS } from './brokers.js';
 import { BOSSES } from './bosses.js';
 
 // ---------------------------------------------------------------------------
-// The P/L pipeline. Volume (chips) x Leverage (mult) = P/L for the trade.
-// Everything emits a `step` so the UI can animate the resolution in order.
+// The P/L pipeline. Volume x Leverage = P/L.
+// Every mutation emits a step so the UI can replay the resolution in order.
 // ---------------------------------------------------------------------------
 
 function containsSet(played, ev) {
-  const rankCards = played.filter(hasRank);
+  const bodied = played.filter(hasBody);
   const counts = new Map();
-  for (const c of rankCards) counts.set(c.rank, (counts.get(c.rank) || 0) + 1);
+  for (const c of bodied) counts.set(bodyOf(c), (counts.get(bodyOf(c)) || 0) + 1);
   const sizes = [...counts.values()].sort((a, b) => b - a);
-  const set = new Set(['flatline']);
-  if (sizes[0] >= 2) set.add('doubleBottom');
-  if (sizes[0] >= 2 && sizes[1] >= 2) set.add('headShoulders');
-  if (sizes[0] >= 3) set.add('tripleTop');
-  if (sizes[0] >= 4) set.add('quadWitching');
-  if (sizes[0] >= 5) set.add('insiderTip');
-  if (sizes[0] >= 3 && sizes[1] >= 2) set.add('bullFlag');
-  if (ev.straightSet) set.add('breakout');
-  if (ev.flushSet) set.add('rotation');
-  if (ev.straightSet && ev.flushSet) set.add('goldenCross');
-  if (set.has('bullFlag') && ev.flushSet) set.add('marketCorner');
-  if (set.has('insiderTip') && ev.flushSet) set.add('monopoly');
+  const set = new Set(['tick']);
+  if (sizes[0] >= 2) set.add('tweezer');
+  if (sizes[0] >= 2 && sizes[1] >= 2) set.add('doubleTweezer');
+  if (sizes[0] >= 3) set.add('triple');
+  if (sizes[0] >= 4) set.add('fourWinds');
+  if (sizes[0] >= 5) set.add('fiveAlarm');
+  if (sizes[0] >= 3 && sizes[1] >= 2) set.add('pillars');
+  if (ev.stairSet) set.add('staircase');
+  if (ev.clusterSet) set.add('cluster');
+  if (ev.stairSet && ev.clusterSet) set.add('goldenStair');
+  if (set.has('pillars') && ev.clusterSet) set.add('megaCluster');
+  if (set.has('fiveAlarm') && ev.clusterSet) set.add('perfectStorm');
+  if (ev.soldierSet) set.add('soldiers');
+  if (ev.crowSet) set.add('crows');
   set.add(ev.key);
   return set;
 }
 
-/** Resolve perk index -> {def, inst} honouring Arb Bot's copy-right. */
-export function effectivePerk(state, i) {
-  const inst = state.perks[i];
+/** Resolve broker index -> {def, inst} honouring Arb Bot's copy-right. */
+export function effectiveBroker(state, i) {
+  const inst = state.brokers[i];
   if (!inst) return null;
-  let d = PERKS[inst.key];
+  const d = BROKERS[inst.key];
   if (d?.copiesRight) {
-    const right = state.perks[i + 1];
-    if (right && PERKS[right.key] && !PERKS[right.key].copiesRight) {
-      return { def: PERKS[right.key], inst, copying: right, self: d };
+    const right = state.brokers[i + 1];
+    if (right && BROKERS[right.key] && !BROKERS[right.key].copiesRight) {
+      return { def: BROKERS[right.key], inst, copying: right, self: d };
     }
-    return { def: d, inst, self: d };
   }
   return { def: d, inst, self: d };
 }
@@ -69,104 +70,102 @@ class Ctx {
       kind, text,
       label: source?.name || source?.label || '',
       art: source?.art || '',
-      perkUid: source?.uid || null,
-      cardUid: extra.cardUid || null,
+      brokerUid: source?.uid || null,
+      candleUid: extra.candleUid || null,
       volume: Math.round(this.volume),
       leverage: +this.leverage.toFixed(2),
       ...extra,
     });
   }
-  addVolume(n, src, card) { if (!n) return; this.volume += n; this.step('volume', src, `+${Math.round(n)} Vol`, { cardUid: card?.uid, amount: n }); }
-  addLeverage(n, src, card) { if (!n) return; this.leverage += n; this.step('leverage', src, `+${(+n.toFixed(2))} Lev`, { cardUid: card?.uid, amount: n }); }
-  xLeverage(n, src, card) { if (n === 1 || n == null) return; this.leverage *= n; this.step('xleverage', src, `x${n} Lev`, { cardUid: card?.uid, amount: n }); }
-  xVolume(n, src, card) { if (n === 1 || n == null) return; this.volume *= n; this.step('xvolume', src, `x${n} Vol`, { cardUid: card?.uid, amount: n }); }
-  earn(n, src, card) { if (!n) return; this.money += n; this.step('money', src, `${n > 0 ? '+' : '-'}$${Math.abs(n)}`, { cardUid: card?.uid, amount: n }); }
-  isSector(card, sector) { return !card.debuffed && matchesSector(card, sector); }
-  isFace(card) { return !card.debuffed && hasRank(card) && isFace(card); }
-  hasRank(card) { return hasRank(card); }
+  addVolume(n, src, c) { if (!n) return; this.volume += n; this.step('volume', src, `+${Math.round(n)} Vol`, { candleUid: c?.uid, amount: n }); }
+  addLeverage(n, src, c) { if (!n) return; this.leverage += n; this.step('leverage', src, `+${(+n.toFixed(2))} Lev`, { candleUid: c?.uid, amount: n }); }
+  xLeverage(n, src, c) { if (n === 1 || n == null) return; this.leverage *= n; this.step('xleverage', src, `x${n} Lev`, { candleUid: c?.uid, amount: n }); }
+  xVolume(n, src, c) { if (n === 1 || n == null) return; this.volume *= n; this.step('xvolume', src, `x${n} Vol`, { candleUid: c?.uid, amount: n }); }
+  earn(n, src, c) { if (!n) return; this.money += n; this.step('money', src, `${n > 0 ? '+' : '-'}$${Math.abs(n)}`, { candleUid: c?.uid, amount: n }); }
+
+  isSector(c, sector) { return !c.debuffed && matchesSector(c, sector); }
+  isBull(c) { const p = polarityOf(c); return !c.debuffed && (p === 'bull' || p === 'both'); }
+  isBear(c) { const p = polarityOf(c); return !c.debuffed && (p === 'bear' || p === 'both'); }
+  isWide(c) { return !c.debuffed && hasBody(c) && isWide(c); }
+  hasBody(c) { return hasBody(c); }
+  matchesCall(c) { return this.direction ? matchesDirection(c, this.direction) : false; }
   contains(key) { return this._contains.has(key); }
-  enhOf(card) {
-    if (card.debuffed) return null;
-    if (this.mods.disableEnhancements) return null;
-    return card.enhancement;
+  enhOf(c) {
+    if (c.debuffed || this.mods.disableEnhancements) return null;
+    return c.enhancement;
   }
 }
 
 function luckyRoll(ctx, odds) {
-  const boost = ctx.mods.luckyBoost || 1;
-  return ctx.rng.next() < (boost / odds);
+  return ctx.rng.next() < ((ctx.mods.luckyBoost || 1) / odds);
 }
 
-function triggersFor(state, ctx, card, held) {
+function triggersFor(state, ctx, candle, held) {
   let n = 1;
-  if (card.stamp === 'reissue' && !card.debuffed) n += 1;
-  for (let i = 0; i < state.perks.length; i++) {
-    if (state.mods.disableFirstPerk && i === 0) continue;
-    const ep = effectivePerk(state, i);
-    if (!ep?.def || ep.inst.debuffed) continue;
-    const fn = held ? ep.def.retriggerHeld : ep.def.retriggerScored;
-    if (fn) n += fn(ctx, card, ep.inst) || 0;
+  if (candle.stamp === 'reissue' && !candle.debuffed) n += 1;
+  for (let i = 0; i < state.brokers.length; i++) {
+    if (state.mods.disableFirstBroker && i === 0) continue;
+    const eb = effectiveBroker(state, i);
+    if (!eb?.def || eb.inst.debuffed) continue;
+    const fn = held ? eb.def.retriggerHeld : eb.def.retriggerScored;
+    if (fn) n += fn(ctx, candle, eb.inst) || 0;
   }
   return n;
 }
 
-function scoreOneCard(state, ctx, card) {
-  const src = { name: card.debuffed ? 'blanked' : '', art: '' };
-  if (card.debuffed) {
-    ctx.step('card', { name: 'Blanked' }, 'blanked', { cardUid: card.uid });
+function printCandle(state, ctx, c) {
+  if (c.debuffed) {
+    ctx.step('candle', { name: 'Blanked' }, 'blanked', { candleUid: c.uid });
     return;
   }
-  const enh = ctx.enhOf(card);
-  if (!ctx.mods.zeroCardVolume) {
-    const bv = enh === 'restricted' ? 50 : baseVolume(card);
-    if (bv) { ctx.volume += bv; ctx.step('cardVolume', { name: 'Volume' }, `+${bv} Vol`, { cardUid: card.uid, amount: bv }); }
+  const enh = ctx.enhOf(c);
+  if (!ctx.mods.zeroCandleVolume) {
+    const bv = enh === 'sealed' ? 50 : baseVolume(c);
+    if (bv) { ctx.volume += bv; ctx.step('candleVolume', { name: 'Body' }, `+${bv} Vol`, { candleUid: c.uid, amount: bv }); }
   }
-  if (card.bonusLeverage) ctx.addLeverage(card.bonusLeverage, { name: 'Bonus' }, card);
+  if (c.bonusLeverage) ctx.addLeverage(c.bonusLeverage, { name: 'Bonus' }, c);
 
-  // Enhancement
-  if (enh === 'bluechip') ctx.addVolume(30, { name: 'Blue Chip' }, card);
-  else if (enh === 'leveraged') ctx.addLeverage(4, { name: 'Leveraged' }, card);
+  if (enh === 'blockTick') ctx.addVolume(30, { name: 'Block Tick' }, c);
+  else if (enh === 'leveraged') ctx.addLeverage(4, { name: 'Leveraged' }, c);
   else if (enh === 'volatile') {
-    ctx.xLeverage(2, { name: 'Volatile' }, card);
-    if (ctx.commit && ctx.rng.next() < 0.25) ctx.destroyQueue.push(card);
+    ctx.xLeverage(2, { name: 'Volatile' }, c);
+    if (ctx.commit && ctx.rng.next() < 0.25) ctx.destroyQueue.push(c);
   } else if (enh === 'penny') {
-    if (luckyRoll(ctx, 5)) ctx.addLeverage(20, { name: 'Penny Stock' }, card);
-    if (luckyRoll(ctx, 15)) ctx.earn(20, { name: 'Penny Stock' }, card);
+    if (luckyRoll(ctx, 5)) ctx.addLeverage(20, { name: 'Penny' }, c);
+    if (luckyRoll(ctx, 15)) ctx.earn(20, { name: 'Penny' }, c);
   }
 
-  // Edition
-  if (card.edition === 'laminated') ctx.addVolume(50, { name: 'Laminated' }, card);
-  else if (card.edition === 'holographic') ctx.addLeverage(10, { name: 'Holographic' }, card);
-  else if (card.edition === 'algorithmic') ctx.xLeverage(1.5, { name: 'Algorithmic' }, card);
+  if (c.edition === 'laminated') ctx.addVolume(50, { name: 'Laminated' }, c);
+  else if (c.edition === 'holographic') ctx.addLeverage(10, { name: 'Holographic' }, c);
+  else if (c.edition === 'algorithmic') ctx.xLeverage(1.5, { name: 'Algorithmic' }, c);
 
-  // Stamp
-  if (card.stamp === 'payout') ctx.earn(3, { name: 'Payout Stamp' }, card);
+  if (c.stamp === 'payout') ctx.earn(3, { name: 'Payout Stamp' }, c);
 
-  // Perks
-  for (let i = 0; i < state.perks.length; i++) {
-    if (state.mods.disableFirstPerk && i === 0) continue;
-    const ep = effectivePerk(state, i);
-    if (!ep?.def?.cardScored || ep.inst.debuffed) continue;
-    ep.def.cardScored(ctx, card, ep.inst);
+  for (let i = 0; i < state.brokers.length; i++) {
+    if (state.mods.disableFirstBroker && i === 0) continue;
+    const eb = effectiveBroker(state, i);
+    if (!eb?.def?.candleScored || eb.inst.debuffed) continue;
+    eb.def.candleScored(ctx, c, eb.inst);
   }
 }
 
-function holdOneCard(state, ctx, card) {
-  if (card.debuffed) return;
-  const enh = ctx.enhOf(card);
-  if (enh === 'dividend') ctx.earn(3, { name: 'Dividend' }, card);
-  else if (enh === 'hedged') ctx.xLeverage(1.5, { name: 'Hedged' }, card);
-  for (let i = 0; i < state.perks.length; i++) {
-    if (state.mods.disableFirstPerk && i === 0) continue;
-    const ep = effectivePerk(state, i);
-    if (!ep?.def?.cardHeld || ep.inst.debuffed) continue;
-    ep.def.cardHeld(ctx, card, ep.inst);
+function holdCandle(state, ctx, c) {
+  if (c.debuffed) return;
+  const enh = ctx.enhOf(c);
+  if (enh === 'dividend') ctx.earn(3, { name: 'Dividend' }, c);
+  else if (enh === 'hedged') ctx.xLeverage(1.5, { name: 'Hedged' }, c);
+  for (let i = 0; i < state.brokers.length; i++) {
+    if (state.mods.disableFirstBroker && i === 0) continue;
+    const eb = effectiveBroker(state, i);
+    if (!eb?.def?.candleHeld || eb.inst.debuffed) continue;
+    eb.def.candleHeld(ctx, c, eb.inst);
   }
 }
 
 /**
- * @param {object} state run state
- * @param {object} o { played, held, direction, correct, rng, commit, tradeIndex, tradesLeft, greenStreak, quota }
+ * @param o { played, held, direction, correct, rng, commit, tradeIndex,
+ *            tradesLeft, greenStreak, greensThisDeadline, quota,
+ *            regimeMult, regimeName }
  */
 export function scoreTrade(state, o) {
   const mods = state.mods;
@@ -178,58 +177,61 @@ export function scoreTrade(state, o) {
     shortcut: mods.shortcut,
     smeared: mods.smeared,
     allScore: mods.allScore,
+    marchOfThree: mods.marchOfThree,
   });
 
   const ctx = new Ctx(state, o);
-  ctx.pattern = ev;
-  ctx.patternKey = ev.key;
-  ctx.patternOrder = PATTERNS[ev.key].order;
-  ctx.scoring = ev.scoringCards;
+  ctx.formation = ev;
+  ctx.formationKey = ev.key;
+  ctx.formationOrder = FORMATIONS[ev.key].order;
+  ctx.scoring = ev.scoringCandles;
   ctx.unscored = ev.unscored;
+  ctx.marchLength = Math.max(ev.soldierSet?.length || 0, ev.crowSet?.length || 0);
   ctx._contains = containsSet(o.played, ev);
 
-  const rawLevel = state.patterns[ev.key]?.level ?? 1;
-  const level = mods.flatPatternLevels && bossActive ? 1 : rawLevel + (mods.patternLevelBonus || 0);
-  ctx.patternLevel = level;
-  const base = patternStats(ev.key, level);
+  const rawLevel = state.formations[ev.key]?.level ?? 1;
+  const level = mods.flatFormationLevels && bossActive ? 1 : rawLevel + (mods.formationLevelBonus || 0);
+  ctx.formationLevel = level;
+  const base = formationStats(ev.key, level);
   ctx.volume = base.volume;
   ctx.leverage = base.leverage;
-  ctx.step('base', { name: PATTERNS[ev.key].name }, `${base.volume} x ${base.leverage}`, { patternKey: ev.key, level });
+  ctx.step('base', { name: FORMATIONS[ev.key].name }, `${base.volume} x ${base.leverage}`, { formationKey: ev.key, level });
 
-  // --- scored tickers, left to right -----------------------------------
-  for (const card of ev.scoringCards) {
-    const n = triggersFor(state, ctx, card, false);
+  // --- candles print, in the order you arranged them ---------------------
+  for (const c of ev.scoringCandles) {
+    const n = triggersFor(state, ctx, c, false);
     for (let t = 0; t < n; t++) {
-      if (t > 0) ctx.step('retrigger', { name: 'Retrigger' }, 'again', { cardUid: card.uid });
-      scoreOneCard(state, ctx, card);
+      if (t > 0) ctx.step('retrigger', { name: 'Reprint' }, 'again', { candleUid: c.uid });
+      printCandle(state, ctx, c);
     }
   }
 
-  // --- tickers held in hand --------------------------------------------
-  for (const card of o.held) {
-    const n = triggersFor(state, ctx, card, true);
-    for (let t = 0; t < n; t++) holdOneCard(state, ctx, card);
+  // --- candles still on the board ----------------------------------------
+  for (const c of o.held) {
+    const n = triggersFor(state, ctx, c, true);
+    for (let t = 0; t < n; t++) holdCandle(state, ctx, c);
   }
 
-  // --- perks, left to right --------------------------------------------
-  for (let i = 0; i < state.perks.length; i++) {
-    if (mods.disableFirstPerk && bossActive && i === 0) {
+  // --- brokers, left to right ---------------------------------------------
+  for (let i = 0; i < state.brokers.length; i++) {
+    if (mods.disableFirstBroker && bossActive && i === 0) {
       ctx.step('disabled', { name: 'Clawed back' }, 'disabled');
       continue;
     }
-    const ep = effectivePerk(state, i);
-    if (!ep?.def || ep.inst.debuffed) continue;
-    const src = { name: (ep.copying ? 'Arb Bot → ' : '') + ep.def.name, art: ep.self.art, uid: ep.inst.uid };
-    if (ep.def.independent) ep.def.independent(ctx, ep.inst, src);
-    // Perk editions trigger in the perk's slot.
-    if (ep.inst.edition === 'laminated') ctx.addVolume(50, src);
-    else if (ep.inst.edition === 'holographic') ctx.addLeverage(10, src);
-    else if (ep.inst.edition === 'algorithmic') ctx.xLeverage(1.5, src);
+    const eb = effectiveBroker(state, i);
+    if (!eb?.def || eb.inst.debuffed) continue;
+    const src = { name: (eb.copying ? 'Arb Bot → ' : '') + eb.def.name, art: eb.self.art, uid: eb.inst.uid };
+    if (eb.def.independent) eb.def.independent(ctx, eb.inst, src);
+    if (eb.inst.edition === 'laminated') ctx.addVolume(50, src);
+    else if (eb.inst.edition === 'holographic') ctx.addLeverage(10, src);
+    else if (eb.inst.edition === 'algorithmic') ctx.xLeverage(1.5, src);
   }
 
-  // --- direction ---------------------------------------------------------
+  // --- the call ------------------------------------------------------------
   let correct = o.correct;
   let saved = false;
+  let conviction = convictionOf(ev.scoringCandles, o.direction, mods);
+
   if (o.direction) {
     if (mods.alwaysGreen) correct = true;
     if (correct === false && mods.saveRed && !state.session?.stopLossUsed) {
@@ -238,22 +240,25 @@ export function scoreTrade(state, o) {
     }
     ctx.correct = correct;
 
-    for (let i = 0; i < state.perks.length; i++) {
-      if (mods.disableFirstPerk && bossActive && i === 0) continue;
-      const ep = effectivePerk(state, i);
-      if (!ep?.def?.direction || ep.inst.debuffed) continue;
-      ep.def.direction(ctx, ep.inst, { name: ep.def.name, art: ep.self.art, uid: ep.inst.uid });
+    for (let i = 0; i < state.brokers.length; i++) {
+      if (mods.disableFirstBroker && bossActive && i === 0) continue;
+      const eb = effectiveBroker(state, i);
+      if (!eb?.def?.direction || eb.inst.debuffed) continue;
+      eb.def.direction(ctx, eb.inst, { name: eb.def.name, art: eb.self.art, uid: eb.inst.uid });
+    }
+
+    if (conviction.mult !== 1 && !mods.noConviction) {
+      ctx.xLeverage(+conviction.mult.toFixed(2), { name: conviction.label, art: '🎯' });
     }
 
     if (bossActive && boss.scoreHook) boss.scoreHook(ctx);
 
     const regimeMult = o.regimeMult ?? 1;
     if (correct) {
-      if (regimeMult !== 1) ctx.xLeverage(regimeMult, { name: (o.regimeName || 'Regime'), art: '🌡️' });
+      if (regimeMult !== 1) ctx.xLeverage(regimeMult, { name: o.regimeName || 'Regime', art: '🌡️' });
       ctx.step('green', { name: saved ? 'Stop Loss' : 'GREEN TRADE', art: '✅' }, saved ? 'saved' : 'called it');
     } else {
-      const red = mods.redMult ?? 0.35;
-      ctx.xLeverage(red, { name: 'WRONG WAY', art: '❌' });
+      ctx.xLeverage(mods.redMult ?? 0.35, { name: 'WRONG WAY', art: '❌' });
       ctx.step('red', { name: 'RED TRADE', art: '❌' }, 'tape went the other way');
     }
   } else if (bossActive && boss.scoreHook) {
@@ -271,9 +276,9 @@ export function scoreTrade(state, o) {
   }
 
   return {
-    pattern: ev,
-    patternKey: ev.key,
-    patternName: PATTERNS[ev.key].name,
+    formation: ev,
+    formationKey: ev.key,
+    formationName: FORMATIONS[ev.key].name,
     level,
     volume: ctx.volume,
     leverage: ctx.leverage,
@@ -283,16 +288,17 @@ export function scoreTrade(state, o) {
     correct,
     saved,
     capped,
+    conviction,
     destroyQueue: ctx.destroyQueue,
-    scoringCards: ev.scoringCards,
+    scoringCandles: ev.scoringCandles,
   };
 }
 
-/** Cheap read-only preview used for the live readout above the hand. */
-export function previewTrade(state, played, held, rng) {
+/** Read-only projection for the live readout. */
+export function previewTrade(state, played, held, rng, direction = null) {
   if (!played.length) return null;
   return scoreTrade(state, {
-    played, held, direction: null, correct: null,
+    played, held, direction, correct: null,
     rng, commit: false,
     tradeIndex: state.session?.tradeIndex ?? 0,
     tradesLeft: state.session?.tradesLeft ?? 1,

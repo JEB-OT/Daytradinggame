@@ -1,17 +1,16 @@
 import { RNG, randomSeedString } from '../engine/rng.js';
-import { standardDeck, makeCard, SECTOR_KEYS, RANKS, sortCards } from './cards.js';
-import { defaultPatternLevels, PATTERN_KEYS, PATTERNS } from './patterns.js';
-import { PERKS, makePerk, rollPerkKey, perkSellValue, RARITY } from './perks.js';
-import { CHARTS, CONTRACTS, RUMORS, ALL_CONSUMABLES, makeConsumable, rollChart, rollContract, rollRumor, CONTRACT_KEYS } from './consumables.js';
+import { standardBook, makeCandle, SECTOR_KEYS, BODIES, MAX_BODY, sortCandles, isWide } from './candles.js';
+import { defaultFormationLevels, FORMATION_KEYS, FORMATIONS } from './formations.js';
+import { BROKERS, makeBroker, rollBrokerKey, brokerSellValue, RARITY } from './brokers.js';
+import { CHARTS, CONTRACTS, RUMORS, ALL_CONSUMABLES, makeConsumable, rollChart, rollContract, rollRumor } from './consumables.js';
 import { LICENSES, availableLicenses } from './licenses.js';
 import { BOSSES, pickBoss } from './bosses.js';
-import { Market, pickRegime, REGIMES } from './market.js';
+import { Market, pickRegime } from './market.js';
 import { scoreTrade } from './scoring.js';
 import { clamp } from '../engine/util.js';
 
-export const SAVE_KEY = 'margincall.save.v1';
+export const SAVE_KEY = 'margincall.save.v2';
 
-// Quota ladder. Week 1 is a gentle on-ramp; after week 8 it goes exponential.
 const BASE_QUOTA = [180, 450, 1100, 2600, 6000, 13500, 30000, 65000];
 export function weekBase(week) {
   if (week <= BASE_QUOTA.length) return BASE_QUOTA[week - 1];
@@ -25,63 +24,60 @@ export const DEADLINE_SLOTS = [
 ];
 
 export const BONUSES = {
-  freePerk:     { key: 'freePerk',     name: 'Recruiter',      art: '🧑‍💼', text: 'Gain a random perk immediately' },
-  uncommonPerk: { key: 'uncommonPerk', name: 'Headhunter',     art: '🎯', text: 'Gain a random Uncommon perk' },
-  rarePerk:     { key: 'rarePerk',     name: 'Star Trader',    art: '🌟', text: 'Gain a random Rare perk' },
-  charts:       { key: 'charts',       name: 'Research Dump',  art: '📚', text: 'Gain 2 random Charts' },
+  freeBroker:   { key: 'freeBroker',   name: 'Recruiter',       art: '🧑‍💼', text: 'Hire a random broker immediately' },
+  uncommonBroker:{ key: 'uncommonBroker', name: 'Headhunter',   art: '🎯', text: 'Hire a random Uncommon broker' },
+  rareBroker:   { key: 'rareBroker',   name: 'Star Trader',     art: '🌟', text: 'Hire a random Rare broker' },
+  charts:       { key: 'charts',       name: 'Research Dump',   art: '📚', text: 'Gain 2 random Charts' },
   contract:     { key: 'contract',     name: 'Signed Contract', art: '📜', text: 'Gain a random Contract' },
-  rumor:        { key: 'rumor',        name: 'Whisper Number', art: '🗣️', text: 'Gain a random Rumor' },
-  cash:         { key: 'cash',         name: 'Severance',      art: '💰', text: 'Gain $22 immediately' },
-  coupon:       { key: 'coupon',       name: 'Comp Card',      art: '🎟️', text: 'Next Floor: all items are free' },
-  rerolls:      { key: 'rerolls',      name: 'Rolodex',        art: '🔄', text: 'Next Floor: 3 free rerolls' },
-  investment:   { key: 'investment',   name: 'Investment',     art: '📈', text: 'Gain $28 when you beat the next Boss' },
-  ticker:       { key: 'ticker',       name: 'New Listing',    art: '🆕', text: 'Add 2 random Alpha tickers to your portfolio' },
-  edition:      { key: 'edition',      name: 'Glossy Print',   art: '✨', text: 'A random perk gains a random edition' },
+  rumor:        { key: 'rumor',        name: 'Whisper Number',  art: '🗣️', text: 'Gain a random Rumor' },
+  cash:         { key: 'cash',         name: 'Severance',       art: '💰', text: 'Gain $22 immediately' },
+  coupon:       { key: 'coupon',       name: 'Comp Card',       art: '🎟️', text: 'Next Floor: all items are free' },
+  rerolls:      { key: 'rerolls',      name: 'Rolodex',         art: '🔄', text: 'Next Floor: 3 free rerolls' },
+  investment:   { key: 'investment',   name: 'Investment',      art: '📈', text: 'Gain $28 when you beat the next Boss' },
+  candles:      { key: 'candles',      name: 'New Listing',     art: '🕯️', text: 'Add 2 wide-bodied candles to your book' },
+  edition:      { key: 'edition',      name: 'Glossy Print',    art: '✨', text: 'A random broker gains a random edition' },
 };
 export const BONUS_KEYS = Object.keys(BONUSES);
 
 export const PACKS = [
-  { key: 'chartS',    name: 'Chart Pack',        family: 'chart',    art: '📊', cost: 4, size: 3, choose: 1, weight: 10 },
-  { key: 'chartJ',    name: 'Jumbo Chart Pack',  family: 'chart',    art: '📊', cost: 6, size: 5, choose: 1, weight: 5 },
-  { key: 'chartM',    name: 'Mega Chart Pack',   family: 'chart',    art: '📊', cost: 8, size: 5, choose: 2, weight: 2 },
-  { key: 'ctS',       name: 'Contract Pack',     family: 'contract', art: '📜', cost: 4, size: 3, choose: 1, weight: 8 },
-  { key: 'ctJ',       name: 'Jumbo Contract Pack', family: 'contract', art: '📜', cost: 6, size: 5, choose: 1, weight: 4 },
-  { key: 'ctM',       name: 'Mega Contract Pack', family: 'contract', art: '📜', cost: 8, size: 5, choose: 2, weight: 2 },
-  { key: 'rumorS',    name: 'Rumor Pack',        family: 'rumor',    art: '🗣️', cost: 6, size: 2, choose: 1, weight: 4 },
-  { key: 'rumorJ',    name: 'Jumbo Rumor Pack',  family: 'rumor',    art: '🗣️', cost: 8, size: 4, choose: 1, weight: 2 },
-  { key: 'tickerS',   name: 'Ticker Pack',       family: 'ticker',   art: '🎴', cost: 4, size: 3, choose: 1, weight: 9 },
-  { key: 'tickerJ',   name: 'Jumbo Ticker Pack', family: 'ticker',   art: '🎴', cost: 6, size: 5, choose: 1, weight: 5 },
-  { key: 'tickerM',   name: 'Mega Ticker Pack',  family: 'ticker',   art: '🎴', cost: 8, size: 5, choose: 2, weight: 2 },
-  { key: 'perkS',     name: 'Buyout Pack',       family: 'perk',     art: '🧑‍💼', cost: 6, size: 2, choose: 1, weight: 7 },
-  { key: 'perkJ',     name: 'Jumbo Buyout Pack', family: 'perk',     art: '🧑‍💼', cost: 8, size: 4, choose: 1, weight: 3 },
+  { key: 'chartS',  name: 'Chart Pack',          family: 'chart',    art: '📊', cost: 4, size: 3, choose: 1, weight: 10 },
+  { key: 'chartJ',  name: 'Jumbo Chart Pack',    family: 'chart',    art: '📊', cost: 6, size: 5, choose: 1, weight: 5 },
+  { key: 'chartM',  name: 'Mega Chart Pack',     family: 'chart',    art: '📊', cost: 8, size: 5, choose: 2, weight: 2 },
+  { key: 'ctS',     name: 'Contract Pack',       family: 'contract', art: '📜', cost: 4, size: 3, choose: 1, weight: 8 },
+  { key: 'ctJ',     name: 'Jumbo Contract Pack', family: 'contract', art: '📜', cost: 6, size: 5, choose: 1, weight: 4 },
+  { key: 'ctM',     name: 'Mega Contract Pack',  family: 'contract', art: '📜', cost: 8, size: 5, choose: 2, weight: 2 },
+  { key: 'rumorS',  name: 'Rumor Pack',          family: 'rumor',    art: '🗣️', cost: 6, size: 2, choose: 1, weight: 4 },
+  { key: 'rumorJ',  name: 'Jumbo Rumor Pack',    family: 'rumor',    art: '🗣️', cost: 8, size: 4, choose: 1, weight: 2 },
+  { key: 'candleS', name: 'Candle Pack',         family: 'candle',   art: '🕯️', cost: 4, size: 3, choose: 1, weight: 9 },
+  { key: 'candleJ', name: 'Jumbo Candle Pack',   family: 'candle',   art: '🕯️', cost: 6, size: 5, choose: 1, weight: 5 },
+  { key: 'candleM', name: 'Mega Candle Pack',    family: 'candle',   art: '🕯️', cost: 8, size: 5, choose: 2, weight: 2 },
+  { key: 'brokerS', name: 'Buyout Pack',         family: 'broker',   art: '🧑‍💼', cost: 6, size: 2, choose: 1, weight: 7 },
+  { key: 'brokerJ', name: 'Jumbo Buyout Pack',   family: 'broker',   art: '🧑‍💼', cost: 8, size: 4, choose: 1, weight: 3 },
 ];
 
 // ---------------------------------------------------------------------------
 export function newRun(seedString, opts = {}) {
   const seed = seedString || randomSeedString();
-  const rng = new RNG(seed);
   const state = {
     seed,
-    rng,
-    version: 1,
+    rng: new RNG(seed),
+    version: 2,
     phase: 'select',
     week: 1,
     deadlineIndex: 0,
     cash: 8,
-    deck: standardDeck(),
-    perks: [],
+    book: standardBook(),
+    brokers: [],
     consumables: [],
     licenses: [],
-    patterns: defaultPatternLevels(),
-    discoveredPatterns: [],
+    formations: defaultFormationLevels(),
+    discoveredFormations: [],
     permanent: { handSize: 8, discards: 3, trades: 4, slots: 5, chartSlots: 2 },
     seenBosses: [],
     pendingBonuses: [],
     shop: null,
     session: null,
-    log: [],
-    stats: { trades: 0, greens: 0, reds: 0, bestPL: 0, deadlinesCleared: 0, bossesCleared: 0, moneyEarned: 0 },
-    difficulty: opts.difficulty || 'standard',
+    stats: { trades: 0, greens: 0, reds: 0, bestPL: 0, deadlinesCleared: 0, bossesCleared: 0, moneyEarned: 0, marches: 0 },
     mods: {},
   };
   state.upcoming = buildWeek(state);
@@ -108,11 +104,12 @@ const MOD_DEFAULTS = () => ({
   quotaMult: 1, bossQuotaMult: 1, bossGrace: 0,
   interestRate: 5, interestCap: 5, deadlineStipend: 0,
   discount: 0, discountPct: 0, rerollDiscount: 0, freeRerolls: 0, shopSlots: 0, sellBonus: 0,
-  fourCard: false, shortcut: false, smeared: false, allScore: false,
-  patternLevelBonus: 0, luckyBoost: 1, redMult: 0.35, alwaysGreen: false, saveRed: false,
+  fourCard: false, shortcut: false, smeared: false, allScore: false, marchOfThree: false,
+  formationLevelBonus: 0, luckyBoost: 1, redMult: 0.35, alwaysGreen: false, saveRed: false,
+  convictionBonus: 0, convictionThreshold: 0.6, noConviction: false,
   contractWeight: 1, rumorWeight: 1, rareBoost: 0, allowLegendary: false,
-  disableFirstPerk: false, disableEnhancements: false, flatPatternLevels: false,
-  zeroCardVolume: false, faceDownFaces: false, setDiscards: null,
+  disableFirstBroker: false, disableEnhancements: false, flatFormationLevels: false,
+  zeroCandleVolume: false, faceDownWide: false, setDiscards: null,
 });
 
 export function computeMods(state) {
@@ -127,21 +124,22 @@ export function computeMods(state) {
     if (!mods) return;
     for (const [k, v] of Object.entries(mods)) {
       if (typeof v === 'boolean') m[k] = m[k] || v;
-      else if (k === 'quotaMult' || k === 'bossQuotaMult' || k === 'discountPct') m[k] = k === 'discountPct' ? m[k] + v : m[k] * v;
+      else if (k === 'quotaMult' || k === 'bossQuotaMult') m[k] *= v;
+      else if (k === 'discountPct') m[k] += v;
+      else if (k === 'convictionThreshold') m[k] = Math.min(m[k], v);
       else if (k === 'setDiscards') m[k] = v;
       else m[k] = (m[k] || 0) + v;
     }
   };
 
   for (const lic of state.licenses) apply(LICENSES[lic]?.mods);
-  for (const p of state.perks) {
-    if (p.debuffed) continue;
-    apply(PERKS[p.key]?.mods);
-    if (p.edition === 'offbook') m.slots += 1;
+  for (const b of state.brokers) {
+    if (b.debuffed) continue;
+    apply(BROKERS[b.key]?.mods);
+    if (b.edition === 'offbook') m.slots += 1;
   }
-  // redMult: the most generous wrong-way perk wins.
-  for (const p of state.perks) {
-    const d = PERKS[p.key];
+  for (const b of state.brokers) {
+    const d = BROKERS[b.key];
     if (d?.redMult && d.redMult > m.redMult) m.redMult = d.redMult;
     if (d?.saveRed) m.saveRed = true;
   }
@@ -158,16 +156,13 @@ export function computeMods(state) {
   return m;
 }
 
-export function slotsUsed(state) {
-  return state.perks.filter((p) => p.edition !== 'offbook').length;
-}
-export function hasPerkRoom(state) { return slotsUsed(state) < state.mods.slots; }
+export function slotsUsed(state) { return state.brokers.filter((b) => b.edition !== 'offbook').length; }
+export function hasBrokerRoom(state) { return slotsUsed(state) < state.mods.slots; }
 export function hasConsumableRoom(state) { return state.consumables.length < state.mods.chartSlots; }
 
 // ---------------------------------------------------------------------------
 export function quotaFor(state, slot) {
-  let q = weekBase(state.week) * slot.mult;
-  q *= state.mods.quotaMult;
+  let q = weekBase(state.week) * slot.mult * state.mods.quotaMult;
   if (slot.boss) q *= state.mods.bossQuotaMult;
   return Math.round(q / 10) * 10;
 }
@@ -179,28 +174,14 @@ export function startDeadline(state, slotIndex) {
   state.session = {
     slot,
     boss: slot.boss,
-    quota: 0,
-    profit: 0,
-    tradesLeft: 0,
-    discardsLeft: 0,
-    tradeIndex: 0,
-    greens: 0,
-    reds: 0,
-    greenStreak: 0,
-    bestStreak: 0,
-    lastDirection: null,
-    lastPattern: null,
-    stopLossUsed: false,
+    quota: 0, profit: 0,
+    tradesLeft: 0, discardsLeft: 0, tradeIndex: 0,
+    greens: 0, reds: 0, greenStreak: 0, bestStreak: 0,
+    lastDirection: null, lastFormation: null, stopLossUsed: false,
     earnedThisDeadline: 0,
-    hand: [],
-    drawPile: [],
-    discardPile: [],
-    selected: [],
-    rng,
-    market: null,
-    bossGraceLeft: 0,
-    resolved: null,
-    history: [],
+    board: [], drawPile: [], swept: [], selected: [],
+    rng, market: null, bossGraceLeft: 0, history: [],
+    sortMode: 'body',
   };
   computeMods(state);
   const bossDef = slot.boss ? BOSSES[slot.boss] : null;
@@ -208,51 +189,47 @@ export function startDeadline(state, slotIndex) {
   computeMods(state);
 
   const s = state.session;
-  s.quota = quotaFor(state, slot) * (bossDef?.quotaMult || 1);
-  s.quota = Math.round(s.quota / 10) * 10;
+  s.quota = Math.round((quotaFor(state, slot) * (bossDef?.quotaMult || 1)) / 10) * 10;
   s.tradesLeft = state.mods.trades;
   s.discardsLeft = state.mods.discards;
-  s.market = new Market(rng.fork('market'), { regime: slot.regime, volScale: 1 });
+  s.market = new Market(rng.fork('market'), { regime: slot.regime });
 
-  if (state.mods.deadlineStipend) { state.cash += state.mods.deadlineStipend; }
+  if (state.mods.deadlineStipend) state.cash += state.mods.deadlineStipend;
   if (bossDef?.onStart) bossDef.onStart(state);
 
-  // Portfolio -> draw pile
-  for (const c of state.deck) { c.debuffed = false; c.faceDown = false; }
-  if (bossDef?.debuffSector) {
-    for (const c of state.deck) if (c.sector === bossDef.debuffSector) c.debuffed = true;
+  for (const c of state.book) { c.debuffed = false; c.faceDown = false; }
+  if (bossDef?.debuffSector) for (const c of state.book) if (c.sector === bossDef.debuffSector) c.debuffed = true;
+  if (bossDef?.debuffPolarity) {
+    for (const c of state.book) if ((bossDef.debuffPolarity === 'bull') === !!c.bull) c.debuffed = true;
   }
-  s.drawPile = rng.shuffle(state.deck.slice());
-  s.discardPile = [];
-  s.hand = [];
-  drawToFull(state);
+
+  s.drawPile = rng.shuffle(state.book.slice());
+  refillBoard(state);
   state.phase = 'trading';
-  for (const p of state.perks) {
-    const d = PERKS[p.key];
-    if (d?.deadlineStart) d.deadlineStart(state, p);
-  }
+  for (const b of state.brokers) BROKERS[b.key]?.deadlineStart?.(state, b);
   return s;
 }
 
-export function drawToFull(state) {
+export function refillBoard(state) {
   const s = state.session;
   const target = state.mods.handSize;
   const bossDef = s.boss ? BOSSES[s.boss] : null;
   const fresh = [];
-  while (s.hand.length < target && s.drawPile.length) {
+  while (s.board.length < target && s.drawPile.length) {
     const c = s.drawPile.pop();
-    if (state.mods.faceDownFaces && [11, 12, 13].includes(c.rank)) c.faceDown = true;
-    s.hand.push(c);
+    if (state.mods.faceDownWide && isWide(c)) c.faceDown = true;
+    s.board.push(c);
     fresh.push(c);
   }
-  if (bossDef?.onDeal && fresh.length) bossDef.onDeal(state, fresh, s.rng);
-  s.hand = sortCards(s.hand, s.sortMode || 'rank');
+  if (bossDef?.onDeal && fresh.length && !(s.bossGraceLeft > 0)) bossDef.onDeal(state, fresh, s.rng);
+  s.board = sortCandles(s.board, s.sortMode || 'body');
   return fresh;
 }
 
-export function selectedCards(state) {
+/** Selected candles, in the order the player clicked them — placement order. */
+export function selectedCandles(state) {
   const s = state.session;
-  return s.selected.map((uid) => s.hand.find((c) => c.uid === uid)).filter(Boolean);
+  return s.selected.map((uid) => s.board.find((c) => c.uid === uid)).filter(Boolean);
 }
 
 export function toggleSelect(state, uid) {
@@ -263,63 +240,71 @@ export function toggleSelect(state, uid) {
   return s.selected;
 }
 
+/** Reorder the current placement: 'rising' | 'falling' | 'reverse'. */
+export function arrangeSelection(state, mode) {
+  const s = state.session;
+  const picked = selectedCandles(state);
+  if (picked.length < 2) return false;
+  let out;
+  if (mode === 'reverse') out = picked.slice().reverse();
+  else if (mode === 'falling') out = picked.slice().sort((a, b) => b.body - a.body);
+  else out = picked.slice().sort((a, b) => a.body - b.body);
+  s.selected = out.map((c) => c.uid);
+  return true;
+}
+
 export function checkTradeLegal(state, direction) {
   const s = state.session;
   const bossDef = s.boss ? BOSSES[s.boss] : null;
-  if (!s.selected.length) return { block: 'Select 1-5 tickers to build a position' };
+  if (!s.selected.length) return { block: 'Place 1-5 candles to build a position' };
   if (s.tradesLeft <= 0) return { block: 'No trades left' };
   if (bossDef?.beforeTrade && !(s.bossGraceLeft > 0)) {
-    const played = selectedCards(state);
+    const played = selectedCandles(state);
     const preview = scoreTrade(state, {
       played, held: [], direction, correct: null, rng: new RNG('probe'), commit: false,
       tradeIndex: s.tradeIndex, tradesLeft: s.tradesLeft, greenStreak: s.greenStreak, quota: s.quota,
     });
-    const r = bossDef.beforeTrade(state, { direction, patternKey: preview.patternKey });
+    const r = bossDef.beforeTrade(state, { direction, formationKey: preview.formationKey });
     if (r?.block) return r;
   }
   return null;
 }
 
-/** Commit the selected tickers as a position. Returns a rich result object. */
 export function playTrade(state, direction) {
   const s = state.session;
   const legal = checkTradeLegal(state, direction);
   if (legal?.block) return { blocked: legal.block };
 
-  const played = selectedCards(state);
-  const heldCards = s.hand.filter((c) => !s.selected.includes(c.uid));
+  const bossDef = s.boss ? BOSSES[s.boss] : null;
+  let played = selectedCandles(state);
+  if (bossDef?.scrambleOrder && !(s.bossGraceLeft > 0)) played = s.rng.shuffle(played);
+  const held = s.board.filter((c) => !s.selected.includes(c.uid));
   for (const c of played) c.faceDown = false;
 
   const tape = s.market.resolve(direction);
   const res = scoreTrade(state, {
-    played,
-    held: heldCards,
-    direction,
-    correct: tape.correct,
+    played, held, direction, correct: tape.correct,
     regimeMult: s.market.directionMult(direction),
     regimeName: s.market.regime.name,
-    rng: s.rng,
-    commit: true,
-    tradeIndex: s.tradeIndex,
-    tradesLeft: s.tradesLeft,
-    greenStreak: s.greenStreak,
-    greensThisDeadline: s.greens,
+    rng: s.rng, commit: true,
+    tradeIndex: s.tradeIndex, tradesLeft: s.tradesLeft,
+    greenStreak: s.greenStreak, greensThisDeadline: s.greens,
     quota: s.quota,
   });
   res.played = played;
   res.tape = tape;
   res.direction = direction;
 
-  // --- commit ----------------------------------------------------------
   s.profit += res.pl;
   s.tradesLeft -= 1;
   s.tradeIndex += 1;
   s.lastDirection = direction;
-  s.lastPattern = res.patternKey;
-  state.patterns[res.patternKey].played += 1;
-  if (PATTERNS[res.patternKey].secret && !state.discoveredPatterns.includes(res.patternKey)) {
-    state.discoveredPatterns.push(res.patternKey);
+  s.lastFormation = res.formationKey;
+  state.formations[res.formationKey].played += 1;
+  if (FORMATIONS[res.formationKey].secret && !state.discoveredFormations.includes(res.formationKey)) {
+    state.discoveredFormations.push(res.formationKey);
   }
+  if (res.formationKey === 'soldiers' || res.formationKey === 'crows') state.stats.marches++;
   if (res.correct) { s.greens++; s.greenStreak++; state.stats.greens++; }
   else { s.reds++; s.greenStreak = 0; state.stats.reds++; }
   s.bestStreak = Math.max(s.bestStreak, s.greenStreak);
@@ -328,79 +313,69 @@ export function playTrade(state, direction) {
   if (res.money) { state.cash = Math.max(0, state.cash + res.money); s.earnedThisDeadline += Math.max(0, res.money); }
   if (s.bossGraceLeft > 0) s.bossGraceLeft--;
 
-  // hand bookkeeping
   for (const c of played) {
-    const i = s.hand.findIndex((h) => h.uid === c.uid);
-    if (i >= 0) s.hand.splice(i, 1);
+    const i = s.board.findIndex((h) => h.uid === c.uid);
+    if (i >= 0) s.board.splice(i, 1);
   }
-  s.discardPile.push(...played);
+  s.swept.push(...played);
   s.selected = [];
 
-  // destroyed tickers (Volatile shattering, boss delisting)
   const destroyed = [...res.destroyQueue];
-  const bossDef = s.boss ? BOSSES[s.boss] : null;
   if (bossDef?.afterTrade && !(s.bossGraceLeft > 0)) bossDef.afterTrade(state, res, s.rng);
   if (res.destroyed) destroyed.push(res.destroyed);
-  for (const c of destroyed) removeFromDeck(state, c);
-  res.destroyedCards = destroyed;
+  for (const c of destroyed) removeFromBook(state, c);
+  res.destroyedCandles = destroyed;
 
-  for (const p of state.perks) {
-    const d = PERKS[p.key];
-    if (d?.tradeEnd) d.tradeEnd(state, res, p);
-  }
+  for (const b of state.brokers) BROKERS[b.key]?.tradeEnd?.(state, res, b);
 
-  // hold-stamped tickers stay in hand
   for (const c of played) {
-    if (c.stamp === 'hold' && !c.debuffed && state.deck.includes(c)) {
-      const i = s.discardPile.indexOf(c);
-      if (i >= 0) s.discardPile.splice(i, 1);
-      s.hand.push(c);
+    if (c.stamp === 'hold' && !c.debuffed && state.book.includes(c)) {
+      const i = s.swept.indexOf(c);
+      if (i >= 0) s.swept.splice(i, 1);
+      s.board.push(c);
     }
   }
 
-  s.history.push({ pl: res.pl, correct: res.correct, pattern: res.patternName, direction });
+  s.history.push({ pl: res.pl, correct: res.correct, formation: res.formationName, direction, conviction: res.conviction?.key });
   computeMods(state);
-  drawToFull(state);
+  refillBoard(state);
 
   res.cleared = s.profit >= s.quota;
   res.busted = !res.cleared && s.tradesLeft <= 0;
   return res;
 }
 
-export function discardSelected(state) {
+export function sweepSelected(state) {
   const s = state.session;
-  if (!s.selected.length) return { blocked: 'Select tickers to discard' };
-  if (s.discardsLeft <= 0) return { blocked: 'No discards left' };
-  const cards = selectedCards(state);
+  if (!s.selected.length) return { blocked: 'Select candles to sweep' };
+  if (s.discardsLeft <= 0) return { blocked: 'No sweeps left' };
+  const candles = selectedCandles(state);
   s.discardsLeft -= 1;
-  for (const c of cards) {
-    const i = s.hand.findIndex((h) => h.uid === c.uid);
-    if (i >= 0) s.hand.splice(i, 1);
-    s.discardPile.push(c);
+  for (const c of candles) {
+    const i = s.board.findIndex((h) => h.uid === c.uid);
+    if (i >= 0) s.board.splice(i, 1);
+    s.swept.push(c);
   }
   let created = 0;
-  for (const c of cards) {
+  for (const c of candles) {
     if (c.stamp === 'filing' && !c.debuffed && hasConsumableRoom(state)) {
       state.consumables.push(makeConsumable(rollChart(s.rng)));
       created++;
     }
   }
-  for (const p of state.perks) {
-    const d = PERKS[p.key];
-    if (d?.discarded) d.discarded(state, cards, p);
-  }
+  for (const b of state.brokers) BROKERS[b.key]?.discarded?.(state, candles, b);
   s.selected = [];
-  drawToFull(state);
-  return { discarded: cards.length, created };
+  refillBoard(state);
+  return { swept: candles.length, created };
 }
 
-export function removeFromDeck(state, card) {
-  const i = state.deck.findIndex((c) => c.uid === card.uid);
-  if (i >= 0) state.deck.splice(i, 1);
+export function removeFromBook(state, candle) {
+  const i = state.book.findIndex((c) => c.uid === candle.uid);
+  if (i >= 0) state.book.splice(i, 1);
   const s = state.session;
   if (s) {
-    for (const list of [s.hand, s.drawPile, s.discardPile]) {
-      const j = list.findIndex((c) => c.uid === card.uid);
+    for (const list of [s.board, s.drawPile, s.swept]) {
+      const j = list.findIndex((c) => c.uid === candle.uid);
       if (j >= 0) list.splice(j, 1);
     }
   }
@@ -421,41 +396,41 @@ export function finishDeadline(state) {
   const interest = Math.min(state.mods.interestCap, Math.floor(state.cash / rate));
   if (interest > 0) { cash += interest; lines.push({ label: `Interest ($1 per $${rate})`, amount: interest }); }
 
-  for (const p of state.perks) {
-    const d = PERKS[p.key];
+  for (const b of state.brokers) {
+    const d = BROKERS[b.key];
     if (d?.payout) {
-      const amt = d.payout(state, p) | 0;
+      const amt = d.payout(state, b) | 0;
       if (amt) { cash += amt; lines.push({ label: d.name, amount: amt }); }
     }
   }
 
   if (slot.boss) {
-    const inv = state.pendingBonuses.filter((b) => b === 'investment').length;
+    const inv = state.pendingBonuses.filter((x) => x === 'investment').length;
     if (inv) {
       cash += 28 * inv;
       lines.push({ label: 'Investment matured', amount: 28 * inv });
-      state.pendingBonuses = state.pendingBonuses.filter((b) => b !== 'investment');
+      state.pendingBonuses = state.pendingBonuses.filter((x) => x !== 'investment');
     }
     state.stats.bossesCleared++;
     if (!state.seenBosses.includes(slot.boss)) state.seenBosses.push(slot.boss);
-    for (const p of state.perks) {
-      const d = PERKS[p.key];
+    for (const b of state.brokers) {
+      const d = BROKERS[b.key];
       if (d?.onBossClear && hasConsumableRoom(state)) state.consumables.push(makeConsumable(rollChart(rng)));
-      if (d?.onBossClearContract && hasConsumableRoom(state)) state.consumables.push(makeConsumable(rollContract(rng, state.discoveredPatterns)));
+      if (d?.onBossClearContract && hasConsumableRoom(state)) state.consumables.push(makeConsumable(rollContract(rng, state.discoveredFormations)));
     }
   }
 
-  for (const p of state.perks) {
-    const d = PERKS[p.key];
-    if (d?.destroysCard && state.deck.length > 5) removeFromDeck(state, rng.pick(state.deck));
-    if (d?.deadlineEnd) d.deadlineEnd(state, p);
+  for (const b of state.brokers) {
+    const d = BROKERS[b.key];
+    if (d?.destroysCard && state.book.length > 5) removeFromBook(state, rng.pick(state.book));
+    d?.deadlineEnd?.(state, b);
   }
 
   state.cash = Math.max(0, state.cash + cash);
   state.stats.moneyEarned += Math.max(0, cash);
   state.stats.deadlinesCleared++;
   slot.done = true;
-  const payout = { total: cash, lines, profit: s.profit, quota: s.quota, greens: s.greens, reds: s.reds };
+  const payout = { total: cash, lines, profit: s.profit, quota: s.quota, greens: s.greens, reds: s.reds, bestStreak: s.bestStreak };
   state.lastPayout = payout;
   computeMods(state);
   return payout;
@@ -477,7 +452,7 @@ export function skipDeadline(state, slotIndex) {
   if (slot.boss) return { blocked: 'Boss deadlines cannot be skipped' };
   slot.skipped = true;
   slot.done = true;
-  const bonusKey = slot.bonus || state.rng.pick(BONUS_KEYS);
+  const bonusKey = state.rng.pick(BONUS_KEYS);
   applyBonus(state, bonusKey);
   state.deadlineIndex = slotIndex + 1;
   return { bonus: BONUSES[bonusKey] };
@@ -486,24 +461,24 @@ export function skipDeadline(state, slotIndex) {
 export function applyBonus(state, key) {
   const rng = state.rng;
   switch (key) {
-    case 'freePerk':
-      if (hasPerkRoom(state)) state.perks.push(makePerk(rollPerkKey(rng, { allowLegendary: state.mods.allowLegendary }), rng));
+    case 'freeBroker':
+      if (hasBrokerRoom(state)) state.brokers.push(makeBroker(rollBrokerKey(rng, { allowLegendary: state.mods.allowLegendary }), rng));
       break;
-    case 'uncommonPerk': {
-      const pool = Object.keys(PERKS).filter((k) => PERKS[k].rarity === 'uncommon');
-      if (hasPerkRoom(state)) state.perks.push(makePerk(rng.pick(pool), rng));
+    case 'uncommonBroker': {
+      const pool = Object.keys(BROKERS).filter((k) => BROKERS[k].rarity === 'uncommon');
+      if (hasBrokerRoom(state)) state.brokers.push(makeBroker(rng.pick(pool), rng));
       break;
     }
-    case 'rarePerk': {
-      const pool = Object.keys(PERKS).filter((k) => PERKS[k].rarity === 'rare');
-      if (hasPerkRoom(state)) state.perks.push(makePerk(rng.pick(pool), rng));
+    case 'rareBroker': {
+      const pool = Object.keys(BROKERS).filter((k) => BROKERS[k].rarity === 'rare');
+      if (hasBrokerRoom(state)) state.brokers.push(makeBroker(rng.pick(pool), rng));
       break;
     }
     case 'charts':
       for (let i = 0; i < 2; i++) if (hasConsumableRoom(state)) state.consumables.push(makeConsumable(rollChart(rng)));
       break;
     case 'contract':
-      if (hasConsumableRoom(state)) state.consumables.push(makeConsumable(rollContract(rng, state.discoveredPatterns)));
+      if (hasConsumableRoom(state)) state.consumables.push(makeConsumable(rollContract(rng, state.discoveredFormations)));
       break;
     case 'rumor':
       if (hasConsumableRoom(state)) state.consumables.push(makeConsumable(rollRumor(rng)));
@@ -512,11 +487,11 @@ export function applyBonus(state, key) {
     case 'coupon': state.pendingBonuses.push('coupon'); break;
     case 'rerolls': state.pendingBonuses.push('rerolls'); break;
     case 'investment': state.pendingBonuses.push('investment'); break;
-    case 'ticker':
-      for (let i = 0; i < 2; i++) state.deck.push(makeCard(rng.pick(SECTOR_KEYS), 14));
+    case 'candles':
+      for (let i = 0; i < 2; i++) state.book.push(makeCandle(rng.pick(SECTOR_KEYS), MAX_BODY - rng.int(0, 2), rng.chance(0.5)));
       break;
     case 'edition': {
-      const pool = state.perks.filter((p) => !p.edition);
+      const pool = state.brokers.filter((b) => !b.edition);
       if (pool.length) rng.pick(pool).edition = rng.pick(['laminated', 'holographic', 'algorithmic']);
       break;
     }
@@ -525,33 +500,30 @@ export function applyBonus(state, key) {
 }
 
 // ---------------------------------------------------------------------------
-// The Floor (shop)
-// ---------------------------------------------------------------------------
 export function itemPrice(state, base) {
-  let p = base;
-  p -= state.mods.discount;
+  let p = base - state.mods.discount;
   p = Math.ceil(p * (1 - state.mods.discountPct));
-  if (state.shop?.free) p = 0;
-  return Math.max(state.shop?.free ? 0 : 1, p);
+  if (state.shop?.free) return 0;
+  return Math.max(1, p);
 }
 
 function rollShopItem(state, rng) {
   const m = state.mods;
   const roll = rng.pickWeighted([
-    { item: 'perk', weight: 20 },
+    { item: 'broker', weight: 20 },
     { item: 'chart', weight: 8 },
     { item: 'contract', weight: 4 * m.contractWeight },
     { item: 'rumor', weight: 1.2 * m.rumorWeight },
   ]);
-  if (roll === 'perk') {
-    const key = rollPerkKey(rng, { allowLegendary: m.allowLegendary && rng.chance(0.12) });
-    const inst = makePerk(key, rng);
-    let cost = PERKS[key].cost + (inst.edition ? 3 : 0);
-    if (m.rareBoost && RARITY[PERKS[key].rarity].weight <= 5) cost += 1;
-    return { type: 'perk', key, inst, cost };
+  if (roll === 'broker') {
+    const key = rollBrokerKey(rng, { allowLegendary: m.allowLegendary && rng.chance(0.12) });
+    const inst = makeBroker(key, rng);
+    let cost = BROKERS[key].cost + (inst.edition ? 3 : 0);
+    if (m.rareBoost && RARITY[BROKERS[key].rarity].weight <= 5) cost += 1;
+    return { type: 'broker', key, inst, cost };
   }
   if (roll === 'chart') { const key = rollChart(rng); return { type: 'chart', key, cost: CHARTS[key].cost }; }
-  if (roll === 'contract') { const key = rollContract(rng, state.discoveredPatterns); return { type: 'contract', key, cost: CONTRACTS[key].cost }; }
+  if (roll === 'contract') { const key = rollContract(rng, state.discoveredFormations); return { type: 'contract', key, cost: CONTRACTS[key].cost }; }
   const key = rollRumor(rng);
   return { type: 'rumor', key, cost: RUMORS[key].cost };
 }
@@ -560,19 +532,13 @@ export function openShop(state) {
   const rng = state.rng.fork('shop' + state.week + '-' + state.deadlineIndex);
   const free = state.pendingBonuses.includes('coupon');
   if (free) state.pendingBonuses = state.pendingBonuses.filter((b) => b !== 'coupon');
-  const freeRerolls = (state.mods.freeRerolls || 0) + (state.pendingBonuses.includes('rerolls') ? 3 : 0);
-  if (state.pendingBonuses.includes('rerolls')) state.pendingBonuses = state.pendingBonuses.filter((b) => b !== 'rerolls');
+  let freeRerolls = state.mods.freeRerolls || 0;
+  if (state.pendingBonuses.includes('rerolls')) {
+    freeRerolls += 3;
+    state.pendingBonuses = state.pendingBonuses.filter((b) => b !== 'rerolls');
+  }
 
-  state.shop = {
-    rng, free,
-    items: [],
-    packs: [],
-    license: null,
-    rerollCost: 5,
-    rerolls: 0,
-    freeRerolls,
-    pack: null,
-  };
+  state.shop = { rng, free, items: [], packs: [], license: null, rerollCost: 5, rerolls: 0, freeRerolls, pack: null };
   const n = 2 + state.mods.shopSlots;
   for (let i = 0; i < n; i++) state.shop.items.push(rollShopItem(state, rng));
   const packPool = PACKS.map((p) => ({ item: p, weight: p.weight }));
@@ -582,10 +548,7 @@ export function openShop(state) {
     state.shop.license = { key: rng.pick(licPool), sold: false };
   }
   state.phase = 'shop';
-  for (const p of state.perks) {
-    const d = PERKS[p.key];
-    if (d?.shop) d.shop(state, p);
-  }
+  for (const b of state.brokers) BROKERS[b.key]?.shop?.(state, b);
   return state.shop;
 }
 
@@ -604,21 +567,15 @@ export function rerollShop(state) {
 }
 
 export function buyShopItem(state, index) {
-  const shop = state.shop;
-  const item = shop.items[index];
+  const item = state.shop.items[index];
   if (!item || item.sold) return { blocked: 'Gone' };
   const price = itemPrice(state, item.cost);
   if (state.cash < price) return { blocked: 'Not enough cash' };
-  if (item.type === 'perk' && !hasPerkRoom(state) && item.inst.edition !== 'offbook') return { blocked: 'No desk slots left' };
-  if (item.type !== 'perk' && !hasConsumableRoom(state)) return { blocked: 'No Chart slots left' };
+  if (item.type === 'broker' && !hasBrokerRoom(state) && item.inst.edition !== 'offbook') return { blocked: 'No desk slots left' };
+  if (item.type !== 'broker' && !hasConsumableRoom(state)) return { blocked: 'No Chart slots left' };
   state.cash -= price;
-  if (item.type === 'perk') {
-    state.perks.push(item.inst);
-    const d = PERKS[item.key];
-    if (d?.onBuy) d.onBuy(state, item.inst);
-  } else {
-    state.consumables.push(makeConsumable(item.key));
-  }
+  if (item.type === 'broker') state.brokers.push(item.inst);
+  else state.consumables.push(makeConsumable(item.key));
   item.sold = true;
   computeMods(state);
   return { ok: true, price };
@@ -649,20 +606,20 @@ export function buyPack(state, index) {
   const options = [];
   for (let i = 0; i < pack.size; i++) {
     if (pack.family === 'chart') options.push({ type: 'chart', key: rollChart(rng, options.map((o) => o.key)) });
-    else if (pack.family === 'contract') options.push({ type: 'contract', key: rollContract(rng, state.discoveredPatterns) });
+    else if (pack.family === 'contract') options.push({ type: 'contract', key: rollContract(rng, state.discoveredFormations) });
     else if (pack.family === 'rumor') options.push({ type: 'rumor', key: rollRumor(rng) });
-    else if (pack.family === 'perk') {
-      const key = rollPerkKey(rng, { allowLegendary: state.mods.allowLegendary && rng.chance(0.15), exclude: options.map((o) => o.key) });
-      options.push({ type: 'perk', key, inst: makePerk(key, rng) });
+    else if (pack.family === 'broker') {
+      const key = rollBrokerKey(rng, { allowLegendary: state.mods.allowLegendary && rng.chance(0.15), exclude: options.map((o) => o.key) });
+      options.push({ type: 'broker', key, inst: makeBroker(key, rng) });
     } else {
-      const card = makeCard(rng.pick(SECTOR_KEYS), rng.pick(RANKS).rank);
+      const candle = makeCandle(rng.pick(SECTOR_KEYS), rng.pick(BODIES), rng.chance(0.5));
       const r = rng.next();
-      if (r < 0.28) card.enhancement = rng.pick(['bluechip', 'leveraged', 'wild', 'volatile', 'dividend', 'hedged', 'penny']);
-      if (rng.next() < 0.16) card.edition = rng.pickWeighted([
+      if (r < 0.30) candle.enhancement = rng.pick(['blockTick', 'leveraged', 'wild', 'volatile', 'dividend', 'hedged', 'penny', 'swing']);
+      if (rng.next() < 0.16) candle.edition = rng.pickWeighted([
         { item: 'laminated', weight: 6 }, { item: 'holographic', weight: 3 }, { item: 'algorithmic', weight: 1 },
       ]);
-      if (rng.next() < 0.10) card.stamp = rng.pick(['reissue', 'hold', 'payout', 'filing']);
-      options.push({ type: 'ticker', card });
+      if (rng.next() < 0.10) candle.stamp = rng.pick(['reissue', 'hold', 'payout', 'filing']);
+      options.push({ type: 'candle', candle });
     }
   }
   shop.pack = { pack, options, picks: pack.choose, taken: [] };
@@ -674,13 +631,12 @@ export function pickFromPack(state, optionIndex) {
   if (!open) return { blocked: 'No pack open' };
   const opt = open.options[optionIndex];
   if (!opt || opt.taken) return { blocked: 'Already taken' };
-  if (opt.type === 'perk') {
-    if (!hasPerkRoom(state) && opt.inst.edition !== 'offbook') return { blocked: 'No desk slots left' };
-    state.perks.push(opt.inst);
-  } else if (opt.type === 'ticker') {
-    state.deck.push(opt.card);
-  } else if (opt.type === 'chart' || opt.type === 'contract' || opt.type === 'rumor') {
-    // Consumables from packs may be used immediately instead of stored.
+  if (opt.type === 'broker') {
+    if (!hasBrokerRoom(state) && opt.inst.edition !== 'offbook') return { blocked: 'No desk slots left' };
+    state.brokers.push(opt.inst);
+  } else if (opt.type === 'candle') {
+    state.book.push(opt.candle);
+  } else {
     if (!hasConsumableRoom(state)) return { blocked: 'No Chart slots left' };
     state.consumables.push(makeConsumable(opt.key));
   }
@@ -693,12 +649,11 @@ export function pickFromPack(state, optionIndex) {
 
 export function closePack(state) { if (state.shop) state.shop.pack = null; }
 
-export function sellPerk(state, uid) {
-  const i = state.perks.findIndex((p) => p.uid === uid);
+export function sellBroker(state, uid) {
+  const i = state.brokers.findIndex((b) => b.uid === uid);
   if (i < 0) return { blocked: 'Not found' };
-  const inst = state.perks[i];
-  const val = perkSellValue(inst, state);
-  state.perks.splice(i, 1);
+  const val = brokerSellValue(state.brokers[i], state);
+  state.brokers.splice(i, 1);
   state.cash += val;
   computeMods(state);
   return { ok: true, value: val };
@@ -713,47 +668,40 @@ export function sellConsumable(state, uid) {
   return { ok: true };
 }
 
-export function movePerk(state, uid, dir) {
-  const i = state.perks.findIndex((p) => p.uid === uid);
-  const j = i + dir;
-  if (i < 0 || j < 0 || j >= state.perks.length) return;
-  [state.perks[i], state.perks[j]] = [state.perks[j], state.perks[i]];
-}
-
 // ---------------------------------------------------------------------------
 export function consumableApi(state, selected) {
   const rng = state.rng;
   return {
     state, rng, selected,
-    addCard: (c) => state.deck.push(c),
-    destroyCard: (c) => removeFromDeck(state, c),
+    addCandle: (c) => state.book.push(c),
+    destroyCandle: (c) => removeFromBook(state, c),
     createChart: (n) => { let k = 0; for (let i = 0; i < n; i++) if (hasConsumableRoom(state)) { state.consumables.push(makeConsumable(rollChart(rng))); k++; } return k; },
-    createContract: (n) => { let k = 0; for (let i = 0; i < n; i++) if (hasConsumableRoom(state)) { state.consumables.push(makeConsumable(rollContract(rng, state.discoveredPatterns))); k++; } return k; },
+    createContract: (n) => { let k = 0; for (let i = 0; i < n; i++) if (hasConsumableRoom(state)) { state.consumables.push(makeConsumable(rollContract(rng, state.discoveredFormations))); k++; } return k; },
     createRumor: (n) => { let k = 0; for (let i = 0; i < n; i++) if (hasConsumableRoom(state)) { state.consumables.push(makeConsumable(rollRumor(rng))); k++; } return k; },
-    levelPattern: (key, n) => { state.patterns[key].level += n; },
-    copyPerk: () => {
-      if (!state.perks.length) return { ok: false, msg: 'No perks to copy' };
-      if (!hasPerkRoom(state)) return { ok: false, msg: 'No desk slots left' };
-      const src = rng.pick(state.perks);
-      const copy = makePerk(src.key, null);
+    levelFormation: (key, n) => { state.formations[key].level += n; },
+    copyBroker: () => {
+      if (!state.brokers.length) return { ok: false, msg: 'No brokers to clone' };
+      if (!hasBrokerRoom(state)) return { ok: false, msg: 'No desk slots left' };
+      const src = rng.pick(state.brokers);
+      const copy = makeBroker(src.key, null);
       copy.counters = JSON.parse(JSON.stringify(src.counters));
-      state.perks.push(copy);
-      return { ok: true, msg: `Copied ${PERKS[src.key].name}` };
+      state.brokers.push(copy);
+      return { ok: true, msg: `Cloned ${BROKERS[src.key].name}` };
     },
-    destroyRandomPerk: (spare) => {
-      const pool = state.perks.filter((p) => p !== spare);
+    destroyRandomBroker: (spare) => {
+      const pool = state.brokers.filter((b) => b !== spare);
       if (!pool.length) return null;
       const victim = rng.pick(pool);
-      state.perks.splice(state.perks.indexOf(victim), 1);
+      state.brokers.splice(state.brokers.indexOf(victim), 1);
       return victim;
     },
-    editionRandomPerk: (edition) => {
-      const pool = state.perks.filter((p) => p.edition !== edition);
-      if (!pool.length) return { ok: false, msg: 'No eligible perk' };
+    editionRandomBroker: (edition) => {
+      const pool = state.brokers.filter((b) => b.edition !== edition);
+      if (!pool.length) return { ok: false, msg: 'No eligible broker' };
       const target = rng.pick(pool);
       target.edition = edition;
       computeMods(state);
-      return { ok: true, msg: `${PERKS[target.key].name} is now ${edition}`, spared: target };
+      return { ok: true, msg: `${BROKERS[target.key].name} is now ${edition}`, spared: target };
     },
   };
 }
@@ -763,52 +711,42 @@ export function useConsumable(state, uid, selectedUids = []) {
   if (idx < 0) return { ok: false, msg: 'Not found' };
   const inst = state.consumables[idx];
   const d = ALL_CONSUMABLES[inst.key];
-  const pool = state.session ? state.session.hand : state.deck;
+  const pool = state.session ? state.session.board : state.book;
   const selected = selectedUids.map((u) => pool.find((c) => c.uid === u)).filter(Boolean);
-  const api = consumableApi(state, selected);
-  const result = d.use(api);
+  const result = d.use(consumableApi(state, selected));
   if (result.ok) {
     state.consumables.splice(idx, 1);
     computeMods(state);
-    if (state.session) {
-      state.session.selected = [];
-      drawToFull(state);
-    }
+    if (state.session) { state.session.selected = []; refillBoard(state); }
   }
   return result;
 }
 
 // ---------------------------------------------------------------------------
 export function serialize(state) {
-  const clone = {
+  return JSON.stringify({
     seed: state.seed, rngState: state.rng.state, rngCalls: state.rng.calls,
     phase: state.phase, week: state.week, deadlineIndex: state.deadlineIndex, cash: state.cash,
-    deck: state.deck, perks: state.perks, consumables: state.consumables, licenses: state.licenses,
-    patterns: state.patterns, discoveredPatterns: state.discoveredPatterns, permanent: state.permanent,
+    book: state.book, brokers: state.brokers, consumables: state.consumables, licenses: state.licenses,
+    formations: state.formations, discoveredFormations: state.discoveredFormations, permanent: state.permanent,
     seenBosses: state.seenBosses, pendingBonuses: state.pendingBonuses, stats: state.stats,
     upcoming: state.upcoming?.map((u) => ({ ...u })),
-  };
-  return JSON.stringify(clone);
+  });
 }
 
 export function deserialize(json) {
   const raw = JSON.parse(json);
   const state = newRun(raw.seed);
   Object.assign(state, {
-    phase: raw.phase === 'trading' ? 'select' : raw.phase,
+    phase: 'select',
     week: raw.week, deadlineIndex: raw.deadlineIndex, cash: raw.cash,
-    deck: raw.deck, perks: raw.perks, consumables: raw.consumables, licenses: raw.licenses,
-    patterns: raw.patterns, discoveredPatterns: raw.discoveredPatterns || [], permanent: raw.permanent,
+    book: raw.book, brokers: raw.brokers, consumables: raw.consumables, licenses: raw.licenses,
+    formations: raw.formations, discoveredFormations: raw.discoveredFormations || [], permanent: raw.permanent,
     seenBosses: raw.seenBosses || [], pendingBonuses: raw.pendingBonuses || [], stats: raw.stats,
     upcoming: raw.upcoming,
   });
-  // Restore the RNG stream exactly, so a continued run rolls what it would have.
-  if (typeof raw.rngState === 'number') {
-    state.rng.state = raw.rngState;
-    state.rng.calls = raw.rngCalls || 0;
-  }
+  if (typeof raw.rngState === 'number') { state.rng.state = raw.rngState; state.rng.calls = raw.rngCalls || 0; }
   state.session = null;
-  if (state.phase === 'shop') state.phase = 'select';
   computeMods(state);
   return state;
 }

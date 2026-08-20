@@ -1,13 +1,13 @@
 import { money, bignum } from '../engine/util.js';
-import { PATTERN_KEYS, PATTERNS, patternStats } from '../game/patterns.js';
-import { PERKS, RARITY, perkText, makePerk } from '../game/perks.js';
-import { ALL_CONSUMABLES, CHARTS } from '../game/consumables.js';
+import { FORMATION_KEYS, FORMATIONS, formationStats } from '../game/formations.js';
+import { BROKERS, brokerText } from '../game/brokers.js';
+import { ALL_CONSUMABLES } from '../game/consumables.js';
 import { LICENSES } from '../game/licenses.js';
 import { BOSSES } from '../game/bosses.js';
 import { REGIMES } from '../game/market.js';
-import { SECTORS, RANK_BY_VALUE, cardName } from '../game/cards.js';
+import { SECTORS } from '../game/candles.js';
 import * as S from '../game/state.js';
-import { cardEl, perkEl, consumableEl, attachTip, hideTip, perkTip, consumableTip, licenseTip } from './components.js';
+import { candleEl, brokerEl, consumableEl, hideTip } from './components.js';
 import { sfx, toast } from './fx.js';
 
 const root = () => document.getElementById('overlay-root');
@@ -25,9 +25,7 @@ export function showOverlay(inner, opts = {}) {
   if (opts.width) sheet.style.maxWidth = opts.width;
   sheet.innerHTML = inner;
   ov.appendChild(sheet);
-  if (opts.dismissable !== false) {
-    ov.addEventListener('click', (e) => { if (e.target === ov) closeOverlay(); });
-  }
+  if (opts.dismissable !== false) ov.addEventListener('click', (e) => { if (e.target === ov) closeOverlay(); });
   root().innerHTML = '';
   root().appendChild(ov);
   return sheet;
@@ -39,22 +37,20 @@ export function titleScreen(game, hasSave) {
     <div class="title-wrap">
       <div class="title-logo">MARGIN<em>CALL</em></div>
       <div class="title-tag">HIT THE QUOTA OR GET LIQUIDATED</div>
-      <p style="color:var(--ink-dim);font-size:12px;line-height:1.7;max-width:560px;margin:0 auto 6px">
-        A roguelike day-trading deckbuilder. Build a position out of ticker cards, call the tape
-        <b style="color:var(--green)">LONG</b> or <b style="color:var(--red)">SHORT</b>, and book enough P/L to clear
-        the day's quota. Three deadlines a week. The third one bites back.
+      <p style="color:var(--ink-dim);font-size:12px;line-height:1.7;max-width:580px;margin:0 auto 6px">
+        A roguelike day-trading deckbuilder made of candlesticks. Place candles left to right to print a
+        formation, call the tape <b style="color:var(--green)">LONG</b> or <b style="color:var(--red)">SHORT</b>,
+        and book enough P/L to clear the day's quota. Three deadlines a week. The third one bites back.
       </p>
-      <div class="seed-row">
-        <input id="seed-input" placeholder="SEED (optional)" maxlength="16" />
-      </div>
+      <div class="seed-row"><input id="seed-input" placeholder="SEED (optional)" maxlength="16" /></div>
       <div class="title-actions">
         <button class="btn primary" id="t-new">NEW RUN</button>
         ${hasSave ? '<button class="btn" id="t-continue">CONTINUE</button>' : ''}
         <button class="btn ghost" id="t-help">HOW TO PLAY</button>
       </div>
-      <div style="margin-top:22px;font-size:10px;color:var(--ink-faint);letter-spacing:.14em">
-        ${Object.keys(PERKS).length} PERKS · ${Object.keys(ALL_CONSUMABLES).length} CONSUMABLES ·
-        ${Object.keys(LICENSES).length} LICENSES · ${Object.keys(BOSSES).length} BOSS DEADLINES
+      <div style="margin-top:20px;font-size:10px;color:var(--ink-faint);letter-spacing:.14em">
+        ${Object.keys(BROKERS).length} BROKERS · ${Object.keys(ALL_CONSUMABLES).length} CONSUMABLES ·
+        ${Object.keys(LICENSES).length} LICENCES · ${Object.keys(BOSSES).length} BOSS DEADLINES
       </div>
     </div>`, { dismissable: false, width: '680px' });
 
@@ -70,16 +66,16 @@ export function titleScreen(game, hasSave) {
 export function deadlineSelect(game) {
   const st = game.state;
   const cards = st.upcoming.map((slot, i) => {
-    const quota = S.quotaFor(st, slot) * (slot.boss ? (BOSSES[slot.boss].quotaMult || 1) : 1);
     const boss = slot.boss ? BOSSES[slot.boss] : null;
+    const quota = Math.round((S.quotaFor(st, slot) * (boss?.quotaMult || 1)) / 10) * 10;
     const regime = REGIMES[slot.regime];
     const current = i === st.deadlineIndex;
     const done = slot.done || i < st.deadlineIndex;
     return `
       <div class="dl-choice ${current ? 'current' : ''} ${slot.boss ? 'boss' : ''} ${done ? 'done' : ''}">
         <div class="c-art">${boss ? boss.art : slot.art}</div>
-        <div class="c-name">${boss ? boss.name.toUpperCase() : slot.name.toUpperCase()}</div>
-        <div class="c-quota">${money(Math.round(quota / 10) * 10)}</div>
+        <div class="c-name">${(boss ? boss.name : slot.name).toUpperCase()}</div>
+        <div class="c-quota">${money(quota)}</div>
         <div class="c-reward">clears for $${slot.reward}</div>
         <div class="c-boss">${boss ? boss.blurb : ''}</div>
         <div class="c-regime" style="color:${regime.color}">${regime.name} — ${regime.blurb}</div>
@@ -94,19 +90,19 @@ export function deadlineSelect(game) {
 
   const sheet = showOverlay(`
     <h2>WEEK ${st.week}</h2>
-    <div class="sub">Three deadlines. Clear all three to move to next week. Skipping a deadline trades the cash for a bonus.</div>
+    <div class="sub">Three deadlines. Clear all three to reach next week. Skipping trades the cash for a bonus.</div>
     <div class="dl-choices">${cards}</div>
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:20px">
-      <button class="btn ghost" id="dl-port">PORTFOLIO</button>
-      <button class="btn ghost" id="dl-pat">PATTERNS</button>
+    <div class="btn-row">
+      <button class="btn ghost" id="dl-book">BOOK</button>
+      <button class="btn ghost" id="dl-form">FORMATIONS</button>
       <button class="btn ghost" id="dl-run">RUN INFO</button>
       <button class="btn ghost" id="dl-menu">MENU</button>
     </div>`, { dismissable: false, width: '900px' });
 
   sheet.querySelectorAll('[data-play]').forEach((b) => b.onclick = () => { sfx.open(); game.beginDeadline(+b.dataset.play); });
   sheet.querySelectorAll('[data-skip]').forEach((b) => b.onclick = () => { sfx.buy(); game.skipDeadline(+b.dataset.skip); });
-  sheet.querySelector('#dl-port').onclick = () => portfolioScreen(game, () => deadlineSelect(game));
-  sheet.querySelector('#dl-pat').onclick = () => patternScreen(game, () => deadlineSelect(game));
+  sheet.querySelector('#dl-book').onclick = () => bookScreen(game, () => deadlineSelect(game));
+  sheet.querySelector('#dl-form').onclick = () => formationScreen(game, () => deadlineSelect(game));
   sheet.querySelector('#dl-run').onclick = () => runInfoScreen(game, () => deadlineSelect(game));
   sheet.querySelector('#dl-menu').onclick = () => menuScreen(game, () => deadlineSelect(game));
 }
@@ -114,24 +110,24 @@ export function deadlineSelect(game) {
 // ---------------------------------------------------------------------------
 export function bonusScreen(game, bonus) {
   const sheet = showOverlay(`
-    <div style="text-align:center">
-      <div style="font-size:52px">${bonus.art}</div>
+    <div class="title-wrap">
+      <div style="font-size:50px">${bonus.art}</div>
       <h2 style="margin-top:8px">${bonus.name.toUpperCase()}</h2>
       <div class="sub">${bonus.text}</div>
       <button class="btn primary" id="b-ok">CONTINUE</button>
-    </div>`, { dismissable: false, width: '460px' });
+    </div>`, { dismissable: false, width: '440px' });
   sheet.querySelector('#b-ok').onclick = () => { closeOverlay(); game.afterSkip(); };
 }
 
 // ---------------------------------------------------------------------------
 export function payoutScreen(game, payout) {
-  const lines = payout.lines.map((l) => `
-    <div class="payout-line"><span>${l.label}</span><b>${l.amount >= 0 ? '+' : '-'}$${Math.abs(l.amount)}</b></div>`).join('');
+  const lines = payout.lines.map((l) =>
+    `<div class="payout-line"><span>${l.label}</span><b>${l.amount >= 0 ? '+' : '-'}$${Math.abs(l.amount)}</b></div>`).join('');
   const sheet = showOverlay(`
     <div style="text-align:center">
       <h2 style="color:var(--green)">DEADLINE CLEARED</h2>
       <div class="sub">Booked ${money(payout.profit)} against a ${money(payout.quota)} quota
-        · ${payout.greens} green / ${payout.reds} red</div>
+        · ${payout.greens} green / ${payout.reds} red · best streak ${payout.bestStreak}</div>
     </div>
     <div class="payout-lines">${lines}
       <div class="payout-total"><span>CASH OUT</span><b>+$${payout.total}</b></div>
@@ -142,116 +138,118 @@ export function payoutScreen(game, payout) {
 }
 
 // ---------------------------------------------------------------------------
+// THE FLOOR — every purchasable is one uniform tile in a single centred grid,
+// so the layout never leaves a dead column when stock is thin.
+// ---------------------------------------------------------------------------
 export function shopScreen(game) {
   const st = game.state;
   const shop = st.shop;
+  const tiles = [];
 
-  const itemHtml = shop.items.map((it, i) => {
+  shop.items.forEach((it, i) => {
     const price = S.itemPrice(st, it.cost);
-    let art, name, desc, cls = '';
-    if (it.type === 'perk') {
-      const d = PERKS[it.key];
-      art = d.art; name = d.name; desc = perkText(it.inst, st);
-      cls = `rar-${d.rarity}`;
-    } else {
-      const d = ALL_CONSUMABLES[it.key];
-      art = d.art; name = d.name; desc = d.text;
-    }
-    return `<div class="shop-slot ${it.sold ? 'sold' : ''} ${cls}" data-item="${i}">
-      <div class="s-art">${art}</div>
-      <div class="s-name">${name}</div>
+    const d = it.type === 'broker' ? BROKERS[it.key] : ALL_CONSUMABLES[it.key];
+    const kind = it.type === 'broker' ? 'BROKER' : it.type.toUpperCase();
+    const desc = it.type === 'broker' ? brokerText(it.inst, st) : d.text;
+    tiles.push(`<div class="shop-slot ${it.sold ? 'sold' : ''}">
+      <div class="s-kind">${kind}</div>
+      <div class="s-art">${d.art}</div>
+      <div class="s-name">${d.name}</div>
       <div class="s-desc">${desc}</div>
       <div class="s-price">$${price}</div>
       <button class="btn" data-buy="${i}" ${st.cash < price ? 'disabled' : ''}>BUY</button>
-    </div>`;
-  }).join('');
+    </div>`);
+  });
 
-  const packHtml = shop.packs.map((p, i) => {
+  shop.packs.forEach((p, i) => {
     const price = S.itemPrice(st, p.cost);
-    return `<div class="shop-slot ${p.sold ? 'sold' : ''}">
+    tiles.push(`<div class="shop-slot kind-pack ${p.sold ? 'sold' : ''}">
+      <div class="s-kind">PACK</div>
       <div class="s-art">${p.art}</div>
       <div class="s-name">${p.name}</div>
-      <div class="s-desc">Choose ${p.choose} of ${p.size}</div>
+      <div class="s-desc">Pick ${p.choose} of ${p.size}</div>
       <div class="s-price">$${price}</div>
       <button class="btn" data-pack="${i}" ${st.cash < price ? 'disabled' : ''}>OPEN</button>
-    </div>`;
-  }).join('');
+    </div>`);
+  });
 
-  const lic = shop.license && !shop.license.sold ? (() => {
+  if (shop.license && !shop.license.sold) {
     const l = LICENSES[shop.license.key];
     const price = S.itemPrice(st, l.cost);
-    return `<div class="license-card">
-      <div class="l-art">${l.art}</div>
-      <div class="l-name">${l.name}</div>
-      <div class="l-desc">${l.text}</div>
-      <button class="btn" id="buy-lic" ${st.cash < price ? 'disabled' : ''}>BUY $${price}</button>
-    </div>`;
-  })() : '<div style="font-size:10px;color:var(--ink-faint);text-align:center;padding:14px">No licence on offer</div>';
+    tiles.push(`<div class="shop-slot kind-licence">
+      <div class="s-kind">LICENCE · PERMANENT</div>
+      <div class="s-art">${l.art}</div>
+      <div class="s-name">${l.name}</div>
+      <div class="s-desc">${l.text}</div>
+      <div class="s-price">$${price}</div>
+      <button class="btn" id="buy-lic" ${st.cash < price ? 'disabled' : ''}>BUY</button>
+    </div>`);
+  }
 
   const rerollCost = Math.max(0, shop.rerollCost - st.mods.rerollDiscount);
   const sheet = showOverlay(`
-    <div style="display:flex;align-items:baseline;justify-content:space-between">
-      <div><h2>THE FLOOR</h2><div class="sub">Week ${st.week} · spend it before the bell</div></div>
+    <div class="sheet-head">
+      <div><h2>THE FLOOR</h2><div class="sub" style="margin:0">Week ${st.week} · spend it before the bell</div></div>
       <div style="font-size:22px;color:var(--gold);font-weight:700">${money(st.cash)}</div>
     </div>
-    <div class="shop-grid">
-      <div>
-        <h3>ON OFFER</h3>
-        <div class="shop-items" id="shop-items">${itemHtml}</div>
-        <h3>PACKS</h3>
-        <div class="pack-row">${packHtml}</div>
+    <div class="floor-grid" style="margin-top:14px">${tiles.join('')}</div>
+    <div class="floor-bar">
+      <div class="fb-group">
+        <span class="fb-label">DESK</span>
+        <div class="fb-items" id="shop-desk"></div>
       </div>
-      <div class="shop-side">
-        <h3 style="margin-top:0">LICENCE</h3>
-        ${lic}
-        <h3>YOUR DESK</h3>
-        <div id="shop-desk" style="display:flex;gap:6px;flex-wrap:wrap;min-height:90px"></div>
-        <div style="font-size:10px;color:var(--ink-faint)">Right-click a perk to sell it.</div>
-        <h3>CHARTS</h3>
-        <div id="shop-cons" style="display:flex;gap:6px;flex-wrap:wrap;min-height:58px"></div>
+      <div class="fb-group">
+        <span class="fb-label">CHARTS</span>
+        <div class="fb-items" id="shop-cons"></div>
       </div>
+      <span class="fb-hint">right-click to sell · click a chart to use it</span>
     </div>
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:20px">
+    <div class="btn-row">
       <button class="btn" id="shop-reroll" ${st.cash < rerollCost && shop.freeRerolls <= 0 ? 'disabled' : ''}>
-        REROLL ${shop.freeRerolls > 0 ? '(FREE x' + shop.freeRerolls + ')' : '$' + rerollCost}</button>
-      <button class="btn ghost" id="shop-port">PORTFOLIO</button>
+        REROLL ${shop.freeRerolls > 0 ? '(FREE ×' + shop.freeRerolls + ')' : '$' + rerollCost}</button>
+      <button class="btn ghost" id="shop-book">BOOK</button>
+      <button class="btn ghost" id="shop-form">FORMATIONS</button>
       <button class="btn primary" id="shop-next">NEXT DEADLINE →</button>
-    </div>`, { dismissable: false, width: '1080px' });
+    </div>`, { dismissable: false, width: '1020px' });
 
-  // desk / consumables previews
   const desk = sheet.querySelector('#shop-desk');
-  st.perks.forEach((p) => {
-    const el = perkEl(p, st);
+  st.brokers.forEach((b) => {
+    const el = brokerEl(b, st);
     el.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      const r = S.sellPerk(st, p.uid);
+      const r = S.sellBroker(st, b.uid);
       if (r.ok) { sfx.cash(); toast(`Sold for $${r.value}`, 'good'); shopScreen(game); game.render(); }
     });
     desk.appendChild(el);
   });
+  for (let i = S.slotsUsed(st); i < st.mods.slots; i++) {
+    const e = document.createElement('div'); e.className = 'slot-empty'; desk.appendChild(e);
+  }
+
   const cons = sheet.querySelector('#shop-cons');
   st.consumables.forEach((c) => {
     const el = consumableEl(c, st);
     el.onclick = () => {
       const r = S.useConsumable(st, c.uid, []);
       if (r.ok) { sfx.buy(); toast(r.msg, 'good'); shopScreen(game); game.render(); }
-      else toast(r.msg || 'Needs tickers selected — use it during a deadline', 'bad');
+      else toast(r.msg || 'Needs candles selected — use it during a deadline', 'bad');
     };
     el.addEventListener('contextmenu', (e) => {
       e.preventDefault(); S.sellConsumable(st, c.uid); sfx.cash(); shopScreen(game); game.render();
     });
     cons.appendChild(el);
   });
+  for (let i = st.consumables.length; i < st.mods.chartSlots; i++) {
+    const e = document.createElement('div'); e.className = 'slot-empty'; cons.appendChild(e);
+  }
 
   sheet.querySelectorAll('[data-buy]').forEach((b) => b.onclick = () => {
     const r = S.buyShopItem(st, +b.dataset.buy);
-    if (r.ok) { sfx.buy(); shopScreen(game); game.render(); }
-    else { sfx.err(); toast(r.blocked, 'bad'); }
+    if (r.ok) { sfx.buy(); shopScreen(game); game.render(); } else { sfx.err(); toast(r.blocked, 'bad'); }
   });
   sheet.querySelectorAll('[data-pack]').forEach((b) => b.onclick = () => {
     const r = S.buyPack(st, +b.dataset.pack);
-    if (r.ok) { sfx.open(); packScreen(game); }
-    else { sfx.err(); toast(r.blocked, 'bad'); }
+    if (r.ok) { sfx.open(); packScreen(game); } else { sfx.err(); toast(r.blocked, 'bad'); }
   });
   sheet.querySelector('#buy-lic')?.addEventListener('click', () => {
     const r = S.buyLicense(st);
@@ -261,7 +259,8 @@ export function shopScreen(game) {
     const r = S.rerollShop(st);
     if (r.ok) { sfx.select(); shopScreen(game); game.render(); } else { sfx.err(); toast(r.blocked, 'bad'); }
   };
-  sheet.querySelector('#shop-port').onclick = () => portfolioScreen(game, () => shopScreen(game));
+  sheet.querySelector('#shop-book').onclick = () => bookScreen(game, () => shopScreen(game));
+  sheet.querySelector('#shop-form').onclick = () => formationScreen(game, () => shopScreen(game));
   sheet.querySelector('#shop-next').onclick = () => { sfx.open(); game.leaveFloor(); };
 }
 
@@ -282,18 +281,15 @@ export function packScreen(game) {
   const wrap = sheet.querySelector('#pack-opts');
   open.options.forEach((opt, i) => {
     let el;
-    if (opt.type === 'ticker') el = cardEl(opt.card, { reveal: true });
-    else if (opt.type === 'perk') { el = perkEl(opt.inst, st, { hideSell: true }); el.style.transform = 'scale(1.3)'; el.style.margin = '12px 18px'; }
-    else { el = consumableEl({ key: opt.key, uid: 'pk' + i }, st); el.style.transform = 'scale(1.35)'; el.style.margin = '10px 14px'; }
+    if (opt.type === 'candle') { el = candleEl(opt.candle, { reveal: true }); el.style.transform = 'scale(1.15)'; el.style.margin = '8px 10px'; }
+    else if (opt.type === 'broker') { el = brokerEl(opt.inst, st, { hideSell: true }); el.style.transform = 'scale(1.3)'; el.style.margin = '12px 18px'; }
+    else { el = consumableEl({ key: opt.key, uid: 'pk' + i }, st); el.style.transform = 'scale(1.3)'; el.style.margin = '12px 16px'; }
     el.classList.add('pack-opt');
     if (opt.taken) el.classList.add('taken');
     el.onclick = () => {
       const r = S.pickFromPack(st, i);
-      if (r.ok) {
-        sfx.buy();
-        if (st.shop.pack) packScreen(game); else { shopScreen(game); }
-        game.render();
-      } else { sfx.err(); toast(r.blocked, 'bad'); }
+      if (r.ok) { sfx.buy(); if (st.shop.pack) packScreen(game); else shopScreen(game); game.render(); }
+      else { sfx.err(); toast(r.blocked, 'bad'); }
     };
     wrap.appendChild(el);
   });
@@ -301,40 +297,43 @@ export function packScreen(game) {
 }
 
 // ---------------------------------------------------------------------------
-export function portfolioScreen(game, back) {
+export function bookScreen(game, back) {
   const st = game.state;
-  const bySector = {};
-  for (const k of Object.keys(SECTORS)) bySector[k] = st.deck.filter((c) => c.sector === k).length;
-  const enhanced = st.deck.filter((c) => c.enhancement).length;
-  const sorted = st.deck.slice().sort((a, b) =>
-    Object.keys(SECTORS).indexOf(a.sector) - Object.keys(SECTORS).indexOf(b.sector) || b.rank - a.rank);
+  const bulls = st.book.filter((c) => c.bull).length;
+  const enhanced = st.book.filter((c) => c.enhancement).length;
+  const avg = st.book.length ? (st.book.reduce((a, c) => a + c.body, 0) / st.book.length).toFixed(1) : '0';
+  const sorted = st.book.slice().sort((a, b) =>
+    Object.keys(SECTORS).indexOf(a.sector) - Object.keys(SECTORS).indexOf(b.sector) || b.body - a.body);
 
   const sheet = showOverlay(`
-    <h2>PORTFOLIO</h2>
-    <div class="sub">${st.deck.length} tickers · ${enhanced} enhanced</div>
-    <div class="deck-stats">
-      ${Object.entries(SECTORS).map(([k, s]) =>
-        `<div class="deck-stat"><label style="color:${s.color}">${s.name.toUpperCase()} ${s.glyph}</label><b>${bySector[k]}</b></div>`).join('')}
+    <h2>THE BOOK</h2>
+    <div class="sub">${st.book.length} candles · ${enhanced} enhanced</div>
+    <div class="stat-grid">
+      <div class="stat-box"><label style="color:var(--green)">BULL</label><b>${bulls}</b></div>
+      <div class="stat-box"><label style="color:var(--red)">BEAR</label><b>${st.book.length - bulls}</b></div>
+      <div class="stat-box"><label>AVG BODY</label><b>${avg}</b></div>
+      <div class="stat-box"><label>SECTORS</label><b style="font-size:12px">${Object.entries(SECTORS).map(([k, s]) =>
+        `<span style="color:${s.color}">${st.book.filter((c) => c.sector === k).length}${s.glyph}</span>`).join(' ')}</b></div>
     </div>
-    <div class="deck-grid" id="deck-grid"></div>
-    <div style="text-align:center;margin-top:18px"><button class="btn" id="pf-back">BACK</button></div>`,
-    { dismissable: false, width: '900px' });
-  const grid = sheet.querySelector('#deck-grid');
-  sorted.forEach((c) => grid.appendChild(cardEl(c, { reveal: true })));
-  sheet.querySelector('#pf-back').onclick = () => (back ? back() : closeOverlay());
+    <div class="book-grid" id="book-grid"></div>
+    <div class="btn-row"><button class="btn" id="bk-back">BACK</button></div>`,
+    { dismissable: false, width: '940px' });
+  const grid = sheet.querySelector('#book-grid');
+  sorted.forEach((c) => grid.appendChild(candleEl(c, { reveal: true })));
+  sheet.querySelector('#bk-back').onclick = () => (back ? back() : closeOverlay());
 }
 
 // ---------------------------------------------------------------------------
-export function patternScreen(game, back) {
+export function formationScreen(game, back) {
   const st = game.state;
-  const rows = PATTERN_KEYS.slice().reverse().map((k) => {
-    const p = PATTERNS[k];
-    const lv = st.patterns[k];
-    const hidden = p.secret && !st.discoveredPatterns.includes(k) && lv.played === 0;
-    const s = patternStats(k, lv.level);
+  const rows = FORMATION_KEYS.slice().reverse().map((k) => {
+    const f = FORMATIONS[k];
+    const lv = st.formations[k];
+    const hidden = f.secret && !st.discoveredFormations.includes(k) && lv.played === 0;
+    const s = formationStats(k, lv.level);
     return `<tr class="${hidden ? 'secret' : ''}">
-      <td>${hidden ? '???????' : p.name}</td>
-      <td style="color:var(--ink-faint)">${hidden ? '???' : p.poker}</td>
+      <td>${hidden ? '???????' : f.name}</td>
+      <td style="color:var(--ink-faint)">${hidden ? '???' : f.made}</td>
       <td class="lv">lv.${lv.level}</td>
       <td class="v">${hidden ? '?' : s.volume}</td>
       <td class="m">${hidden ? '?' : 'x' + s.leverage}</td>
@@ -342,15 +341,16 @@ export function patternScreen(game, back) {
     </tr>`;
   }).join('');
   const sheet = showOverlay(`
-    <h2>CHART PATTERNS</h2>
-    <div class="sub">Contracts bought on the Floor permanently level these up.</div>
+    <h2>FORMATIONS</h2>
+    <div class="sub">Contracts bought on the Floor level these permanently.
+      Soldiers and Crows read the candles <b style="color:var(--cyan)">in the order you place them</b>.</div>
     <table class="pat-table">
-      <tr><th>PATTERN</th><th>MADE OF</th><th>LEVEL</th><th>VOLUME</th><th>LEVERAGE</th><th>PLAYED</th></tr>
+      <tr><th>FORMATION</th><th>MADE OF</th><th>LEVEL</th><th>VOLUME</th><th>LEVERAGE</th><th>PRINTED</th></tr>
       ${rows}
     </table>
-    <div style="text-align:center;margin-top:18px"><button class="btn" id="pt-back">BACK</button></div>`,
-    { dismissable: false, width: '640px' });
-  sheet.querySelector('#pt-back').onclick = () => (back ? back() : closeOverlay());
+    <div class="btn-row"><button class="btn" id="ft-back">BACK</button></div>`,
+    { dismissable: false, width: '680px' });
+  sheet.querySelector('#ft-back').onclick = () => (back ? back() : closeOverlay());
 }
 
 // ---------------------------------------------------------------------------
@@ -365,26 +365,26 @@ export function runInfoScreen(game, back) {
   const sheet = showOverlay(`
     <h2>RUN INFO</h2>
     <div class="sub">Seed <b style="color:var(--cyan)">${st.seed}</b></div>
-    <div class="deck-stats" style="grid-template-columns:repeat(4,1fr)">
-      <div class="deck-stat"><label>TRADES</label><b>${m.trades}</b></div>
-      <div class="deck-stat"><label>DISCARDS</label><b>${m.discards}</b></div>
-      <div class="deck-stat"><label>HAND SIZE</label><b>${m.handSize}</b></div>
-      <div class="deck-stat"><label>DESK SLOTS</label><b>${m.slots}</b></div>
-      <div class="deck-stat"><label>SIGNAL</label><b>${m.perfectSignal ? '100%' : Math.round(m.accuracy * 100) + '%'}</b></div>
-      <div class="deck-stat"><label>WRONG-WAY</label><b>x${m.redMult}</b></div>
-      <div class="deck-stat"><label>INTEREST</label><b>$1/$${m.interestRate}</b></div>
-      <div class="deck-stat"><label>CAP</label><b>$${m.interestCap}</b></div>
+    <div class="stat-grid">
+      <div class="stat-box"><label>TRADES</label><b>${m.trades}</b></div>
+      <div class="stat-box"><label>SWEEPS</label><b>${m.discards}</b></div>
+      <div class="stat-box"><label>BOARD</label><b>${m.handSize}</b></div>
+      <div class="stat-box"><label>DESK SLOTS</label><b>${m.slots}</b></div>
+      <div class="stat-box"><label>SIGNAL</label><b>${m.perfectSignal ? '100%' : Math.round(m.accuracy * 100) + '%'}</b></div>
+      <div class="stat-box"><label>WRONG-WAY</label><b>x${m.redMult}</b></div>
+      <div class="stat-box"><label>CONVICTION</label><b>${m.noConviction ? 'off' : 'x' + (1.5 + m.convictionBonus).toFixed(2)}</b></div>
+      <div class="stat-box"><label>INTEREST</label><b>$1/$${m.interestRate} · cap $${m.interestCap}</b></div>
     </div>
     <h3>LICENCES</h3>${licHtml}
     <h3>CAREER</h3>
-    <div class="deck-stats" style="grid-template-columns:repeat(4,1fr)">
-      <div class="deck-stat"><label>TRADES</label><b>${st.stats.trades}</b></div>
-      <div class="deck-stat"><label>GREEN</label><b class="green">${st.stats.greens}</b></div>
-      <div class="deck-stat"><label>RED</label><b>${st.stats.reds}</b></div>
-      <div class="deck-stat"><label>BEST P/L</label><b>${'$' + bignum(st.stats.bestPL)}</b></div>
+    <div class="stat-grid">
+      <div class="stat-box"><label>TRADES</label><b>${st.stats.trades}</b></div>
+      <div class="stat-box"><label>GREEN</label><b style="color:var(--green)">${st.stats.greens}</b></div>
+      <div class="stat-box"><label>MARCHES</label><b>${st.stats.marches}</b></div>
+      <div class="stat-box"><label>BEST P/L</label><b>$${bignum(st.stats.bestPL)}</b></div>
     </div>
-    <div style="text-align:center;margin-top:18px"><button class="btn" id="ri-back">BACK</button></div>`,
-    { dismissable: false, width: '640px' });
+    <div class="btn-row"><button class="btn" id="ri-back">BACK</button></div>`,
+    { dismissable: false, width: '660px' });
   sheet.querySelector('#ri-back').onclick = () => (back ? back() : closeOverlay());
 }
 
@@ -400,14 +400,14 @@ export function gameOverScreen(game, won) {
               : `You booked ${money(s ? s.profit : 0)} against a ${money(s ? s.quota : 0)} quota. Compliance is on the phone.`}
       </div>
       <div class="go-stats">
-        <div class="deck-stat"><label>REACHED</label><b>Week ${st.week} · DL ${st.deadlineIndex + 1}</b></div>
-        <div class="deck-stat"><label>DEADLINES</label><b>${st.stats.deadlinesCleared}</b></div>
-        <div class="deck-stat"><label>BOSSES</label><b>${st.stats.bossesCleared}</b></div>
-        <div class="deck-stat"><label>TRADES</label><b>${st.stats.trades}</b></div>
-        <div class="deck-stat"><label>GREEN / RED</label><b>${st.stats.greens} / ${st.stats.reds}</b></div>
-        <div class="deck-stat"><label>BEST TRADE</label><b>$${bignum(st.stats.bestPL)}</b></div>
+        <div class="stat-box"><label>REACHED</label><b>Week ${st.week} · DL ${st.deadlineIndex + 1}</b></div>
+        <div class="stat-box"><label>DEADLINES</label><b>${st.stats.deadlinesCleared}</b></div>
+        <div class="stat-box"><label>BOSSES</label><b>${st.stats.bossesCleared}</b></div>
+        <div class="stat-box"><label>TRADES</label><b>${st.stats.trades}</b></div>
+        <div class="stat-box"><label>GREEN / RED</label><b>${st.stats.greens} / ${st.stats.reds}</b></div>
+        <div class="stat-box"><label>BEST TRADE</label><b>$${bignum(st.stats.bestPL)}</b></div>
       </div>
-      <div style="font-size:11px;color:var(--ink-faint);margin-bottom:16px">SEED ${st.seed}</div>
+      <div style="font-size:11px;color:var(--ink-faint);margin-bottom:14px">SEED ${st.seed}</div>
       <div class="title-actions">
         <button class="btn primary" id="go-again">NEW RUN</button>
         <button class="btn ghost" id="go-same">REPLAY SEED</button>
@@ -423,55 +423,59 @@ export function gameOverScreen(game, won) {
 export function helpScreen(game, fromTitle, back) {
   const sheet = showOverlay(`
     <h2>HOW TO PLAY</h2>
-    <div class="sub">You have one week to double the desk's money. Then another. Then another.</div>
+    <div class="sub">One week to make the desk's money. Then another. Then another.</div>
     <div class="help-cols">
       <div>
         <h3>THE LOOP</h3>
         <ul>
-          <li>Every <b>deadline</b> gives you a <b>quota</b> and a handful of <b>trades</b>.</li>
-          <li>Pick 1–5 tickers from your hand to build a position.</li>
-          <li>The pattern they form (pair, straight, flush…) sets your base
+          <li>Every <b>deadline</b> gives you a <b>quota</b>, a few <b>trades</b> and some <b>sweeps</b>.</li>
+          <li>Place 1–5 candles from your board. <b>The order you place them is the order they print</b> —
+              the badge on each candle shows its slot.</li>
+          <li>What they print is a <b>formation</b>, which sets base
               <b style="color:var(--cyan)">Volume</b> and <b style="color:var(--red)">Leverage</b>.</li>
           <li>Then call it: <b style="color:var(--green)">LONG</b> or <b style="color:var(--red)">SHORT</b>.</li>
-          <li>Call it right → <b>GREEN</b>, you book the full P/L.
-              Call it wrong → <b>RED</b>, you keep only 35% of it.</li>
-          <li>Volume × Leverage = P/L. Reach the quota before you run out of trades.</li>
-          <li>Miss the quota and the run ends. That's it. No second chances.</li>
+          <li>Right → <b>GREEN</b>, full P/L. Wrong → <b>RED</b>, you keep 35%.</li>
+          <li>Volume × Leverage = P/L. Hit the quota before the trades run out, or the run ends.</li>
         </ul>
-        <h3>THE SIGNAL</h3>
+        <h3>CANDLES</h3>
         <ul>
-          <li>The desk shows an arrow for the next tick — but it only tells the truth
-              <b>68%</b> of the time to start.</li>
-          <li>Terminals, feeds and phones raise that. Some perks stop caring entirely.</li>
-          <li>The market <b>regime</b> (Bull Run, Capitulation, Squeeze…) changes payouts for each direction.</li>
+          <li>Every candle has a <b>sector</b>, a <b>body</b> (1–13, worth that much Volume)
+              and a <b>polarity</b> — bull or bear.</li>
+          <li>Matching bodies make Tweezers, Triples and Pillars. Consecutive bodies make a <b>Staircase</b>.
+              One sector across the board makes a <b>Cluster</b>.</li>
+          <li>Three rising bulls in a row print <b>Three White Soldiers</b>; three falling bears print
+              <b>Three Black Crows</b>. Use <span class="k">ARRANGE</span> to sort your placement.</li>
         </ul>
       </div>
       <div>
+        <h3>CONVICTION</h3>
+        <ul>
+          <li>If your printed candles agree with the direction you called, you get
+              <b style="color:var(--gold)">Conviction</b>: ×1.5 Leverage when every candle agrees,
+              ×1.2 when most do.</li>
+          <li>That's the tension — the biggest formation is often the one pointing the wrong way.</li>
+          <li>The desk signal only tells the truth <b>68%</b> of the time to start. Terminals and burner
+              phones raise that. The market <b>regime</b> changes what each direction pays.</li>
+        </ul>
         <h3>BUILDING A DESK</h3>
         <ul>
-          <li><b>Perks</b> sit on your desk and trigger left to right. Drag to reorder — order matters
+          <li><b>Brokers</b> sit on your desk and trigger left to right. Drag to reorder — order matters
               when multipliers are involved.</li>
-          <li><b>Charts</b> reshape your portfolio, <b>Contracts</b> permanently level a pattern,
-              <b>Rumors</b> are high-risk power spikes.</li>
-          <li><b>Licences</b> are permanent run upgrades. <b>Packs</b> let you pick from a spread.</li>
-          <li>Skipping a non-boss deadline trades the payout for a <b>bonus</b>.</li>
-        </ul>
-        <h3>BOSS DEADLINES</h3>
-        <ul>
-          <li>Every third deadline is a <b>boss</b> with a rule that breaks your build:
-              blanked sectors, banned directions, halved leverage, disabled perks.</li>
-          <li>Read it on the select screen and buy around it.</li>
+          <li><b>Charts</b> reshape your book, <b>Contracts</b> level a formation permanently,
+              <b>Rumors</b> are high-risk power spikes, <b>Licences</b> are permanent upgrades.</li>
+          <li>Every third deadline is a <b>boss</b> that breaks one rule. Read it and buy around it.</li>
         </ul>
         <h3>CONTROLS</h3>
         <ul>
-          <li><span class="k">1–9</span> select ticker · <span class="k">click</span> select</li>
-          <li><span class="k">L</span> long · <span class="k">S</span> short · <span class="k">D</span> discard</li>
-          <li><span class="k">Space</span> sort hand · <span class="k">Esc</span> close · <span class="k">M</span> mute</li>
-          <li>Right-click a perk or chart to sell it.</li>
+          <li><span class="k">1–9</span> place candle · <span class="k">click</span> place</li>
+          <li><span class="k">L</span> long · <span class="k">S</span> short · <span class="k">W</span> sweep</li>
+          <li><span class="k">A</span> arrange · <span class="k">Space</span> sort board ·
+              <span class="k">Esc</span> menu · <span class="k">M</span> mute</li>
+          <li>Right-click a broker or chart to sell it.</li>
         </ul>
       </div>
     </div>
-    <div style="text-align:center;margin-top:20px"><button class="btn primary" id="h-back">GOT IT</button></div>`,
+    <div class="btn-row"><button class="btn primary" id="h-back">GOT IT</button></div>`,
     { dismissable: !fromTitle, width: '940px' });
   sheet.querySelector('#h-back').onclick = () => {
     if (fromTitle) titleScreen(game, game.hasSave());

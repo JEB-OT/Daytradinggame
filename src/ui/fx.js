@@ -36,6 +36,7 @@ export function popText(anchor, text, kind = 'info') {
 export function burst(text, sub, kind) {
   const layer = document.getElementById('score-burst');
   if (!layer) return;
+  layer.innerHTML = '';   // never stack two callouts on the same spot
   const el = document.createElement('div');
   el.className = 'burst ' + kind;
   el.innerHTML = `${text}${sub ? `<small>${sub}</small>` : ''}`;

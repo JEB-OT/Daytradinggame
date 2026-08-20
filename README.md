@@ -1,10 +1,11 @@
 # MARGIN CALL
 
-**A 2D roguelike day-trading deckbuilder.** Build a position out of ticker cards, call the tape
-long or short, and book enough P/L to clear the day's quota. Miss it and you're liquidated.
+**A 2D roguelike day-trading deckbuilder made of candlesticks.** Place candles on the tape to
+print a formation, call it long or short, and book enough P/L to clear the day's quota.
+Miss it and you're liquidated.
 
 Inspired by the "one more run" loop of *Balatro*, *Raccoin* and *Cloverpit* — a small pile of
-starting cards, a shop full of items that break the rules, and a deadline that keeps moving.
+starting pieces, a shop full of things that break the rules, and a deadline that keeps moving.
 
 No build step, no dependencies. Open it in a browser and play.
 
@@ -25,53 +26,78 @@ Each **week** has three **deadlines**:
 |---|----------|-------|-------|
 | 1 | Morning Bell | ×1.0 | can be skipped for a bonus |
 | 2 | Afternoon Session | ×1.5 | can be skipped for a bonus |
-| 3 | **Boss Deadline** | ×2.0 | one of 25 rules that breaks your build |
+| 3 | **Boss Deadline** | ×2.0 | one of 29 rules that breaks your build |
 
-A deadline gives you a cash **quota**, a handful of **trades** and some **discards**.
+A deadline gives you a cash **quota**, a handful of **trades** and some **sweeps**.
 
-1. Pick **1–5 tickers** from your hand. The pattern they form sets your base
-   **Volume** (chips) and **Leverage** (multiplier).
-2. Call the tape: **LONG** or **SHORT**.
-3. A hidden tick prints. Right call → **GREEN**, you book the full P/L.
-   Wrong call → **RED**, you keep 35% of it.
-4. `Volume × Leverage = P/L`. Reach the quota before you run out of trades.
+1. Place **1–5 candles** from your board. **The order you place them is the order they print** —
+   a numbered badge appears on each one.
+2. What they print is a **formation**, which sets base **Volume** and **Leverage**.
+3. Call the tape: **LONG** or **SHORT**.
+4. Right call → **GREEN**, full P/L. Wrong call → **RED**, you keep 35%.
+5. `Volume × Leverage = P/L`. Reach the quota before you run out of trades, or the run ends.
 
-Run out of trades below quota and the run is over. Clear it and you hit **The Floor** to spend
-the payout before the next bell.
-
-### The signal
-
-The desk shows an arrow for the next tick, but it only tells the truth **68%** of the time to
-start. Terminals, data feeds and burner phones push that up; some perks stop caring about
-direction entirely; one boss hides the arrow completely.
-
-The **market regime** — Bull Run, Capitulation, Short Squeeze, Melt-Up, Chop and three more —
-changes what each direction pays. A correct SHORT during a Melt-Up pays double. A SHORT during
-a Squeeze barely pays at all.
+Clear it and you hit **The Floor** to spend the payout before the next bell.
 
 ---
 
-## Chart patterns
+## Candles
 
-Poker hands, re-skinned as chart patterns. **Contracts** bought on the Floor level them up
-permanently.
+Every candle has three independent axes:
 
-| Pattern | Made of | Volume | Leverage |
+- **Sector** — Tech ▲, Crypto ◆ (Growth) · Energy ⚡, Finance ● (Value)
+- **Body** — 1 to 13. The body is drawn to scale on the tile, and contributes that much Volume.
+  A body of 1 is a **doji**; 11 and up is **wide**.
+- **Polarity** — **BULL** (green) or **BEAR** (red). The book starts split exactly 26 / 26.
+
+Polarity is what makes candles more than re-skinned cards: it feeds **Conviction**.
+
+### Conviction
+
+When your printed candles agree with the direction you just called, you get paid for it:
+
+| Agreement | Multiplier |
+|---|---|
+| Every candle agrees | **×1.5 Leverage** |
+| Most of them agree | **×1.2 Leverage** |
+| A split book | ×1.0 |
+
+That's the tension the whole game turns on. The biggest formation on your board is often the
+one pointing the wrong way, and the readout under the score shows both calls side by side
+(`▲ ×1.50 · ▼ ×1.00`) so the trade-off is always in front of you.
+
+The desk signal only tells the truth **68%** of the time to start. Terminals, data feeds and
+burner phones push that up; some brokers stop caring about direction entirely. Eight market
+**regimes** (Bull Run, Capitulation, Short Squeeze, Melt-Up, Chop…) change what each direction pays.
+
+---
+
+## Formations
+
+Fourteen of them. Most read the **set** of bodies you placed; two read the **order**.
+
+| Formation | Made of | Volume | Leverage |
 |---|---|---:|---:|
-| Flat Line | High Card | 5 | ×1 |
-| Double Bottom | Pair | 10 | ×2 |
-| Head & Shoulders | Two Pair | 20 | ×2 |
-| Triple Top | Three of a Kind | 30 | ×3 |
-| Breakout Rally | Straight | 30 | ×4 |
-| Sector Rotation | Flush | 35 | ×4 |
-| Bull Flag | Full House | 40 | ×4 |
-| Quad Witching | Four of a Kind | 60 | ×7 |
-| Golden Cross | Straight Flush | 100 | ×8 |
-| Insider Tip | Five of a Kind | 120 | ×12 |
-| Market Corner | Flush House | 140 | ×14 |
-| Total Monopoly | Flush Five | 160 | ×16 |
+| Single Tick | one candle | 5 | ×1 |
+| Tweezer | two matching bodies | 10 | ×2 |
+| Double Tweezer | two separate matching pairs | 20 | ×2 |
+| Triple Tap | three matching bodies | 30 | ×3 |
+| **Three White Soldiers** | 3+ bull candles, bodies rising | 30 | ×4 |
+| **Three Black Crows** | 3+ bear candles, bodies falling | 30 | ×4 |
+| Staircase | five consecutive bodies | 35 | ×4 |
+| Sector Cluster | five candles from one sector | 40 | ×4 |
+| Pillars | three matching plus two matching | 45 | ×4 |
+| Four Winds | four matching bodies | 60 | ×7 |
+| Golden Staircase | a Staircase inside one sector | 100 | ×8 |
+| Five Alarm | five matching bodies | 120 | ×12 |
+| Mega Cluster | Pillars inside one sector | 140 | ×14 |
+| Perfect Storm | five matching bodies, one sector | 160 | ×16 |
 
-The last three only exist once you can duplicate ranks — they stay hidden until you make one.
+The last three stay hidden until you first print one.
+
+**Soldiers and Crows must be contiguous in placement order.** The same three candles placed
+9-3-6 print nothing; placed 3-6-9 they print Soldiers. `ARRANGE` sorts your placement rising or
+falling in one click, so the mechanic is a decision rather than a chore.
 
 ---
 
@@ -79,36 +105,35 @@ The last three only exist once you can duplicate ranks — they stay hidden unti
 
 | Layer | Count | What it does |
 |---|---:|---|
-| **Perks** | 102 | Sit on your desk, trigger left to right. The combo engine. |
-| **Charts** | 23 | Tarot-likes. Reshape the tickers in your portfolio. |
-| **Contracts** | 12 | Permanently level one chart pattern. |
-| **Rumors** | 18 | High-risk power spikes with a real cost. |
-| **Licences** | 26 | Permanent run upgrades, in 13 two-tier chains. |
-| **Bosses** | 25 | One rule each, and it's always the wrong one for your build. |
-| **Packs** | 13 | Pick 1–2 from a spread of tickers, perks or consumables. |
+| **Brokers** | 118 | Sit on your desk and trigger left to right. The combo engine. |
+| **Charts** | 29 | Reshape the candles in your book — bodies, sectors, polarity, enhancements. |
+| **Contracts** | 14 | Permanently level one formation. |
+| **Rumors** | 20 | High-risk power spikes with a real cost. |
+| **Licences** | 28 | Permanent run upgrades, in 14 two-tier chains. |
+| **Bosses** | 29 | One rule each, and it's always the wrong one for your build. |
+| **Packs** | 13 | Pick 1–2 from a spread of candles, brokers or consumables. |
 | **Bonuses** | 12 | Paid out for skipping a non-boss deadline. |
 
-**Perk order matters.** Additive perks want to go before multiplicative ones. Drag them to
-reorder. Arb Bot copies whatever sits to its right, so where you drop it changes everything.
+**Broker order matters.** Additive brokers want to sit before multiplicative ones. Drag to
+reorder. Arb Bot copies whatever is to its right, so where you drop it changes everything.
 
-Tickers themselves stack four independent layers:
-
-- **Sector** — Tech ▲, Crypto ◆ (Growth) · Energy ⚡, Finance ● (Value)
-- **Enhancement** — Blue Chip, Leveraged, Diversified, Volatile, Dividend, Hedged, Penny Stock, Restricted
-- **Edition** — Laminated, Holographic, Algorithmic
-- **Stamp** — Reissue, Hold, Payout, Filing
+Candles stack four independent layers of their own: sector, **enhancement** (Block Tick,
+Leveraged, Rotating, Volatile, Dividend, Hedged, Penny, **Swing**, Sealed), **edition**
+(Laminated, Holographic, Algorithmic) and **stamp** (Reissue, Hold, Payout, Filing).
 
 ### Some builds that work
 
-- **Wrong-way desk** — Contrarian and Vol Surface pay you for calling it *wrong*, then Tax-Loss
-  Harvest pays cash on top. Every red trade is a green one.
-- **Mono-sector** — Mono Desk, a sector perk and Synthetic Position, funnelled through Sector
-  Rotation contracts.
-- **Retrigger stack** — Front Runner, Stamp Collector and Reissue stamps, on a portfolio of
-  three Blue Chip Alphas.
-- **Perfect information** — Burner Phone or The Oracle removes the guess entirely, so every
-  trade is green and Pyramid Scheme compounds forever.
-- **Empty desk** — Dark Alpha pays ×0.35 more leverage for every desk slot you leave *empty*.
+- **The march** — Cadence drops Soldiers to two candles, Drill Sergeant multiplies them, and
+  Momentum Rider pays per candle in the run. Chart your book into rising bulls with Green Day.
+- **All-in conviction** — an all-bull book plus Conviction Desk and The True Believer means
+  every LONG is ×1.9, and Permabull stacks on top.
+- **The hedge book** — Swing candles count as *both* polarities, so The Hedge Book's even-split
+  bonus and full Conviction fire at the same time.
+- **Wrong-way desk** — Contrarian and Vol Surface pay you for calling it *wrong*, with
+  Tax-Loss Harvest banking cash on every red.
+- **Reprint stack** — Front Runner, Stamp Collector and Reissue stamps on a book of three
+  Block Tick 13s.
+- **Empty desk** — Dark Alpha pays ×0.35 more Leverage for every desk slot you leave *empty*.
 
 ---
 
@@ -116,13 +141,13 @@ Tickers themselves stack four independent layers:
 
 | Key | Action |
 |---|---|
-| `1`–`9` | select / deselect a ticker |
+| `1`–`9` | place / remove a candle |
 | `L` / `S` | go long / go short |
-| `D` | discard the selection |
-| `Space` | sort hand by rank ↔ sector |
-| `Esc` | menu / close |
-| `M` | mute |
-| right-click | sell a perk or chart |
+| `W` | sweep the selection |
+| `A` | arrange placement (rising ↔ falling) |
+| `Space` | sort the board (body / sector / bull-bear) |
+| `Esc` | menu · `M` mute |
+| right-click | sell a broker or chart |
 
 ---
 
@@ -131,32 +156,33 @@ Tickers themselves stack four independent layers:
 ```
 index.html            markup shell
 src/styles.css        the whole look
-src/main.js           game controller: input, scoring animation, screen flow
+src/main.js           controller: input, placement order, scoring animation, screen flow
 src/engine/           seeded RNG, formatting, event bus
 src/game/
-  cards.js            tickers, sectors, enhancements, editions, stamps
-  patterns.js         chart-pattern evaluation (poker hands + wilds/4-card/gapped)
+  candles.js          candles: sector, body, polarity, enhancements, editions, stamps
+  formations.js       formation evaluation (set-based + order-based marches) and Conviction
   scoring.js          the Volume × Leverage pipeline, step by step
-  perks.js            102 perks
+  brokers.js          118 brokers
   consumables.js      charts, contracts, rumors
   licenses.js         permanent run upgrades
-  bosses.js           25 boss rules
+  bosses.js           29 boss rules
   market.js           tape simulation, regimes, the signal
-  state.js            run state, deadline flow, shop, save/load
-src/ui/               canvas chart, particles/audio, card components, overlays
+  state.js            run state, deadline flow, the Floor, save/load
+src/ui/               canvas chart, particles/audio, candle components, overlays
 test/
-  run-tests.mjs       81 tests, no dependencies
+  run-tests.mjs       102 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
 ```
 
 ```bash
-npm test              # 81 assertions across scoring, patterns, flow and content
+npm test              # 102 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 ```
 
-The simulator is how the numbers were tuned. A greedy bot that never plans a build dies
-mid-week-3 on average and clears the full eight weeks about 1% of the time, which leaves the
-headroom where it should be: in the deck you build, not in the dice.
+The simulator is how the numbers were tuned — its bot picks placements by projected P/L and
+chooses a direction by expected value, weighing signal accuracy against Conviction. A bot that
+never plans a build dies around week 4–5 and clears all eight weeks about 2% of the time, which
+leaves the headroom where it should be: in the desk you build, not in the dice.
 
-Runs are seeded — type a seed on the title screen and the whole run is reproducible.
-RANDOM is fine too. Progress autosaves to `localStorage`; there is one save, and losing wipes it.
+Runs are seeded — type a seed on the title screen and the whole run is reproducible. Progress
+autosaves to `localStorage`; there is one save, and losing wipes it.

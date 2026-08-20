@@ -52,7 +52,7 @@ export class ChartView {
     const m = this.market;
     if (!m || !m.candles.length) return;
 
-    const pad = { t: 46, b: 16, l: 8, r: 96 };
+    const pad = { t: 46, b: 22, l: 8, r: 96 };
     const view = m.candles.slice(-46);
     let lo = Infinity, hi = -Infinity;
     for (const c of view) { lo = Math.min(lo, c.low); hi = Math.max(hi, c.high); }

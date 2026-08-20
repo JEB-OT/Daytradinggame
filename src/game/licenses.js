@@ -19,9 +19,9 @@ export const LICENSES = {
     text: 'Rerolls cost $2 less again', mods: { rerollDiscount: 2 } },
 
   overdraft: { key: 'overdraft', name: 'Overdraft', art: '💳', cost: 10, tier: 1, upgrade: 'overdraftII',
-    text: '+1 discard every deadline', mods: { discards: 1 } },
+    text: '+1 sweep every deadline', mods: { discards: 1 } },
   overdraftII: { key: 'overdraftII', name: 'Overdraft II', art: '💸', cost: 10, tier: 2, requires: 'overdraft',
-    text: '+1 more discard every deadline', mods: { discards: 1 } },
+    text: '+1 more sweep every deadline', mods: { discards: 1 } },
 
   extraShift: { key: 'extraShift', name: 'Extra Shift', art: '🕗', cost: 12, tier: 1, upgrade: 'doubleShift',
     text: '+1 trade every deadline', mods: { trades: 1 } },
@@ -29,9 +29,9 @@ export const LICENSES = {
     text: '+1 more trade every deadline', mods: { trades: 1 } },
 
   ergoDesk: { key: 'ergoDesk', name: 'Ergonomic Desk', art: '🪑', cost: 10, tier: 1, upgrade: 'tradingPit',
-    text: '+1 hand size', mods: { handSize: 1 } },
+    text: '+1 board size', mods: { handSize: 1 } },
   tradingPit: { key: 'tradingPit', name: 'The Pit', art: '🏟️', cost: 10, tier: 2, requires: 'ergoDesk',
-    text: '+1 more hand size', mods: { handSize: 1 } },
+    text: '+1 more board size', mods: { handSize: 1 } },
 
   researchBudget: { key: 'researchBudget', name: 'Research Budget', art: '📚', cost: 10, tier: 1, upgrade: 'researchWing',
     text: '+1 Chart slot', mods: { chartSlots: 1 } },
@@ -63,10 +63,15 @@ export const LICENSES = {
   seriesA: { key: 'seriesA', name: 'Series A', art: '🚀', cost: 12, tier: 2, requires: 'seedRound',
     text: '+$4 more at the start of every deadline', mods: { deadlineStipend: 4 } },
 
+  floorConviction: { key: 'floorConviction', name: 'Conviction Coach', art: '🧭', cost: 10, tier: 1, upgrade: 'convictionGuru',
+    text: 'Conviction bonuses are worth an extra x0.2', mods: { convictionBonus: 0.2 } },
+  convictionGuru: { key: 'convictionGuru', name: 'The True Believer', art: '🕯️', cost: 12, tier: 2, requires: 'floorConviction',
+    text: 'Conviction triggers at half your candles instead of most of them', mods: { convictionThreshold: 0.5 } },
+
   darkTerminal: { key: 'darkTerminal', name: 'Grey Terminal', art: '🖲️', cost: 12, tier: 1, upgrade: 'blackTerminal',
-    text: 'Perks in the shop are 10% more likely to be Rare', mods: { rareBoost: 1 } },
+    text: 'Brokers on the Floor are more likely to be Rare', mods: { rareBoost: 1 } },
   blackTerminal: { key: 'blackTerminal', name: 'Black Terminal', art: '🕹️', cost: 16, tier: 2, requires: 'darkTerminal',
-    text: 'Legendary perks can now appear on the Floor', mods: { allowLegendary: true } },
+    text: 'Legendary brokers can now appear on the Floor', mods: { allowLegendary: true } },
 };
 export const LICENSE_KEYS = Object.keys(LICENSES);
 
