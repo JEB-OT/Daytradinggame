@@ -7,57 +7,68 @@ Miss it and you're liquidated.
 Inspired by the "one more run" loop of *Balatro*, *Raccoin* and *Cloverpit* — a small pile of
 starting pieces, a shop full of things that break the rules, and a deadline that keeps moving.
 
-No build step, no dependencies — but it does need to be served over http (see below).
+No build step and no dependencies — just Node and a browser.
 
-## Run it
+## Quick start
 
-> **Do not double-click `index.html`.** Browsers block a page opened from disk from loading its own
-> code, so you get a dead screen that *looks* like the game but does nothing. The game will tell you
-> so if you try it — but here is the short version.
+**You need [Node.js](https://nodejs.org) — nothing else.** No build step, no `npm install`,
+no dependencies to download.
 
-**Easiest — double-click the launcher.** It starts a server and opens the game for you:
+```bash
+git clone https://github.com/JEB-OT/Daytradinggame.git
+cd Daytradinggame
+npm start
+```
+
+That is the whole thing. `npm start` prints a link and opens your browser at
+**http://localhost:8080**. Leave that terminal window open while you play; press `Ctrl+C` in it
+to stop.
+
+> Already cloned it? Run `git pull` first, then `npm start`.
+> If the branch matters: `git checkout claude/roguelike-day-trading-game-vy5qsg`.
+
+### Prefer not to use a terminal?
+
+Double-click the launcher in the game folder — it starts the server and opens the browser for you:
 
 | Your machine | Double-click |
 |---|---|
-| macOS / Linux | `start.command` |
-| Windows | `start.bat` |
+| macOS / Linux | **`start.command`** |
+| Windows | **`start.bat`** |
 
-Leave that window open while you play; closing it stops the server.
+### Once it opens
 
-**Or from a terminal**, in the game folder:
+You land on the **home hub**. If it is your first time, hit **TUTORIAL** — seven pages covering
+how to read a candle, what Volume and Leverage actually do, and how the call works. Otherwise type
+a seed (or leave it blank) and press **START RUN**.
+
+In game: `?` for the rules, `Esc` for the menu, and hover **anything** to see exactly what it does.
+
+---
+
+## If it doesn't start
+
+| What you see | What it means | What to do |
+|---|---|---|
+| `node: command not found`<br>or `npm: command not found` | Node isn't installed | Install it from [nodejs.org](https://nodejs.org), close and reopen your terminal, try again |
+| `python3: command not found` | You are on an old version of this repo | `git pull` — `npm start` no longer uses Python |
+| `Error: Cannot find module ... server.js` | You are not in the game folder | `cd` into the folder that contains `index.html`, then `npm start` |
+| `port 8080 is busy, trying 8081…` | Something else is using the port | Nothing — it moves to the next free port on its own. Use the link it prints |
+| A screen that **looks** like the game but nothing responds | You opened `index.html` by double-clicking it | Browsers block a page loaded from disk from importing its own code. The game says so on screen. Use `npm start` instead |
+| The page is blank, or an old version keeps showing | Stale browser cache | Hard refresh: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (macOS) |
+| Anything else | — | The game prints the real error on screen now. Send that text and it can be diagnosed |
+
+### Want a different port?
 
 ```bash
-npm start                     # → http://localhost:8080
+npm start -- 3000        # or:  PORT=3000 npm start
 ```
 
-Any static file server does the same job:
+### Other commands
 
 ```bash
-python3 -m http.server 8080   # Python 3, already on most machines
-npx serve -l 8080             # Node
-php -S localhost:8080         # PHP
-```
-
-Then open **http://localhost:8080**. You land on the **home hub**, which has:
-
-- **Tutorial** — a seven-step primer covering how to read a candle, what Volume and Leverage
-  actually do (with worked numbers), formations, the call, and Conviction
-- **How to play** — the full rules and controls
-- **Compendium** — browse every special candle, broker, formation, chart, boss and licence, searchable
-- **Glossary** — every term the game uses
-- **Settings** — sound and ambient motion
-
-Type a seed if you want a reproducible run, then hit **START RUN**. Press `?` in-game for the rules
-or `Esc` for the menu.
-
-If the game ever comes up blank or unresponsive, it now says why on screen — and a hard refresh
-(**Ctrl/Cmd + Shift + R**) clears a stale cached copy, which fixes most of the rest.
-
-Node is only needed for the test suite and the balance simulator — not to play:
-
-```bash
-npm test                      # 102 assertions, zero dependencies
-node test/sim.mjs 200         # bot plays 200 runs, prints the difficulty curve
+npm test                 # 118 assertions, no dependencies
+npm run sim              # a bot plays 200 runs and prints the difficulty curve
 ```
 
 ---
