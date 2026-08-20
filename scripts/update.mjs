@@ -92,6 +92,11 @@ if (dirty) {
 
 console.log(C.dim('  fetching…'));
 try {
+  // A shallow/single-branch clone only tracks the branch it was made from, so a
+  // plain fetch never even learns the other branches exist and `git checkout`
+  // fails with "pathspec did not match". Widen the refspec first — a no-op on a
+  // normal clone, and the difference between working and not on a narrow one.
+  tryGit(['remote', 'set-branches', 'origin', '*']);
   git(['fetch', '--all', '--prune'], { stdio: ['ignore', 'pipe', 'inherit'] });
 } catch {
   line();
