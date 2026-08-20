@@ -64,6 +64,11 @@ class Ctx {
     this.greenStreak = o.greenStreak ?? 0;
     this.greensThisDeadline = o.greensThisDeadline ?? 0;
     this.destroyQueue = [];
+    // Print counters — how many times candles printed beyond their first pass.
+    // Brokers run after every candle has printed, so an `independent` hook can
+    // read these as a finished total.
+    this.extraPrints = 0;
+    this.mostPrints = 0;
   }
   step(kind, source, text, extra = {}) {
     this.steps.push({
@@ -209,6 +214,8 @@ export function scoreTrade(state, o) {
   // --- candles print, in the order you arranged them ---------------------
   for (const c of ev.scoringCandles) {
     const n = triggersFor(state, ctx, c, false);
+    ctx.extraPrints += Math.max(0, n - 1);
+    ctx.mostPrints = Math.max(ctx.mostPrints, n);
     for (let t = 0; t < n; t++) {
       if (t > 0) ctx.step('retrigger', { name: 'Echo' }, 'again', { candleUid: c.uid });
       printCandle(state, ctx, c);

@@ -24,8 +24,9 @@ That is the whole thing. `npm start` prints a link and opens your browser at
 **http://localhost:8080**. Leave that terminal window open while you play; press `Ctrl+C` in it
 to stop.
 
-> Already cloned it? Run `git pull` first, then `npm start`.
-> If the branch matters: `git checkout claude/roguelike-day-trading-game-vy5qsg`.
+> **Already cloned it?** Run `npm run update` first — see
+> [Updating to the latest version](#updating-to-the-latest-version) below. Plain `git pull` is
+> often not enough, and it fails silently.
 
 ### Prefer not to use a terminal?
 
@@ -56,6 +57,10 @@ In game: `?` for the rules, `Esc` for the menu, and hover **anything** to see ex
 | `port 8080 is busy, trying 8081…` | Something else is using the port | Nothing — it moves to the next free port on its own. Use the link it prints |
 | A screen that **looks** like the game but nothing responds | You opened `index.html` by double-clicking it | Browsers block a page loaded from disk from importing its own code. The game says so on screen. Use `npm start` instead |
 | The page is blank, or an old version keeps showing | Stale browser cache | Hard refresh: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (macOS) |
+| `git pull` says `Already up to date` but the game has not changed | You are on a branch that does not have the new work | Run the three commands in [Updating](#first-time-get-onto-the-branch-with-the-latest-work) |
+| `npm error Missing script: "update"` | The update script is part of the update — you are still on the old branch | Run the three commands in [Updating](#first-time-get-onto-the-branch-with-the-latest-work) |
+| `pathspec ... did not match any file(s) known to git` | Single-branch clone; git cannot see the branch yet | `git remote set-branches origin "*"` then `git fetch origin`, then retry the checkout |
+| A feature from the changelog is missing | You are running an older copy | Check the version in the title screen's bottom corner against [the table above](#checking-which-version-you-actually-have), then `npm run update` |
 | Anything else | — | The game prints the real error on screen now. Send that text and it can be diagnosed |
 
 ### Want a different port?
@@ -67,9 +72,71 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ### Other commands
 
 ```bash
-npm test                 # 118 assertions, no dependencies
+npm run update           # pull the latest version of the game
+npm test                 # 152 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 ```
+
+---
+
+## Updating to the latest version
+
+### First time: get onto the branch with the latest work
+
+The newest version lives on a feature branch until its pull request is merged, so a fresh clone of
+the default branch does not have it — and `git pull` will keep saying `Already up to date` forever
+while the game stays exactly as it was.
+
+**Run these three, once, in the game folder:**
+
+```bash
+git remote set-branches origin "*"
+git fetch origin
+git checkout claude/day-trading-candle-mechanics-mordep
+```
+
+Then `npm start`, and **hard-refresh** the page: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R`
+(macOS).
+
+> The first line matters. Clones are often made `--single-branch`, which means `git fetch` never
+> learns the other branches exist and `git checkout` fails with
+> `pathspec ... did not match any file(s) known to git`. That line widens the net; it is harmless
+> on a normal clone.
+
+### After that: `npm run update`
+
+```bash
+npm run update
+```
+
+Once you are on the branch, this is all you need. It fetches, fast-forwards, and if another branch
+has moved ahead it prints the exact commands to switch:
+
+```
+  claude/day-trading-candle-mechanics-mordep has 3 commits you do not have.
+  That is where the newest version lives. To switch to it:
+
+    git checkout claude/day-trading-candle-mechanics-mordep
+    git pull
+```
+
+It refuses to run at all if you have uncommitted changes, so it can never eat your work. Your save
+lives in the browser, not the repo, so switching branches keeps your run.
+
+> `npm run update` is itself part of the update, so it only exists once you are on the branch. If
+> you get `Missing script: "update"`, you are still on the old branch — run the three commands above.
+
+### Checking which version you actually have
+
+**The title screen prints the version in the bottom corner.** Click it for the full changelog.
+
+| Version | What you should see |
+|---|---|
+| **v1.3.0** — The Print Shop | A **DECK** and a **SWEPT** pile either side of your board · the book laid out as fanned rows per sector with a body tally · a **REMAINING** tab · print-shop brokers · your desk visible inside packs |
+| v1.2.0 — The Desk | Sweep animation, no duplicate brokers, draggable desk |
+
+If the number on your title screen is older than the newest row here, you are running an old copy —
+run `npm run update`. If it matches but you still cannot see a feature, hard-refresh the page.
 
 ---
 
@@ -83,6 +150,21 @@ Each **week** has three **deadlines**:
 | 2 | Afternoon Session | ×1.5 | can be skipped for a bonus |
 | 3 | **Boss Deadline** | ×2.0 | one of 29 rules that breaks your build |
 
+Weeks come in **acts of eight**, and the quota curve gets steeper at every act boundary — so
+weeks 9, 17, 25, 33 and on each start a harder stretch than the one before:
+
+| Act | Weeks | Quota growth |
+|---|---|---|
+| 1 | 1–8 | a hand-tuned table, ×2.5 easing to ×2.17 a week |
+| 2 | 9–16 | ×2.40 a week |
+| 3 | 17–24 | ×2.95 a week |
+| 4 | 25–32 | ×3.50 a week |
+| *n* | … | ×0.55 a week faster than the act before |
+
+Endless mode used to flatten to a constant ×2.4 forever, which meant a desk that could clear week
+12 could clear week 40 — it got longer, not harder. Now it keeps outrunning you. The act and its
+current rate are printed above the week's deadlines, and the week that starts a new act says so.
+
 A deadline gives you a cash **quota**, a handful of **trades** and some **sweeps**.
 
 1. Place **1–5 candles** from your board. **The order you place them is the order they print** —
@@ -93,6 +175,16 @@ A deadline gives you a cash **quota**, a handful of **trades** and some **sweeps
 5. `Volume × Leverage = P/L`. Reach the quota before you run out of trades, or the run ends.
 
 Clear it and you hit **The Floor** to spend the payout before the next bell.
+
+### The deck and the swept pile
+
+Your whole book is shuffled into a **deck** at the bell, and the board is dealt off the top of it.
+Both piles sit either side of your board and both are real places, not counters: candles fly out of
+the **DECK** on the left when the board refills, and everything you trade or sweep is thrown onto
+the **SWEPT** pile on the right, where it stays until the next bell.
+
+That is not decoration &mdash; it is the information the **REMAINING** view of the book is built on.
+Once nine of your thirteen Tech candles are on the swept pile, a Tech Cluster is no longer a plan.
 
 ---
 
@@ -219,20 +311,25 @@ The Floor prints all of this on a strip at the bottom, so you never have to gues
 Candles print **left to right**, and so do brokers. `+` does not commute with `×`, so an additive
 candle or broker is worth more before a multiplying one. You control both.
 
-**Brokers** — drag them along your desk, in a run or on the Floor.
+**Brokers** — drag them along your desk, in a run, on the Floor, or inside a pack.
 
 **Candles** — three ways:
 
 - **Click order.** The badge on each candle is its slot.
-- **Drag.** Pick a candle up and drop it on another, on the board or inside your placement.
+- **Drag.** Pick a candle up and drop it anywhere on the board.
 - **`ARRANGE` / `A`** cycles five presets: **Rising ▲**, **Falling ▼** (the shapes the two marches
   want), **Volume 1st**, **Leverage 1st**, and **Reverse**.
+
+**Moving a candle moves it in the print order.** Drag one, `ARRANGE`, or re-sort the board and the
+placement is re-derived from where the cards actually sit — so once you have rearranged anything,
+the badges read `1 2 3` straight across and **what you see left to right is what prints**. Click
+order only decides the starting arrangement.
 
 ## Building a desk
 
 | Layer | Count | What it does |
 |---|---:|---|
-| **Brokers** | 119 | Sit on your desk and trigger left to right. The combo engine. You are never offered one you already employ &mdash; unless **Hall of Mirrors** is on the desk, which re-opens the duplicate pool. |
+| **Brokers** | 131 | Sit on your desk and trigger left to right. The combo engine. **One of each, ever** &mdash; see below. |
 | **Charts** | 29 | Reshape the candles in your book — bodies, sectors, polarity, enhancements. |
 | **Contracts** | 14 | Permanently level one formation. |
 | **Rumors** | 20 | High-risk power spikes with a real cost. |
@@ -242,13 +339,60 @@ candle or broker is worth more before a multiplying one. You control both.
 | **Bonuses** | 12 | Paid out for skipping a non-boss deadline. |
 
 **Broker order matters, exactly like candle order.** Both fire left to right, so additive brokers
-want to sit before multiplying ones. Drag them around your desk &mdash; on the board or on the Floor
-&mdash; to change the order. Mimic copies whatever is to its right, so where you drop *it* changes
-everything.
+want to sit before multiplying ones. Drag them around your desk &mdash; on the board, on the Floor,
+or inside a pack &mdash; to change the order. Mimic copies whatever is to its right, so where you
+drop *it* changes everything.
+
+### One of each
+
+You can never employ the same broker twice, and the Floor never shows you the same broker twice
+either. The shelf, an open pack and a skip bonus all roll against **everything already visible
+anywhere on the Floor**, not just against their own batch &mdash; otherwise a broker could sit on
+the shelf and inside a pack at once, and taking one then buying the other would put two on your
+desk.
+
+The single exception is **Hall of Mirrors**. While it is on your desk the whole rule lifts:
+brokers you already employ turn up on the Floor again and you may hire duplicates. Sell it and the
+rule snaps straight back on &mdash; though whatever duplicates you already hired stay hired.
+
+### Packs keep your desk in reach
+
+Opening a pack leaves your desk and your Charts on screen, with their slot counts. You can sell a
+broker, sell a chart or use a chart **while the pack is open**, so a full desk no longer means the
+pick you just paid for is unreachable. If a pack is offering something you have no room for, it
+says so above the options.
 
 Candles stack four independent layers of their own: sector, **enhancement** (Block Tick,
 Leveraged, Rotating, Volatile, Dividend, Hedged, Penny, **Swing**, Sealed), **edition**
 (Laminated, Holographic, Algorithmic) and **stamp** (Reissue, Hold, Payout, Filing).
+
+### The print shop
+
+Twelve brokers are built on one verb: making a candle **print more than once**. The top half hands
+out extra prints on a band of bodies; the bottom half is paid *per extra print*, so the two halves
+are worth far more together than either is alone.
+
+| Broker | Extra prints |
+|---|---|
+| **Fine Print** | every printed candle with a body of **2, 3, 4 or 5** prints again |
+| **Press Run** | every printed candle with a body of **11 or more** prints **twice** more |
+| **Hairline** | every printed **Doji** (body 1) prints **three** extra times |
+| **Last Word** | the last candle you placed prints again (the mirror of *Encore*) |
+| **Kerning** | every printed candle whose body matches another candle you placed prints again |
+| **Misprint** | every printed candle carrying an **edition** prints again |
+
+| Broker | Paid per extra print |
+|---|---|
+| **Run-Off** | +35 Volume for every extra print this trade |
+| **Ink Press** | +5 Leverage for every extra print this trade |
+| **Print Shop** | $1 for every extra print this trade |
+| **Serial Number** | permanently gains +6 Volume for every extra print — it compounds run-long |
+| **Overprint** | ×1.6 Leverage if any one candle printed **3 or more** times |
+| **Split Run** | ×2 Leverage if you printed a body of **5 or less** *and* a body of **11 or more** |
+
+They stack with the retriggers that were already there — *Understudy*, *Encore*, *The Swarm*,
+*Sigil Collector*, *Echo*, Echo Seals — rather than replacing them. Two of them on the same desk is
+a build; six is a printing press.
 
 ### Some builds that work
 
@@ -262,6 +406,9 @@ Leveraged, Rotating, Volatile, Dividend, Hedged, Penny, **Swing**, Sealed), **ed
   *Salvager* banking cash on every red.
 - **Echo stack** — *Echo*, *Sigil Collector* and Echo Seals on a book of three Bullion 13s.
 - **The empty desk** — *Void Pact* pays ×0.35 more Leverage for every desk slot you leave *empty*.
+- **The press** — *Fine Print* and *Press Run* on a book charted to the two extremes, then
+  *Run-Off*, *Ink Press* and *Serial Number* to get paid for every impression. *Split Run* doubles
+  it for holding both ends, and *Overprint* doubles it again.
 - **Bonfire** — Embers grow +5 Volume every print, so *Overspill* (everything prints) plus
   *Echo* compounds a book of Embers permanently, run after run.
 
@@ -281,31 +428,60 @@ Leveraged, Rotating, Volatile, Dividend, Hedged, Penny, **Swing**, Sealed), **ed
 
 ---
 
+## The book
+
+`BOOK`, from the top bar or any menu, lays your candles out the way a deck view should read: one
+**fanned row per sector**, running body 13 down to 1. Duplicates stack under a `×2` badge, and
+anything the view does not hold is drawn as an empty outline — so the shape of your book is one
+glance rather than a wall of tiles.
+
+Beside it are two readouts:
+
+- a **BODY** column counting how many of each size you are holding — *four 13s, three 7s* — with a
+  `/4` beside anything that is short of the full set
+- a **Base Cards** panel totalling the five silhouette bands (Doji, Spinner, Standard, Heavy,
+  Marubozu) and the four sectors, which is what a build is actually shaped out of
+
+Two views share that layout:
+
+| View | Shows |
+|---|---|
+| **FULL BOOK** | every candle you own, wherever it is right now |
+| **REMAINING** | only what is **still in the deck** and can still be dealt to you |
+
+`REMAINING` is the one you plan with. The strip along the top splits your book into *in the deck*,
+*on the board* and *traded or swept*, the empty squares are the candles already gone, and the BODY
+column drops to what is left — so before you spend a sweep chasing a Four Winds of 7s you can see
+that three of the four have already been dealt.
+
+---
+
 ## Project layout
 
 ```
 index.html            markup shell
+scripts/update.mjs    `npm run update` — fetch, fast-forward, and find the newest branch
 src/styles.css        the whole look
 src/main.js           controller: input, placement order, scoring animation, screen flow
-src/engine/           seeded RNG, formatting, event bus
+src/engine/           seeded RNG, formatting, event bus, the version stamp
 src/game/
   candles.js          candles: sector, body, polarity, enhancements, editions, stamps
   formations.js       formation evaluation (set-based + order-based marches) and Conviction
   scoring.js          the Volume × Leverage pipeline, step by step
-  brokers.js          118 brokers
+  brokers.js          131 brokers
   consumables.js      charts, contracts, rumors
   licenses.js         permanent run upgrades
   bosses.js           29 boss rules
   market.js           tape simulation, regimes, the signal
-  state.js            run state, deadline flow, the Floor, save/load
+  state.js            run state, deadline flow, the deck/swept piles, the Floor, save/load
 src/ui/               canvas chart, particles/audio, candle components, overlays
 test/
-  run-tests.mjs       102 tests, no dependencies
+  run-tests.mjs       141 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
 ```
 
 ```bash
-npm test              # 102 assertions across formations, conviction, scoring, flow and content
+npm test              # 141 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 ```
 

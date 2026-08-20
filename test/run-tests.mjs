@@ -231,6 +231,79 @@ t('Reissue stamp reprints a candle', () => {
   eq(b.volume - a.volume, 10);
 });
 t('Front Runner reprints every candle', () => eq(scoreWith(['frontRunner'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).volume, 50));
+
+// ---------------------------------------------------------------- the print shop
+t('Fine Print reprints bodies 2-5 and leaves the rest alone', () => {
+  // A tweezer of 4s prints each body twice: base 10 + (4+4)*2 = 26.
+  eq(scoreWith(['finePrint'], [mk('TECH', 4), mk('CRYPTO', 4, false)]).volume, 26);
+  // Bodies outside 2-5 are untouched.
+  eq(scoreWith(['finePrint'], [mk('TECH', 6), mk('CRYPTO', 6, false)]).volume, 22);
+  eq(scoreWith(['finePrint'], [mk('TECH', 1), mk('CRYPTO', 1, false)]).volume, 12);
+});
+t('Press Run prints wide candles three times each', () => {
+  eq(scoreWith(['pressRun'], [mk('TECH', 12), mk('CRYPTO', 12, false)]).volume, 10 + 12 * 6);
+  eq(scoreWith(['pressRun'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).volume, 30);
+});
+t('Hairline prints a doji four times', () => {
+  eq(scoreWith(['hairline'], [mk('TECH', 1), mk('CRYPTO', 1, false)]).volume, 10 + 1 * 8);
+});
+t('Last Word reprints the final candle, Encore the first', () => {
+  // Overspill makes every placed candle print, so the two hooks land on
+  // different bodies and the difference between them is readable.
+  const played = [mk('TECH', 2), mk('CRYPTO', 9, false), mk('ENERGY', 5)];
+  const plain = scoreWith(['splitter'], played).volume;
+  eq(scoreWith(['splitter', 'lastWord'], played).volume - plain, 5);
+  eq(scoreWith(['splitter', 'caffeinated'], played).volume - plain, 2);
+});
+t('Kerning reprints candles whose body is matched', () => {
+  // The pair of 7s prints twice each; the lone 2 is not part of the tweezer.
+  eq(scoreWith(['kerning'], [mk('TECH', 7), mk('CRYPTO', 7, false)]).volume, 10 + 7 * 4);
+  // Unmatched bodies print a Single Tick, which scores the biggest one once.
+  eq(scoreWith(['kerning'], [mk('TECH', 7), mk('CRYPTO', 8, false)]).volume, 5 + 8);
+});
+t('Misprint reprints candles carrying an edition', () => {
+  const plain = scoreWith(['misprint'], [mk('TECH', 9), mk('CRYPTO', 9, false)]);
+  const foiled = scoreWith(['misprint'], [mk('TECH', 9, true, { edition: 'laminated' }), mk('CRYPTO', 9, false)]);
+  eq(plain.volume, 28);
+  eq(foiled.volume - plain.volume, 9 + 50 * 2, 'body and Foiled both print twice');
+});
+t('Run-Off and Ink Press are paid per extra print', () => {
+  // Echo gives every candle one extra print: two candles -> two extra prints.
+  eq(scoreWith(['frontRunner', 'runOff'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).volume, 50 + 70);
+  eq(scoreWith(['frontRunner', 'inkPress'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).leverage, 2 + 10);
+  // With nothing reprinting they are dead weight, which is the trade-off.
+  eq(scoreWith(['runOff'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).volume, 30);
+});
+t('Print Shop pays a dollar per extra print', () => {
+  eq(scoreWith(['frontRunner', 'printShop'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).money, 2);
+});
+t('Overprint needs a candle that printed three times', () => {
+  eq(scoreWith(['frontRunner', 'overprint'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).leverage, 2);
+  // Echo + Understudy on a wide candle is three prints.
+  const r = scoreWith(['frontRunner', 'blueSuit', 'overprint'], [mk('TECH', 12), mk('CRYPTO', 12, false)]);
+  eq(+r.leverage.toFixed(2), 3.2);
+});
+t('Split Run wants one small candle and one wide one', () => {
+  eq(scoreWith(['splitRun'], [mk('TECH', 3), mk('CRYPTO', 3, false)]).leverage, 2);
+  // Pillars — three 3s and two 12s — prints all five, so both bands are there.
+  const mixed = scoreWith(['splitRun'],
+    [mk('TECH', 3), mk('CRYPTO', 3, false), mk('ENERGY', 3), mk('FINANCE', 12), mk('TECH', 12, false)]);
+  eq(mixed.formationKey, 'pillars');
+  eq(mixed.leverage, 8, 'x2 on the base x4');
+});
+t('Serial Number banks volume from every extra print', () => {
+  const st = S.newRun('SER');
+  st.brokers = [makeBroker('frontRunner', null), makeBroker('serialNumber', null)];
+  S.computeMods(st);
+  const played = [mk('TECH', 10), mk('CRYPTO', 10, false)];
+  const go = () => scoreTrade(st, {
+    played, held: [], direction: null, correct: null, rng: new RNG('ser'),
+    commit: true, tradeIndex: 0, tradesLeft: 4, greenStreak: 0, quota: 1000,
+  });
+  eq(go().volume, 50, 'nothing banked on the first trade yet');
+  eq(st.brokers[1].counters.v, 12, 'two extra prints x 6');
+  eq(go().volume, 62, 'the banked volume lands on the next trade');
+});
 t('conviction multiplies leverage on the call', () => {
   const cs = [mk('TECH', 10), mk('CRYPTO', 10)];  // both bull -> tweezer, full conviction on LONG
   const long = scoreWith([], cs, { direction: 'LONG', correct: true });
@@ -426,6 +499,99 @@ t('sweeping consumes a sweep and refills the board', () => {
   S.sweepSelected(st);
   eq(s.discardsLeft, st.mods.discards - 1);
   eq(s.board.length, st.mods.handSize);
+});
+t('bookLocations accounts for every candle exactly once', () => {
+  const st = S.newRun('LOC');
+  // Nothing dealt yet: the whole book is still deck.
+  let w = S.bookLocations(st);
+  eq(w.dealt, false);
+  eq(w.deck.length, 52); eq(w.board.length, 0); eq(w.swept.length, 0);
+
+  const s = S.startDeadline(st, 0);
+  w = S.bookLocations(st);
+  eq(w.dealt, true);
+  eq(w.board.length, st.mods.handSize);
+  eq(w.deck.length, 52 - st.mods.handSize);
+  eq(w.swept.length, 0);
+  eq(w.deck.length + w.board.length + w.swept.length, st.book.length);
+
+  // Sweeping moves candles out of the deck's reach for the rest of the bell.
+  S.toggleSelect(st, s.board[0].uid); S.toggleSelect(st, s.board[1].uid);
+  S.sweepSelected(st);
+  w = S.bookLocations(st);
+  eq(w.swept.length, 2);
+  eq(w.board.length, st.mods.handSize);
+  eq(w.deck.length + w.board.length + w.swept.length, st.book.length);
+  const seen = new Set([...w.deck, ...w.board, ...w.swept].map((c) => c.uid));
+  eq(seen.size, st.book.length, 'no candle counted twice');
+});
+t('bookLocations does not double-count an Anchor-sealed candle', () => {
+  const st = S.newRun('ANCH');
+  const s = S.startDeadline(st, 0);
+  s.board[0].stamp = 'hold';                 // Anchor: goes back to the board
+  S.toggleSelect(st, s.board[0].uid);
+  S.playTrade(st, 'LONG');
+  const w = S.bookLocations(st);
+  eq(w.deck.length + w.board.length + w.swept.length, st.book.length);
+  ok(w.board.some((c) => c.stamp === 'hold'), 'the anchored candle is on the board');
+  ok(!w.swept.some((c) => c.stamp === 'hold'), 'and not also in the swept pile');
+});
+t('a destroyed candle leaves every pile', () => {
+  const st = S.newRun('DEST');
+  const s = S.startDeadline(st, 0);
+  const doomed = s.drawPile[0];
+  S.removeFromBook(st, doomed);
+  const w = S.bookLocations(st);
+  eq(st.book.length, 51);
+  eq(w.deck.length + w.board.length + w.swept.length, 51);
+  ok(!w.deck.some((c) => c.uid === doomed.uid), 'gone from the deck');
+});
+t('dragging a candle on the board changes the print order', () => {
+  const st = S.newRun('DRAG');
+  const s = S.startDeadline(st, 0);
+  // Select three, deliberately clicked out of left-to-right order.
+  const [a, b, c] = [s.board[2], s.board[0], s.board[4]];
+  S.toggleSelect(st, a.uid); S.toggleSelect(st, b.uid); S.toggleSelect(st, c.uid);
+  eq(S.selectedCandles(st).map((x) => x.uid).join(), [a, b, c].map((x) => x.uid).join(),
+     'click order stands until something is moved');
+
+  // Drag the last one to the front of the board; the placement follows.
+  S.moveBoardCandle(st, c.uid, 0);
+  const order = S.selectedCandles(st).map((x) => x.uid);
+  const boardOrder = s.board.filter((x) => s.selected.includes(x.uid)).map((x) => x.uid);
+  eq(order.join(), boardOrder.join(), 'placement order is the board order');
+  eq(order[0], c.uid, 'the dragged candle now prints first');
+});
+t('ARRANGE moves the cards, not just the badges', () => {
+  const st = S.newRun('ARR');
+  const s = S.startDeadline(st, 0);
+  s.board = [mk('TECH', 9), mk('CRYPTO', 2), mk('ENERGY', 13), mk('FINANCE', 5)];
+  s.board.forEach((c) => S.toggleSelect(st, c.uid));
+  S.arrangeSelection(st, 'rising');
+  eq(s.board.map((c) => c.body).join(), '2,5,9,13', 'the board itself is now rising');
+  eq(S.selectedCandles(st).map((c) => c.body).join(), '2,5,9,13', 'and the placement agrees');
+  S.arrangeSelection(st, 'falling');
+  eq(s.board.map((c) => c.body).join(), '13,9,5,2');
+  eq(S.selectedCandles(st).map((c) => c.body).join(), '13,9,5,2');
+});
+t('ARRANGE leaves unselected candles where they are', () => {
+  const st = S.newRun('ARR2');
+  const s = S.startDeadline(st, 0);
+  s.board = [mk('TECH', 9), mk('CRYPTO', 2), mk('ENERGY', 13), mk('FINANCE', 5)];
+  // Only the outer two are placed; the middle pair must not shuffle.
+  S.toggleSelect(st, s.board[0].uid); S.toggleSelect(st, s.board[3].uid);
+  S.arrangeSelection(st, 'rising');
+  eq(s.board.map((c) => c.body).join(), '5,2,13,9', 'placed candles swapped, the rest held station');
+  eq(S.selectedCandles(st).map((c) => c.body).join(), '5,9');
+});
+t('syncPlacementToBoard drops candles that left the board', () => {
+  const st = S.newRun('SYNC');
+  const s = S.startDeadline(st, 0);
+  S.toggleSelect(st, s.board[0].uid); S.toggleSelect(st, s.board[1].uid);
+  const gone = s.board.splice(0, 1)[0];
+  S.syncPlacementToBoard(st);
+  eq(s.selected.length, 1);
+  ok(!s.selected.includes(gone.uid));
 });
 t('you cannot place more than five candles', () => {
   const st = S.newRun('SEL');
@@ -679,6 +845,31 @@ t('advancing past the boss rolls the week over', () => {
   S.advanceAfterDeadline(st);
   eq(st.week, 2); eq(st.deadlineIndex, 0);
 });
+t('quotas get steeper at every eight-week act boundary', () => {
+  eq(S.actOf(1), 1); eq(S.actOf(8), 1);
+  eq(S.actOf(9), 2); eq(S.actOf(16), 2);
+  eq(S.actOf(17), 3); eq(S.actOf(24), 3); eq(S.actOf(25), 4);
+  // Each act grows faster per week than the one before it.
+  for (let a = 2; a < 10; a++) ok(S.actGrowth(a + 1) > S.actGrowth(a), 'act ' + a);
+
+  const step = (w) => S.weekBase(w) / S.weekBase(w - 1);
+  // Inside an act the rate holds; crossing a boundary it jumps.
+  ok(Math.abs(step(10) - step(16)) < 1e-6, 'flat inside act 2');
+  ok(step(17) > step(16) + 0.4, 'act 3 is steeper than act 2');
+  ok(step(25) > step(24) + 0.4, 'act 4 is steeper than act 3');
+  ok(step(33) > step(32) + 0.4, 'act 5 is steeper than act 4');
+  // And the old flat x2.4-forever curve is gone.
+  ok(step(40) > 4, 'late acts are far steeper than the old constant 2.4');
+});
+t('the quota curve stays finite and strictly rising deep into endless', () => {
+  let prev = 0;
+  for (let w = 1; w <= 200; w++) {
+    const v = S.weekBase(w);
+    ok(Number.isFinite(v), 'week ' + w + ' overflowed');
+    ok(v > prev, 'week ' + w + ' did not rise');
+    prev = v;
+  }
+});
 t('skipping a non-boss deadline grants a bonus', () => {
   const st = S.newRun('SKIP');
   ok(S.skipDeadline(st, 0).bonus);
@@ -758,6 +949,91 @@ t('a shop restock never repeats within its own stock', () => {
     eq(new Set(keys).size, keys.length, 'the same broker appeared twice on one Floor');
     st.shop.rerollCost = 0;
     S.rerollShop(st);
+  }
+});
+t('the Floor never shows the same broker on the shelf and inside a pack', () => {
+  // The shelf and a pack are rolled at different moments. Without a Floor-wide
+  // exclusion the same broker turns up in both, and taking one then buying the
+  // other lands two of them on the desk.
+  let overlaps = 0, checked = 0;
+  for (let i = 0; i < 250; i++) {
+    const st = S.newRun('FLOOR' + i);
+    st.cash = 99999;
+    st.permanent.slots = 40;
+    S.computeMods(st);
+    S.openShop(st);
+    const pi = st.shop.packs.findIndex((p) => p.family === 'broker');
+    if (pi < 0) continue;
+    const r = S.buyPack(st, pi);
+    if (!r.ok) continue;
+    checked++;
+    const shelf = st.shop.items.filter((x) => x.type === 'broker' && !x.sold).map((x) => x.key);
+    const opts = r.pack.options.filter((o) => o.type === 'broker').map((o) => o.key);
+    if (opts.some((k) => shelf.includes(k))) overlaps++;
+  }
+  ok(checked > 20, 'expected some broker packs to test, saw ' + checked);
+  eq(overlaps, 0, 'a broker was on the shelf and in the pack at once');
+});
+t('you cannot end up employing the same broker twice', () => {
+  for (let i = 0; i < 250; i++) {
+    const st = S.newRun('TWICE' + i);
+    st.cash = 99999;
+    st.permanent.slots = 40;
+    S.computeMods(st);
+    S.openShop(st);
+    // Take everything the Floor will give: every pack option, then every item.
+    for (let p = 0; p < st.shop.packs.length; p++) {
+      const r = S.buyPack(st, p);
+      if (!r.ok) continue;
+      for (let o = 0; o < r.pack.options.length; o++) S.pickFromPack(st, o);
+      S.closePack(st);
+    }
+    for (let n = 0; n < st.shop.items.length; n++) S.buyShopItem(st, n);
+    const keys = st.brokers.map((b) => b.key);
+    eq(new Set(keys).size, keys.length, 'desk holds two of the same broker, seed ' + i);
+  }
+});
+t('an already-employed broker is refused rather than duplicated', () => {
+  const st = S.newRun('EMPL');
+  st.cash = 999;
+  st.permanent.slots = 40;
+  S.computeMods(st);
+  S.openShop(st);
+  // Simulate the one route that reaches this: buy a duplicate under Hall of
+  // Mirrors, then sell the Mirrors so the rule snaps back on.
+  st.shop.items = [{ type: 'broker', key: 'sticky', inst: makeBroker('sticky', null), cost: 4 }];
+  st.brokers = [makeBroker('sticky', null)];
+  S.computeMods(st);
+  ok(S.alreadyEmployed(st, 'sticky'));
+  eq(S.buyShopItem(st, 0).blocked, 'You already employ them');
+  eq(st.brokers.length, 1);
+  // With Hall of Mirrors held it goes through again.
+  st.brokers.push(makeBroker('hallOfMirrors', null));
+  S.computeMods(st);
+  ok(!S.alreadyEmployed(st, 'sticky'));
+  ok(S.buyShopItem(st, 0).ok);
+  eq(st.brokers.filter((b) => b.key === 'sticky').length, 2);
+});
+t('brokersOnOffer reads the shelf and any open pack', () => {
+  const st = S.newRun('OFFER');
+  eq(S.brokersOnOffer(st).length, 0, 'no Floor open');
+  st.cash = 99999;
+  S.openShop(st);
+  st.shop.items = [{ type: 'broker', key: 'sticky', inst: makeBroker('sticky', null), cost: 4, sold: false }];
+  st.shop.pack = { pack: {}, options: [{ type: 'broker', key: 'techBro', inst: makeBroker('techBro', null) }], picks: 1 };
+  eq(S.brokersOnOffer(st).sort().join(','), 'sticky,techBro');
+  st.shop.items[0].sold = true;               // sold stock is no longer on offer
+  st.shop.pack.options[0].taken = true;
+  eq(S.brokersOnOffer(st).length, 0);
+});
+t('rollBrokerKey gives up exclude before it gives up owned', () => {
+  // Own everything but one broker, and put that one on the exclude list. The
+  // roll must still avoid the owned pile rather than dropping both rules.
+  const all = Object.keys(BROKERS);
+  const spare = all[7];
+  const owned = all.filter((k) => k !== spare);
+  for (let i = 0; i < 60; i++) {
+    eq(rollBrokerKey(new RNG('relax' + i), { owned, exclude: [spare] }), spare);
   }
 });
 t('Hall of Mirrors re-opens the duplicate pool', () => {

@@ -12,9 +12,44 @@ import { clamp } from '../engine/util.js';
 export const SAVE_KEY = 'margincall.save.v2';
 
 const BASE_QUOTA = [180, 450, 1100, 2600, 6000, 13500, 30000, 65000];
+
+// ---------------------------------------------------------------------------
+// The quota curve, in ACTS of eight weeks.
+//
+// Act 1 is the hand-tuned table above: it grows about x2.5 a week and eases off
+// to x2.17 by week 8. Past that the curve used to flatten to a constant x2.4
+// forever, so endless mode stopped getting harder and only got longer — a desk
+// that could clear week 12 could clear week 40.
+//
+// Instead the per-week growth steps up at every act boundary, so weeks 9, 17,
+// 25, 33... each start a steeper stretch than the one before.
+// ---------------------------------------------------------------------------
+export const ACT_LENGTH = 8;
+const ACT_BASE_GROWTH = 2.4;   // act 2 (weeks 9-16)
+const ACT_GROWTH_STEP = 0.55;  // added for every act after that
+
+/** Which eight-week act a week belongs to. Weeks 1-8 are act 1. */
+export function actOf(week) { return Math.floor((Math.max(1, week) - 1) / ACT_LENGTH) + 1; }
+
+/** The per-week quota multiplier inside an act. Act 1 is the table, not a curve. */
+export function actGrowth(act) { return ACT_BASE_GROWTH + ACT_GROWTH_STEP * Math.max(0, act - 2); }
+
+const weekBaseCache = new Map();
 export function weekBase(week) {
-  if (week <= BASE_QUOTA.length) return BASE_QUOTA[week - 1];
-  return Math.round(BASE_QUOTA[BASE_QUOTA.length - 1] * Math.pow(2.4, week - BASE_QUOTA.length));
+  if (week <= BASE_QUOTA.length) return BASE_QUOTA[Math.max(1, week) - 1];
+  if (weekBaseCache.has(week)) return weekBaseCache.get(week);
+  let v = BASE_QUOTA[BASE_QUOTA.length - 1];
+  for (let w = BASE_QUOTA.length + 1; w <= week; w++) {
+    v *= actGrowth(actOf(w));
+    // Clamping at MAX_SAFE_INTEGER would flatten the curve into a wall around
+    // week 31, which is the opposite of the point. A quota is only ever
+    // compared and formatted, never counted, so past 2^53 it stays a float and
+    // loses precision it does not need. Only true overflow is caught.
+    if (!Number.isFinite(v)) { v = Number.MAX_VALUE; break; }
+  }
+  const out = v < 1e15 ? Math.round(v) : v;
+  weekBaseCache.set(week, out);
+  return out;
 }
 
 export const DEADLINE_SLOTS = [
@@ -178,6 +213,30 @@ export function ownedBrokerKeys(state) {
   return state.mods.allowDuplicates ? [] : state.brokers.map((b) => b.key);
 }
 
+/**
+ * Every broker key currently *visible* on the Floor: unsold shelf items plus
+ * the untaken options of an open pack.
+ *
+ * The shelf and a pack are rolled at different moments, so without this they
+ * roll against each other blind — the same broker turns up in both, and taking
+ * one then buying the other lands two of them on your desk. Passing this as
+ * `exclude` makes the Floor de-duplicate against itself as a whole.
+ */
+export function brokersOnOffer(state) {
+  const shop = state.shop;
+  if (!shop || state.mods.allowDuplicates) return [];
+  const keys = shop.items.filter((i) => i.type === 'broker' && !i.sold).map((i) => i.key);
+  for (const o of shop.pack?.options || []) {
+    if (o.type === 'broker' && !o.taken) keys.push(o.key);
+  }
+  return keys;
+}
+
+/** Would taking this broker put a second copy on the desk? */
+export function alreadyEmployed(state, key) {
+  return !state.mods.allowDuplicates && state.brokers.some((b) => b.key === key);
+}
+
 export function slotsUsed(state) { return state.brokers.filter((b) => b.edition !== 'offbook').length; }
 export function hasBrokerRoom(state) { return slotsUsed(state) < state.mods.slots; }
 export function hasConsumableRoom(state) { return state.consumables.length < state.mods.chartSlots; }
@@ -262,6 +321,24 @@ export function toggleSelect(state, uid) {
   return s.selected;
 }
 
+/**
+ * Rewrite the placement order so it matches what the board actually shows,
+ * left to right.
+ *
+ * The badge on a candle is a promise about the order it will print in, and the
+ * only way to keep that promise readable is for the order you *see* to be the
+ * order that prints. So every action that physically moves a candle — a drag,
+ * an ARRANGE, a board sort — re-derives the placement from the board rather
+ * than leaving it on the order things happened to be clicked in.
+ */
+export function syncPlacementToBoard(state) {
+  const s = state.session;
+  if (!s) return false;
+  const picked = new Set(s.selected);
+  s.selected = s.board.filter((c) => picked.has(c.uid)).map((c) => c.uid);
+  return true;
+}
+
 export const ARRANGE_MODES = [
   { key: 'rising',   label: 'RISING ▲',   hint: 'smallest body first — the shape Three White Soldiers wants' },
   { key: 'falling',  label: 'FALLING ▼',  hint: 'largest body first — the shape Three Black Crows wants' },
@@ -290,6 +367,13 @@ export function arrangeSelection(state, mode) {
     out = picked.slice().sort((a, b) =>
       (contributionOf(a) === 'leverage' ? 0 : 1) - (contributionOf(b) === 'leverage' ? 0 : 1) || byBody(a, b));
   } else out = picked.slice().sort(byBody);
+  // Move the cards themselves, not just the numbers on them: they drop back
+  // into the same board slots they already occupied, in the new order, so the
+  // arrangement you asked for is the arrangement you can see.
+  const slots = [];
+  s.board.forEach((c, i) => { if (picked.includes(c)) slots.push(i); });
+  slots.forEach((slot, i) => { s.board[slot] = out[i]; });
+  s.sortMode = 'manual';
   s.selected = out.map((c) => c.uid);
   return true;
 }
@@ -314,6 +398,7 @@ export function moveBoardCandle(state, uid, toIndex) {
   if (from === to) return false;
   s.board.splice(to, 0, s.board.splice(from, 1)[0]);
   s.sortMode = 'manual';
+  syncPlacementToBoard(state);
   return true;
 }
 
@@ -431,6 +516,27 @@ export function sweepSelected(state) {
   s.selected = [];
   refillBoard(state);
   return { swept: candles.length, created };
+}
+
+/**
+ * Where every candle in the book physically is right now: still in the deck,
+ * sitting on the board, or already spent. Between deadlines nothing has been
+ * dealt, so the whole book counts as deck.
+ *
+ * Anything in the book that is in neither the draw pile nor the board has been
+ * traded or swept, so `swept` is derived rather than read straight off the
+ * session — that keeps stamps like Anchor, which put a candle back on the
+ * board, from being counted twice.
+ */
+export function bookLocations(state) {
+  const s = state.session;
+  if (!s) return { deck: state.book.slice(), board: [], swept: [], dealt: false };
+  const inBook = new Set(state.book.map((c) => c.uid));
+  const deck = s.drawPile.filter((c) => inBook.has(c.uid));
+  const board = s.board.filter((c) => inBook.has(c.uid));
+  const live = new Set([...deck, ...board].map((c) => c.uid));
+  const swept = state.book.filter((c) => !live.has(c.uid));
+  return { deck, board, swept, dealt: true };
 }
 
 export function removeFromBook(state, candle) {
@@ -579,17 +685,20 @@ export function applyBonus(state, key) {
       if (hasBrokerRoom(state)) {
         state.brokers.push(makeBroker(rollBrokerKey(rng, {
           allowLegendary: state.mods.allowLegendary, owned: ownedBrokerKeys(state),
+          exclude: brokersOnOffer(state),
         }), rng));
       }
       break;
     case 'uncommonBroker':
       if (hasBrokerRoom(state)) {
-        state.brokers.push(makeBroker(rollBrokerKey(rng, { rarity: 'uncommon', owned: ownedBrokerKeys(state) }), rng));
+        state.brokers.push(makeBroker(rollBrokerKey(rng,
+          { rarity: 'uncommon', owned: ownedBrokerKeys(state), exclude: brokersOnOffer(state) }), rng));
       }
       break;
     case 'rareBroker':
       if (hasBrokerRoom(state)) {
-        state.brokers.push(makeBroker(rollBrokerKey(rng, { rarity: 'rare', owned: ownedBrokerKeys(state) }), rng));
+        state.brokers.push(makeBroker(rollBrokerKey(rng,
+          { rarity: 'rare', owned: ownedBrokerKeys(state), exclude: brokersOnOffer(state) }), rng));
       }
       break;
     case 'charts':
@@ -637,7 +746,7 @@ function rollShopItem(state, rng) {
     const key = rollBrokerKey(rng, {
       allowLegendary: m.allowLegendary && rng.chance(0.12),
       owned: ownedBrokerKeys(state),
-      exclude: state.shop?.items?.filter((i) => i.type === 'broker').map((i) => i.key) || [],
+      exclude: brokersOnOffer(state),
     });
     const inst = makeBroker(key, rng);
     let cost = BROKERS[key].cost + (inst.edition ? 3 : 0);
@@ -693,6 +802,7 @@ export function buyShopItem(state, index) {
   if (!item || item.sold) return { blocked: 'Gone' };
   const price = itemPrice(state, item.cost);
   if (state.cash < price) return { blocked: 'Not enough cash' };
+  if (item.type === 'broker' && alreadyEmployed(state, item.key)) return { blocked: 'You already employ them' };
   if (item.type === 'broker' && !hasBrokerRoom(state) && item.inst.edition !== 'offbook') return { blocked: 'No desk slots left' };
   if (item.type !== 'broker' && !hasConsumableRoom(state)) return { blocked: 'No Chart slots left' };
   state.cash -= price;
@@ -734,7 +844,7 @@ export function buyPack(state, index) {
       const key = rollBrokerKey(rng, {
         allowLegendary: state.mods.allowLegendary && rng.chance(0.15),
         owned: ownedBrokerKeys(state),
-        exclude: options.map((o) => o.key),
+        exclude: [...brokersOnOffer(state), ...options.map((o) => o.key)],
       });
       options.push({ type: 'broker', key, inst: makeBroker(key, rng) });
     } else {
@@ -758,6 +868,7 @@ export function pickFromPack(state, optionIndex) {
   const opt = open.options[optionIndex];
   if (!opt || opt.taken) return { blocked: 'Already taken' };
   if (opt.type === 'broker') {
+    if (alreadyEmployed(state, opt.key)) return { blocked: 'You already employ them' };
     if (!hasBrokerRoom(state) && opt.inst.edition !== 'offbook') return { blocked: 'No desk slots left' };
     state.brokers.push(opt.inst);
   } else if (opt.type === 'candle') {

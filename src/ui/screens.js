@@ -7,6 +7,7 @@ import { FORMATIONS, FORMATION_KEYS, formationStats } from '../game/formations.j
 import { BOSSES, BOSS_KEYS } from '../game/bosses.js';
 import { LICENSES, LICENSE_KEYS } from '../game/licenses.js';
 import { sfx } from './fx.js';
+import { VERSION, VERSION_NAME, CHANGELOG } from '../engine/version.js';
 
 const CAREER_KEY = 'margincall.career.v1';
 export function career() {
@@ -75,6 +76,8 @@ export function homeScreen(game) {
       </div>
       <div class="home-foot">${BROKER_KEYS.length} brokers &middot; ${ENHANCEMENT_KEYS.length} special candles &middot;
         ${FORMATION_KEYS.length} formations &middot; ${BOSS_KEYS.length} bosses</div>
+      <div class="home-version" id="home-version" title="Click for what changed">
+        <b>${VERSION}</b> &middot; ${VERSION_NAME}</div>
     </div>`, { dismissable: false, width: '900px' });
 
   // a slow idle tape of candles behind the wordmark
@@ -102,6 +105,29 @@ export function homeScreen(game) {
   sheet.querySelector('#h-compendium').onclick = () => { sfx.select(); compendiumScreen(game, () => homeScreen(game)); };
   sheet.querySelector('#h-glossary').onclick = () => { sfx.select(); glossaryScreen(game, () => homeScreen(game)); };
   sheet.querySelector('#h-settings').onclick = () => { sfx.select(); settingsScreen(game, () => homeScreen(game)); };
+  sheet.querySelector('#home-version').onclick = () => { sfx.select(); changelogScreen(game, () => homeScreen(game)); };
+}
+
+/**
+ * What changed, and how to tell whether you have it. The game has no build
+ * step, so this screen plus the version on the title is the only way a player
+ * can check they are actually running the patch they think they are.
+ */
+export function changelogScreen(game, back) {
+  const entries = CHANGELOG.map((e, i) => `
+    <div class="cl-entry ${i === 0 ? 'current' : ''}">
+      <div class="cl-head"><b>${e.version}</b><span>${e.name}</span>${i === 0 ? '<i>YOU ARE HERE</i>' : ''}</div>
+      <ul>${e.notes.map((n) => `<li>${n}</li>`).join('')}</ul>
+    </div>`).join('');
+  const sheet = showOverlay(`
+    <h2>WHAT'S NEW</h2>
+    <div class="sub">You are running <b style="color:var(--cyan)">${VERSION} &mdash; ${VERSION_NAME}</b>.</div>
+    <div class="cl-note">Not seeing something listed here? You are on an older copy of the game.
+      Stop the server, run <code>npm run update</code> in the game folder, then <code>npm start</code> again.</div>
+    <div class="cl-list">${entries}</div>
+    <div class="btn-row"><button class="btn" id="cl-back">BACK</button></div>`,
+    { dismissable: true, width: '680px' });
+  sheet.querySelector('#cl-back').onclick = () => (back ? back() : closeOverlay());
 }
 
 // ---------------------------------------------------------------------------

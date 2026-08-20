@@ -363,13 +363,13 @@ class Game {
     const st = this.state, s = st.session;
     const row = $('board-row');
     row.innerHTML = '';
+    this.renderPiles();
     if (!s) return;
     s.board.forEach((c, i) => {
       const idx = s.selected.indexOf(c.uid);
       const el = candleEl(c, { order: idx >= 0 ? idx + 1 : null });
       el.style.setProperty('--i', i);
       if (idx >= 0) el.classList.add('selected');
-      if (animateNew.includes(c.uid)) { el.classList.add('dealing'); el.style.animationDelay = (i * 45) + 'ms'; }
       el.onclick = () => { if (this.didDrag) { this.didDrag = false; return; } this.toggleCandle(c.uid); };
       el.draggable = true;
       el.addEventListener('dragstart', (e) => {
@@ -387,10 +387,8 @@ class Game {
         el.classList.remove('drop-target');
         if (!this.dragCandle || this.dragCandle === c.uid) return;
         const to = s.board.findIndex((x) => x.uid === c.uid);
-        // Reordering a placed candle changes the print order; otherwise it just
-        // tidies the board.
-        const inPlacement = s.selected.includes(this.dragCandle) && s.selected.includes(c.uid);
-        if (inPlacement) S.movePlacement(st, this.dragCandle, s.selected.indexOf(c.uid));
+        // Moving a candle on the board moves it in the print order too — the
+        // placement is re-derived from where the cards actually sit.
         S.moveBoardCandle(st, this.dragCandle, to);
         this.didDrag = true;
         this.dragCandle = null;
@@ -400,6 +398,87 @@ class Game {
       });
       row.appendChild(el);
     });
+    if (animateNew.length) this.dealIn(row, animateNew);
+  }
+
+  // ------------------------------------------------------------------ piles
+  /**
+   * The deck and the swept pile that flank the board. Both are real places:
+   * cards fly out of one and into the other, so the deal and the sweep read as
+   * movement rather than as things blinking in and out of existence.
+   */
+  renderPiles() {
+    const st = this.state, s = st?.session;
+    const deck = s ? s.drawPile.length : (st ? st.book.length : 0);
+    const swept = s ? s.swept.length : 0;
+    const paint = (id, stackId, countId, n) => {
+      const pile = $(id);
+      if (!pile) return;
+      $(countId).textContent = n;
+      pile.classList.toggle('empty', n === 0);
+      // The stack behind the top card thickens as the pile grows, capped so a
+      // full 52-card deck does not run off the table.
+      const layers = Math.min(5, Math.ceil(n / 6));
+      const stack = $(stackId);
+      if (+stack.dataset.layers !== layers) {
+        stack.dataset.layers = layers;
+        stack.innerHTML = Array.from({ length: layers }, (_, k) =>
+          `<i style="transform:translate(${(k + 1) * 2.5}px,${(k + 1) * 2.5}px);opacity:${0.5 - k * 0.07}"></i>`).join('');
+      }
+    };
+    paint('draw-pile', 'draw-stack', 'draw-count', deck);
+    paint('swept-pile', 'swept-stack', 'swept-count', swept);
+  }
+
+  /** Kick a pile so it reacts to cards leaving or landing. */
+  kickPile(id) {
+    const el = $(id);
+    if (!el) return;
+    el.classList.remove('kick'); void el.offsetWidth; el.classList.add('kick');
+  }
+
+  /**
+   * Point a tile at a pile by measuring the gap between the two right now.
+   * The keyframes default --dx/--dy to zero, so if either element cannot be
+   * measured the tile simply fades in place rather than animating wrongly.
+   */
+  aimAt(el, pileId) {
+    const pile = $(pileId);
+    if (!el || !pile) return false;
+    const p = pile.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    if (!r.width || !p.width) return false;
+    el.style.setProperty('--dx', Math.round(p.left + p.width / 2 - (r.left + r.width / 2)) + 'px');
+    el.style.setProperty('--dy', Math.round(p.top + p.height / 2 - (r.top + r.height / 2)) + 'px');
+    return true;
+  }
+
+  /** Fly freshly dealt candles in from the deck, one after another. */
+  dealIn(row, uids) {
+    let n = 0;
+    for (const uid of uids) {
+      const el = row.querySelector(`[data-uid="${uid}"]`);
+      if (!el) continue;
+      this.aimAt(el, 'draw-pile');
+      el.classList.add('dealing');
+      el.style.animationDelay = (n * 55) + 'ms';
+      n++;
+    }
+    if (n) this.kickPile('draw-pile');
+  }
+
+  /** Throw tiles onto the swept pile. Resolves once the last one lands. */
+  async fileAway(els, cls = 'sweeping') {
+    if (!els.length) return;
+    els.forEach((el, i) => {
+      if (!el) return;
+      el.style.setProperty('--sw', i);
+      this.aimAt(el, 'swept-pile');
+      el.classList.add(cls);
+    });
+    const step = cls === 'filing' ? 38 : 45;
+    await sleep(Math.min(360, 150 + els.length * step));
+    this.kickPile('swept-pile');
   }
 
   updatePreview() {
@@ -491,9 +570,10 @@ class Game {
     this.sortMode = SORT_MODES[(SORT_MODES.indexOf(this.sortMode) + 1) % SORT_MODES.length];
     s.sortMode = this.sortMode;
     s.board = sortCandles(s.board, this.sortMode);
+    S.syncPlacementToBoard(st);
     sfx.select();
     this.renderBoard();
-    this.updateActions();
+    this.updatePreview();
   }
 
   async sweep() {
@@ -506,20 +586,18 @@ class Game {
     this.updateActions();
     hideTip();
 
-    // Throw the doomed candles off the board before the replacements deal in.
+    // Throw the doomed candles onto the swept pile before the replacements
+    // deal in off the deck, so the board is visibly emptied and refilled.
     const row = $('board-row');
     const doomed = s.selected.slice();
-    doomed.forEach((uid, i) => {
-      const el = row.querySelector(`[data-uid="${uid}"]`);
+    const tiles = doomed.map((uid) => row.querySelector(`[data-uid="${uid}"]`));
+    tiles.forEach((el, i) => {
       if (!el) return;
-      el.style.setProperty('--sw', i);
-      el.style.setProperty('--sx', (i - (doomed.length - 1) / 2) * 34 + 'px');
-      el.classList.add('sweeping');
       const r = el.getBoundingClientRect();
       setTimeout(() => particles(r.left + r.width / 2, r.top + r.height * 0.4, '#6a7a95', 8, 70), i * 45);
     });
     sfx.sweep(doomed.length);
-    await sleep(200 + doomed.length * 45);
+    await this.fileAway(tiles.filter(Boolean));
 
     const before = new Set(s.board.map((c) => c.uid));
     const r = S.sweepSelected(st);
@@ -674,7 +752,13 @@ class Game {
     this.renderResources();
     this.renderTape();
     this.renderBrokers();
-    await sleep(260);
+    await sleep(200);
+    // The position is filed away onto the swept pile rather than just vanishing.
+    const alive = res.played
+      .filter((c) => !res.destroyedCandles?.some((d) => d.uid === c.uid))
+      .map((c) => els.get(c.uid));
+    sfx.sweep(alive.length);
+    await this.fileAway(alive.filter(Boolean), 'filing');
     area.innerHTML = '';
     $('board-row').classList.remove('settling');
     $('position-ghost').classList.remove('hide');
@@ -747,12 +831,36 @@ class Game {
         Terminals, feeds and burner phones raise the number.</div>`;
     });
     tip('dl-quota', () => {
-      const s = st()?.session;
+      const g = st();
+      const s = g?.session;
       if (!s) return `<h4>Quota</h4><div class="tt-body">Pick a deadline to begin.</div>`;
+      const act = S.actOf(g.week);
+      const curve = act > 1
+        ? `<div class="tt-body">Week ${g.week} is in <b>act ${act}</b> — quotas are growing
+           <em>×${S.actGrowth(act).toFixed(2)}</em> a week, and every eighth week starts a steeper act.</div>`
+        : '';
       return `<h4>Quota</h4>
         <div class="tt-body">Book <em>${money(s.quota)}</em> in P/L before your trades run out.
         You have booked <b>${money(s.profit)}</b> with <b>${s.tradesLeft}</b> trade${s.tradesLeft === 1 ? '' : 's'} left.</div>
+        ${curve}
         <div class="tt-foot">Miss it and the run ends</div>`;
+    });
+    tip('draw-pile', () => {
+      const s = st()?.session;
+      const n = s ? s.drawPile.length : (st()?.book.length ?? 0);
+      return `<h4>The deck</h4>
+        <div class="tt-rarity" style="color:var(--cyan)">${n} CANDLE${n === 1 ? '' : 'S'} LEFT TO DEAL</div>
+        <div class="tt-body">Your whole book is shuffled in here at the bell, and the board is topped up off the
+        top of it. Once it runs dry the board only shrinks.</div>
+        <div class="tt-foot">BOOK → REMAINING shows exactly which ones are still in here</div>`;
+    });
+    tip('swept-pile', () => {
+      const s = st()?.session;
+      const n = s ? s.swept.length : 0;
+      return `<h4>The swept pile</h4>
+        <div class="tt-rarity" style="color:var(--ink-dim)">${n} CANDLE${n === 1 ? '' : 'S'} SPENT</div>
+        <div class="tt-body">Everything you have traded or swept this deadline lands here. It does not shuffle
+        back in — what is gone is gone until the next bell.</div>`;
     });
     tip('r-trades', () => `<h4>Trades</h4><div class="tt-body">One placement plus one call each. Unused trades pay
       <em>$1</em> apiece when you clear the deadline.</div>`);

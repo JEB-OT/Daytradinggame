@@ -345,12 +345,59 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
 #position-ghost.hide { opacity: 0; }
 #score-burst { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
 
-#board-area { flex-shrink: 0; }
+#board-area { flex-shrink: 0; display: flex; align-items: flex-end; justify-content: center; gap: 12px; }
 #board-row {
   display: flex; gap: 8px; justify-content: center; align-items: flex-end;
   min-height: 132px; padding-top: 16px; transition: opacity .25s, filter .25s;
 }
 #board-row.settling { opacity: .28; filter: saturate(.35) blur(1px); pointer-events: none; }
+
+/* ============================ THE PILES ============================
+   Candles are dealt from the DECK on the left and land in the SWEPT pile on
+   the right, so every card on screen has a visible place it came from and a
+   visible place it goes. The stack behind each face thickens with the count.
+   ================================================================== */
+.pile {
+  --pc: #4a6ea8;
+  position: relative; width: 62px; height: 92px; flex-shrink: 0;
+  margin-bottom: 6px; user-select: none;
+}
+.pile-face {
+  position: absolute; inset: 0; z-index: 2;
+  border-radius: 9px; border: 3px solid var(--pc);
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 4px, transparent 4px 8px),
+    linear-gradient(180deg, #1b2a46 0%, #0a1020 100%);
+  box-shadow: 0 4px 0 var(--lip), inset 0 1px 0 rgba(255,255,255,.12), 0 8px 16px rgba(0,0,0,.55);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+}
+/* the shuffled bulk of the pile, peeking out behind the top card */
+.pile-stack { position: absolute; inset: 0; z-index: 1; }
+.pile-stack i {
+  position: absolute; inset: 0; border-radius: 9px;
+  border: 3px solid var(--pc); background: linear-gradient(180deg, #16233c, #080d18);
+  opacity: .55;
+}
+.pile-count {
+  font-size: 19px; font-weight: 900; color: var(--ink); text-shadow: var(--outline);
+  font-variant-numeric: tabular-nums;
+}
+/* The label lives inside the face rather than under it — the board area is
+   flush against the action row and anything hanging below gets clipped. */
+.pile-label { font-size: 7.5px; font-weight: 700; letter-spacing: .18em; color: var(--pc); opacity: .8; }
+.pile.draw { --pc: #40d9ff; }
+.pile.swept { --pc: #6a7a95; }
+.pile.empty .pile-face { opacity: .34; border-style: dashed; }
+.pile.empty .pile-count { color: var(--ink-faint); }
+/* a kick when cards leave or land. NB `.pop` is already the floating-text FX
+   class, which is absolutely positioned and fades to nothing — hence `kick`. */
+.pile.kick .pile-face { animation: pileKick .3s cubic-bezier(.2,.9,.3,1); }
+@keyframes pileKick {
+  0% { transform: translateY(0) scale(1) }
+  35% { transform: translateY(-6px) scale(1.09); filter: brightness(1.5) }
+  100% { transform: translateY(0) scale(1) }
+}
+@media (max-width: 1200px) { .pile { width: 50px; height: 76px } .pile-count { font-size: 15px } }
 
 /* ============================ CANDLE TILE ============================ */
 .candle {
@@ -513,8 +560,22 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
   100% { transform: translateY(0) }
 }
 .candle.dim { filter: brightness(.42) saturate(.3); }
-.candle.dealing { animation: dealIn .32s cubic-bezier(.2,.9,.3,1) backwards; }
-@keyframes dealIn { from { transform: translate(70px,-160px) rotate(20deg); opacity: 0 } }
+/* Dealt straight off the deck: --dx/--dy are measured at deal time, so the
+   card really does travel from the pile to the slot it lands in. */
+.candle.dealing,
+#board-row .candle.dealing {
+  animation: dealIn .38s cubic-bezier(.18,.86,.32,1) backwards;
+  z-index: 12;
+}
+@keyframes dealIn {
+  0%   { transform: translate(var(--dx,-180px), var(--dy,0px)) rotate(-14deg) scale(.72);
+         opacity: 0; filter: brightness(1.7) }
+  22%  { opacity: 1 }
+  68%  { transform: translate(calc(var(--dx,-180px) * .12), calc(var(--dy,0px) * .12 - 12px))
+                    rotate(3deg) scale(1.05); filter: brightness(1.25) }
+  100% { transform: translate(0,0) rotate(0) scale(1); opacity: 1; filter: brightness(1) }
+}
+body.no-motion .candle.dealing { animation-duration: .14s; }
 .candle.shatter { animation: shatter .48s ease forwards; }
 @keyframes shatter { to { transform: translateY(34px) scale(.5) rotate(16deg); opacity: 0; filter: brightness(2.4) } }
 
@@ -628,6 +689,53 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
 .sheet h3 { font-size: 11px; font-weight: 700; letter-spacing: .18em; color: var(--ink-faint); margin: 16px 0 9px; }
 .sheet-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
 
+/* Which eight-week act the run is in. Quotas get steeper at every boundary. */
+/* the running build, on the title screen and in the menu */
+.home-version {
+  margin-top: 7px; font-size: 10.5px; color: var(--ink-faint); letter-spacing: .08em;
+  cursor: pointer; transition: color .15s;
+}
+.home-version b { color: var(--cyan); font-weight: 900; }
+.home-version:hover { color: var(--ink); text-decoration: underline; }
+
+.cl-note {
+  padding: 9px 13px; margin-bottom: 14px; border-radius: var(--r-sm);
+  background: rgba(64,217,255,.08); border: 2px solid rgba(64,217,255,.35);
+  font-size: 11.5px; color: #cfe9ff; line-height: 1.55;
+}
+.cl-note code {
+  background: #05080f; border: 1px solid #2c3d5f; border-radius: 4px;
+  padding: 1px 6px; color: var(--cyan); user-select: all;
+}
+.cl-list { display: flex; flex-direction: column; gap: 12px; }
+.cl-entry {
+  padding: 11px 13px; border-radius: var(--r-sm);
+  background: var(--ink-hole); border: 2px solid var(--rim);
+}
+.cl-entry.current { border-color: var(--cyan); box-shadow: 0 0 16px rgba(64,217,255,.16); }
+.cl-head { display: flex; align-items: baseline; gap: 9px; margin-bottom: 7px; flex-wrap: wrap; }
+.cl-head b { font-size: 15px; font-weight: 900; color: var(--cyan); }
+.cl-head span { font-size: 11.5px; color: var(--ink-dim); letter-spacing: .06em; }
+.cl-head i {
+  margin-left: auto; font-style: normal; font-size: 8.5px; font-weight: 800; letter-spacing: .14em;
+  padding: 2px 8px; border-radius: 20px; background: var(--cyan); color: #04121b;
+}
+.cl-entry ul { margin: 0; padding-left: 17px; }
+.cl-entry li { font-size: 11.5px; color: var(--ink-dim); line-height: 1.6; margin-bottom: 2px; }
+
+.act-badge {
+  display: inline-block; margin: 2px 0 10px; padding: 5px 13px; border-radius: 20px;
+  background: rgba(192,123,255,.12); border: 2px solid rgba(192,123,255,.45);
+  font-size: 11px; color: #dcc4ff; letter-spacing: .04em;
+}
+.act-badge b { color: var(--violet); font-weight: 900; }
+.act-badge.new {
+  background: rgba(255,84,104,.14); border-color: rgba(255,84,104,.6); color: #ffd0d5;
+  animation: actPulse 1.9s ease-in-out infinite;
+}
+.act-badge.new b { color: var(--red); }
+@keyframes actPulse { 0%,100% { box-shadow: 0 0 0 rgba(255,84,104,0) } 50% { box-shadow: 0 0 16px rgba(255,84,104,.45) } }
+
 .dl-choices { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
 .dl-choice {
   border: 3px solid var(--rim); border-radius: var(--r-md); padding: 16px 13px; text-align: center;
@@ -692,6 +800,18 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
 .floor-bar .fb-group { display: flex; align-items: center; gap: 9px; }
 .floor-bar .fb-items { display: flex; gap: 7px; flex-wrap: wrap; }
 .floor-bar .fb-hint { font-size: 10.5px; color: var(--ink-dim); margin-left: auto; }
+/* Inside a pack the strip is the point, not a footer — it is the only way to
+   make room for a pick you cannot otherwise take. Say so. */
+.floor-bar.titled {
+  border-color: var(--gold); box-shadow: inset 0 2px 8px rgba(0,0,0,.6), 0 0 18px rgba(255,210,74,.16);
+  position: relative; margin-top: 26px;
+}
+.floor-bar .fb-title {
+  position: absolute; top: -10px; left: 14px;
+  padding: 2px 10px; border-radius: 20px;
+  background: linear-gradient(180deg,#2a2412,#171208); border: 2px solid var(--gold);
+  font-size: 9px; font-weight: 800; letter-spacing: .1em; color: #ffe9ab; white-space: nowrap;
+}
 .floor-bar .broker, .floor-bar .consumable, .floor-bar .slot-empty { width: 58px; height: 64px; }
 .floor-bar .bk-art, .floor-bar .cs-art { font-size: 19px; }
 .floor-bar .bk-name, .floor-bar .cs-name { font-size: 6.5px; }
@@ -702,14 +822,162 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
 .pack-opt.taken { opacity: .2; pointer-events: none }
 
 /* ---------- book / formations ---------- */
-.book-grid { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
-.book-grid .candle { width: 56px; height: 86px; padding: 3px; border-width: 2px; }
-.book-grid .cd-num { font-size: 12px }
-.book-grid .cd-sector { font-size: 9px }
-.book-grid .cd-foot { font-size: 5.5px }
-.book-grid .cd-real { width: 15px; margin-left: -7.5px }
-.book-grid .cd-tag { font-size: 5.5px; bottom: 12px; padding: 1px 3px }
-.book-grid .cd-stamp { width: 8px; height: 8px; top: 3px }
+/* The deck view: a summary rail, a per-body tally, and one fanned row per
+   sector running high body to low. Gaps are drawn as outlines, because in the
+   REMAINING view the gaps carry as much information as the cards. */
+.bk-layout { display: grid; grid-template-columns: 172px 62px 1fr; gap: 12px; align-items: start; }
+.bk-side { display: flex; flex-direction: column; gap: 10px; }
+
+.bk-total {
+  padding: 10px 12px; border-radius: var(--r-sm); text-align: center;
+  background: var(--ink-hole); border: 2px solid var(--rim);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.6);
+}
+.bk-total label { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: .16em; color: var(--ink-faint); }
+.bk-total b { display: block; font-size: 30px; font-weight: 900; line-height: 1.1; text-shadow: var(--outline); }
+.bk-total small { display: block; font-size: 9.5px; color: var(--ink-dim); margin-top: 3px; }
+
+.bk-base {
+  padding: 10px; border-radius: var(--r-sm);
+  background: var(--ink-hole); border: 2px solid var(--rim);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.6);
+}
+.bc-title {
+  font-size: 11px; font-weight: 900; letter-spacing: .14em; color: var(--red);
+  text-align: center; margin-bottom: 8px; text-shadow: var(--outline);
+}
+.bc-bands { display: flex; flex-direction: column; gap: 3px; }
+.bc-band {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 4px 7px; border-radius: 5px; background: rgba(0,0,0,.3);
+  border: 1px solid rgba(60,80,120,.4);
+}
+.bc-band span { font-size: 8.5px; font-weight: 700; letter-spacing: .1em; color: var(--ink-faint); }
+.bc-band b { font-size: 14px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.bc-sectors { display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; margin-top: 8px; }
+.bc-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 5px 2px; border-radius: 5px; background: rgba(0,0,0,.3);
+  border: 1px solid rgba(60,80,120,.4);
+}
+.bc-glyph { font-size: 13px; text-shadow: 0 0 8px currentColor; }
+.bc-cell b { font-size: 12px; font-weight: 900; font-variant-numeric: tabular-nums; }
+
+/* how many of each body size — "4 of the 7s" at a glance */
+.bk-tally {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 5px; border-radius: var(--r-sm);
+  background: var(--ink-hole); border: 2px solid var(--rim);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.6);
+}
+.bt-head { font-size: 7.5px; font-weight: 700; letter-spacing: .14em; color: var(--ink-faint); text-align: center; margin-bottom: 2px; }
+.bt-row {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 2px 4px; border-radius: 20px; background: rgba(0,0,0,.32);
+  border: 1px solid rgba(60,80,120,.4);
+}
+.bt-body {
+  min-width: 17px; text-align: center; font-size: 10.5px; font-weight: 900;
+  color: var(--ink-dim); font-variant-numeric: tabular-nums;
+}
+.bt-n { font-size: 12px; font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
+.bt-of { font-size: 8px; font-style: normal; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.bt-row.zero { opacity: .42; }
+.bt-row.zero .bt-n { color: var(--red); }
+
+.book-board { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.bk-row {
+  --rc: #40d9ff;
+  display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: var(--r-sm);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 13%, transparent), rgba(0,0,0,.22) 42%);
+  border: 2px solid rgba(44,61,95,.7); border-left: 4px solid var(--rc);
+}
+.bk-rowhead { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.bk-glyph { font-size: 16px; color: var(--rc); text-shadow: 0 0 10px currentColor; }
+.bk-secname { font-size: 9.5px; font-weight: 800; letter-spacing: .08em; color: var(--ink); }
+.bk-seccount { margin-left: auto; font-size: 13px; font-weight: 900; color: var(--rc); font-variant-numeric: tabular-nums; }
+.bk-seccount i { font-size: 9px; font-style: normal; color: var(--ink-faint); font-weight: 700; }
+
+/* the fan itself — cards overlap, and the hovered one lifts clear */
+.bk-fan { display: flex; align-items: flex-end; justify-content: flex-start; padding-left: 4px; }
+.bk-fan > .bk-cell { margin-left: -13px; }
+.bk-fan > .bk-cell:first-child { margin-left: 0; }
+/* Each card lies on top of the one to its left, so what gets covered is always
+   a card's right edge and never its top-left corner — which is where the body
+   number and sector glyph live. Stacking it the other way hides the numbers. */
+.bk-cell {
+  position: relative; flex: 0 0 auto; z-index: calc(1 + var(--n, 0));
+  transition: transform .14s;
+}
+.bk-cell:hover { z-index: 40; transform: translateY(-9px) scale(1.07); }
+.bk-cell .candle {
+  width: 62px; height: 90px; padding: 3px; border-width: 2px; cursor: default;
+  box-shadow: 0 3px 0 var(--lip), -4px 0 9px rgba(0,0,0,.55);
+}
+.bk-cell .cd-num { font-size: 12px }
+.bk-cell .cd-sector { font-size: 9px }
+.bk-cell .cd-foot { font-size: 5.5px }
+.bk-cell .cd-real { width: 15px; margin-left: -7.5px }
+.bk-cell .cd-tag { font-size: 5.5px; bottom: 12px; padding: 1px 3px }
+.bk-cell .cd-stamp { width: 8px; height: 8px; top: 3px }
+
+/* an empty square — either never owned, or owned but no longer in the deck */
+.bk-ghost {
+  width: 62px; height: 90px; border-radius: 8px;
+  border: 2px dashed rgba(74,96,140,.5); background: rgba(4,8,16,.6);
+  display: flex; align-items: center; justify-content: center;
+}
+.bk-ghost span { font-size: 16px; font-weight: 900; color: rgba(120,140,175,.32); text-shadow: none; }
+.bk-cell.gone .bk-ghost { border-color: rgba(255,84,104,.34); background: rgba(60,10,18,.5); }
+.bk-cell.gone .bk-ghost span { color: rgba(255,120,135,.42); }
+
+/* more than one candle sits on the same square */
+.bk-dup {
+  position: absolute; left: -3px; bottom: -3px; z-index: 6;
+  padding: 1px 4px; border-radius: 8px; font-size: 9px; font-weight: 900;
+  background: var(--gold); color: #241800; border: 2px solid #0a0f1c;
+}
+
+.bk-tabs { display: flex; gap: 6px; }
+.bk-tab {
+  padding: 8px 14px; border-radius: var(--r-sm); font-size: 10.5px; font-weight: 800; letter-spacing: .13em;
+  border: 2px solid var(--rim-2); background: linear-gradient(180deg,#1d2b48,#121c33); color: var(--ink-dim);
+  box-shadow: 0 3px 0 var(--lip);
+}
+.bk-tab:hover { color: #fff; filter: brightness(1.2); }
+.bk-tab.on {
+  background: linear-gradient(180deg,#2f66b8,#1a3f7c); border-color: var(--cyan); color: #eaf7ff;
+  box-shadow: 0 3px 0 #061a33, 0 0 16px rgba(64,217,255,.35);
+}
+
+.bk-where {
+  display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+  padding: 8px 12px; margin: 10px 0 12px; border-radius: var(--r-sm);
+  background: var(--ink-hole); border: 2px solid var(--rim);
+  font-size: 11px; color: var(--ink-dim);
+}
+.bk-where b { font-size: 14px; font-weight: 900; }
+.bk-where .w-deck b { color: var(--cyan) }
+.bk-where .w-board b { color: var(--green) }
+.bk-where .w-swept b { color: var(--ink-faint) }
+
+.bk-legend {
+  display: flex; gap: 18px; justify-content: center; flex-wrap: wrap;
+  margin-top: 12px; font-size: 10px; color: var(--ink-faint); letter-spacing: .06em;
+}
+.bk-legend span { display: flex; align-items: center; gap: 6px; }
+.bk-legend i { width: 13px; height: 17px; border-radius: 3px; display: inline-block; }
+.bk-legend .lg-have { background: linear-gradient(180deg,#16233c,#0b1120); border: 2px solid #4a6ea8; }
+.bk-legend .lg-gone { border: 2px dashed rgba(255,84,104,.45); background: rgba(60,10,18,.5); }
+
+@media (max-width: 1220px) {
+  .bk-layout { grid-template-columns: 150px 54px 1fr; }
+  .bk-cell .candle, .bk-ghost { width: 52px; height: 76px; }
+  .bk-fan > .bk-cell { margin-left: -11px; }
+  .bk-row { grid-template-columns: 80px 1fr; }
+  .bk-secname { font-size: 8.5px }
+}
 .stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 11px; margin-bottom: 16px; }
 .stat-box { background: var(--ink-hole); border: 2px solid var(--rim); border-radius: var(--r-sm); padding: 9px; text-align: center; box-shadow: inset 0 2px 6px rgba(0,0,0,.6) }
 .stat-box label { display: block; font-size: 9px; font-weight: 700; letter-spacing: .14em; color: var(--ink-faint) }
@@ -1118,23 +1386,43 @@ body.no-motion *::after { animation: none !important; }
   font-size: 13px; color: #ffe9ab;
 }
 .pack-lead b { font-size: 17px; font-weight: 900; color: var(--gold); }
+.pack-warn {
+  display: inline-block; margin: 0 0 10px; padding: 7px 15px; border-radius: var(--r-sm);
+  background: rgba(255,84,104,.12); border: 2px solid rgba(255,84,104,.5);
+  font-size: 11.5px; color: #ffc2c9; line-height: 1.45;
+}
+/* slot counts on the Floor strip, so a blocked pick explains itself */
+.fb-label i { font-style: normal; color: var(--ink); font-weight: 900; }
 
 
 /* ==========================================================================
    SWEEPING — candles visibly leave the board before replacements deal in
    ========================================================================== */
-.candle.sweeping {
+.candle.sweeping,
+#board-row .candle.sweeping {
   pointer-events: none; z-index: 30;
-  animation: sweepAway .42s cubic-bezier(.45,.05,.75,.4) forwards;
+  animation: sweepAway .46s cubic-bezier(.5,.02,.72,.55) forwards;
   animation-delay: calc(var(--sw, 0) * 45ms);
 }
+/* --dx/--dy point at the SWEPT pile, measured when the sweep starts. The card
+   lifts off the desk first, then falls onto the discard. */
 @keyframes sweepAway {
-  0%   { transform: translateY(-24px) rotate(0deg); opacity: 1; filter: brightness(1) }
-  22%  { transform: translateY(-44px) rotate(-5deg) scale(1.04); filter: brightness(1.5) saturate(.7) }
-  100% { transform: translate(calc(var(--sx, 0px) * 2.2), -190px) rotate(-34deg) scale(.62);
-         opacity: 0; filter: brightness(.6) saturate(.2) blur(1.5px) }
+  0%   { transform: translate(0,0) rotate(0deg); opacity: 1; filter: brightness(1) }
+  20%  { transform: translate(calc(var(--dx,0px) * .1), calc(var(--dy,0px) * .1 - 26px))
+                    rotate(-6deg) scale(1.06); filter: brightness(1.55) saturate(.75) }
+  100% { transform: translate(var(--dx,0px), var(--dy,0px)) rotate(26deg) scale(.5);
+         opacity: 0; filter: brightness(.7) saturate(.25) blur(1px) }
 }
-body.no-motion .candle.sweeping { animation-duration: .12s; }
+body.no-motion .candle.sweeping { animation-duration: .14s; }
+
+/* Played candles are cleared to the swept pile the same way once a trade has
+   finished resolving. */
+.candle.filing {
+  pointer-events: none; z-index: 30;
+  animation: sweepAway .44s cubic-bezier(.5,.02,.72,.55) forwards;
+  animation-delay: calc(var(--sw, 0) * 38ms);
+}
+body.no-motion .candle.filing { animation-duration: .14s; }
 
 /* a broker being dragged around the desk */
 .broker.dragging { opacity: .4; filter: saturate(.5); }
