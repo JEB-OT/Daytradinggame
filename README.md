@@ -83,6 +83,21 @@ Each **week** has three **deadlines**:
 | 2 | Afternoon Session | ×1.5 | can be skipped for a bonus |
 | 3 | **Boss Deadline** | ×2.0 | one of 29 rules that breaks your build |
 
+Weeks come in **acts of eight**, and the quota curve gets steeper at every act boundary — so
+weeks 9, 17, 25, 33 and on each start a harder stretch than the one before:
+
+| Act | Weeks | Quota growth |
+|---|---|---|
+| 1 | 1–8 | a hand-tuned table, ×2.5 easing to ×2.17 a week |
+| 2 | 9–16 | ×2.40 a week |
+| 3 | 17–24 | ×2.95 a week |
+| 4 | 25–32 | ×3.50 a week |
+| *n* | … | ×0.55 a week faster than the act before |
+
+Endless mode used to flatten to a constant ×2.4 forever, which meant a desk that could clear week
+12 could clear week 40 — it got longer, not harder. Now it keeps outrunning you. The act and its
+current rate are printed above the week's deadlines, and the week that starts a new act says so.
+
 A deadline gives you a cash **quota**, a handful of **trades** and some **sweeps**.
 
 1. Place **1–5 candles** from your board. **The order you place them is the order they print** —
@@ -229,14 +244,19 @@ The Floor prints all of this on a strip at the bottom, so you never have to gues
 Candles print **left to right**, and so do brokers. `+` does not commute with `×`, so an additive
 candle or broker is worth more before a multiplying one. You control both.
 
-**Brokers** — drag them along your desk, in a run or on the Floor.
+**Brokers** — drag them along your desk, in a run, on the Floor, or inside a pack.
 
 **Candles** — three ways:
 
 - **Click order.** The badge on each candle is its slot.
-- **Drag.** Pick a candle up and drop it on another, on the board or inside your placement.
+- **Drag.** Pick a candle up and drop it anywhere on the board.
 - **`ARRANGE` / `A`** cycles five presets: **Rising ▲**, **Falling ▼** (the shapes the two marches
   want), **Volume 1st**, **Leverage 1st**, and **Reverse**.
+
+**Moving a candle moves it in the print order.** Drag one, `ARRANGE`, or re-sort the board and the
+placement is re-derived from where the cards actually sit — so once you have rearranged anything,
+the badges read `1 2 3` straight across and **what you see left to right is what prints**. Click
+order only decides the starting arrangement.
 
 ## Building a desk
 

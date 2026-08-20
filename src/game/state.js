@@ -12,9 +12,44 @@ import { clamp } from '../engine/util.js';
 export const SAVE_KEY = 'margincall.save.v2';
 
 const BASE_QUOTA = [180, 450, 1100, 2600, 6000, 13500, 30000, 65000];
+
+// ---------------------------------------------------------------------------
+// The quota curve, in ACTS of eight weeks.
+//
+// Act 1 is the hand-tuned table above: it grows about x2.5 a week and eases off
+// to x2.17 by week 8. Past that the curve used to flatten to a constant x2.4
+// forever, so endless mode stopped getting harder and only got longer — a desk
+// that could clear week 12 could clear week 40.
+//
+// Instead the per-week growth steps up at every act boundary, so weeks 9, 17,
+// 25, 33... each start a steeper stretch than the one before.
+// ---------------------------------------------------------------------------
+export const ACT_LENGTH = 8;
+const ACT_BASE_GROWTH = 2.4;   // act 2 (weeks 9-16)
+const ACT_GROWTH_STEP = 0.55;  // added for every act after that
+
+/** Which eight-week act a week belongs to. Weeks 1-8 are act 1. */
+export function actOf(week) { return Math.floor((Math.max(1, week) - 1) / ACT_LENGTH) + 1; }
+
+/** The per-week quota multiplier inside an act. Act 1 is the table, not a curve. */
+export function actGrowth(act) { return ACT_BASE_GROWTH + ACT_GROWTH_STEP * Math.max(0, act - 2); }
+
+const weekBaseCache = new Map();
 export function weekBase(week) {
-  if (week <= BASE_QUOTA.length) return BASE_QUOTA[week - 1];
-  return Math.round(BASE_QUOTA[BASE_QUOTA.length - 1] * Math.pow(2.4, week - BASE_QUOTA.length));
+  if (week <= BASE_QUOTA.length) return BASE_QUOTA[Math.max(1, week) - 1];
+  if (weekBaseCache.has(week)) return weekBaseCache.get(week);
+  let v = BASE_QUOTA[BASE_QUOTA.length - 1];
+  for (let w = BASE_QUOTA.length + 1; w <= week; w++) {
+    v *= actGrowth(actOf(w));
+    // Clamping at MAX_SAFE_INTEGER would flatten the curve into a wall around
+    // week 31, which is the opposite of the point. A quota is only ever
+    // compared and formatted, never counted, so past 2^53 it stays a float and
+    // loses precision it does not need. Only true overflow is caught.
+    if (!Number.isFinite(v)) { v = Number.MAX_VALUE; break; }
+  }
+  const out = v < 1e15 ? Math.round(v) : v;
+  weekBaseCache.set(week, out);
+  return out;
 }
 
 export const DEADLINE_SLOTS = [
@@ -286,6 +321,24 @@ export function toggleSelect(state, uid) {
   return s.selected;
 }
 
+/**
+ * Rewrite the placement order so it matches what the board actually shows,
+ * left to right.
+ *
+ * The badge on a candle is a promise about the order it will print in, and the
+ * only way to keep that promise readable is for the order you *see* to be the
+ * order that prints. So every action that physically moves a candle — a drag,
+ * an ARRANGE, a board sort — re-derives the placement from the board rather
+ * than leaving it on the order things happened to be clicked in.
+ */
+export function syncPlacementToBoard(state) {
+  const s = state.session;
+  if (!s) return false;
+  const picked = new Set(s.selected);
+  s.selected = s.board.filter((c) => picked.has(c.uid)).map((c) => c.uid);
+  return true;
+}
+
 export const ARRANGE_MODES = [
   { key: 'rising',   label: 'RISING ▲',   hint: 'smallest body first — the shape Three White Soldiers wants' },
   { key: 'falling',  label: 'FALLING ▼',  hint: 'largest body first — the shape Three Black Crows wants' },
@@ -314,6 +367,13 @@ export function arrangeSelection(state, mode) {
     out = picked.slice().sort((a, b) =>
       (contributionOf(a) === 'leverage' ? 0 : 1) - (contributionOf(b) === 'leverage' ? 0 : 1) || byBody(a, b));
   } else out = picked.slice().sort(byBody);
+  // Move the cards themselves, not just the numbers on them: they drop back
+  // into the same board slots they already occupied, in the new order, so the
+  // arrangement you asked for is the arrangement you can see.
+  const slots = [];
+  s.board.forEach((c, i) => { if (picked.includes(c)) slots.push(i); });
+  slots.forEach((slot, i) => { s.board[slot] = out[i]; });
+  s.sortMode = 'manual';
   s.selected = out.map((c) => c.uid);
   return true;
 }
@@ -338,6 +398,7 @@ export function moveBoardCandle(state, uid, toIndex) {
   if (from === to) return false;
   s.board.splice(to, 0, s.board.splice(from, 1)[0]);
   s.sortMode = 'manual';
+  syncPlacementToBoard(state);
   return true;
 }
 

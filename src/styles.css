@@ -689,6 +689,20 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 .sheet h3 { font-size: 11px; font-weight: 700; letter-spacing: .18em; color: var(--ink-faint); margin: 16px 0 9px; }
 .sheet-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
 
+/* Which eight-week act the run is in. Quotas get steeper at every boundary. */
+.act-badge {
+  display: inline-block; margin: 2px 0 10px; padding: 5px 13px; border-radius: 20px;
+  background: rgba(192,123,255,.12); border: 2px solid rgba(192,123,255,.45);
+  font-size: 11px; color: #dcc4ff; letter-spacing: .04em;
+}
+.act-badge b { color: var(--violet); font-weight: 900; }
+.act-badge.new {
+  background: rgba(255,84,104,.14); border-color: rgba(255,84,104,.6); color: #ffd0d5;
+  animation: actPulse 1.9s ease-in-out infinite;
+}
+.act-badge.new b { color: var(--red); }
+@keyframes actPulse { 0%,100% { box-shadow: 0 0 0 rgba(255,84,104,0) } 50% { box-shadow: 0 0 16px rgba(255,84,104,.45) } }
+
 .dl-choices { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
 .dl-choice {
   border: 3px solid var(--rim); border-radius: var(--r-md); padding: 16px 13px; text-align: center;
@@ -753,6 +767,18 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 .floor-bar .fb-group { display: flex; align-items: center; gap: 9px; }
 .floor-bar .fb-items { display: flex; gap: 7px; flex-wrap: wrap; }
 .floor-bar .fb-hint { font-size: 10.5px; color: var(--ink-dim); margin-left: auto; }
+/* Inside a pack the strip is the point, not a footer — it is the only way to
+   make room for a pick you cannot otherwise take. Say so. */
+.floor-bar.titled {
+  border-color: var(--gold); box-shadow: inset 0 2px 8px rgba(0,0,0,.6), 0 0 18px rgba(255,210,74,.16);
+  position: relative; margin-top: 26px;
+}
+.floor-bar .fb-title {
+  position: absolute; top: -10px; left: 14px;
+  padding: 2px 10px; border-radius: 20px;
+  background: linear-gradient(180deg,#2a2412,#171208); border: 2px solid var(--gold);
+  font-size: 9px; font-weight: 800; letter-spacing: .1em; color: #ffe9ab; white-space: nowrap;
+}
 .floor-bar .broker, .floor-bar .consumable, .floor-bar .slot-empty { width: 58px; height: 64px; }
 .floor-bar .bk-art, .floor-bar .cs-art { font-size: 19px; }
 .floor-bar .bk-name, .floor-bar .cs-name { font-size: 6.5px; }

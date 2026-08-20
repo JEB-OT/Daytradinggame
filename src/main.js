@@ -387,10 +387,8 @@ class Game {
         el.classList.remove('drop-target');
         if (!this.dragCandle || this.dragCandle === c.uid) return;
         const to = s.board.findIndex((x) => x.uid === c.uid);
-        // Reordering a placed candle changes the print order; otherwise it just
-        // tidies the board.
-        const inPlacement = s.selected.includes(this.dragCandle) && s.selected.includes(c.uid);
-        if (inPlacement) S.movePlacement(st, this.dragCandle, s.selected.indexOf(c.uid));
+        // Moving a candle on the board moves it in the print order too — the
+        // placement is re-derived from where the cards actually sit.
         S.moveBoardCandle(st, this.dragCandle, to);
         this.didDrag = true;
         this.dragCandle = null;
@@ -572,9 +570,10 @@ class Game {
     this.sortMode = SORT_MODES[(SORT_MODES.indexOf(this.sortMode) + 1) % SORT_MODES.length];
     s.sortMode = this.sortMode;
     s.board = sortCandles(s.board, this.sortMode);
+    S.syncPlacementToBoard(st);
     sfx.select();
     this.renderBoard();
-    this.updateActions();
+    this.updatePreview();
   }
 
   async sweep() {
@@ -832,11 +831,18 @@ class Game {
         Terminals, feeds and burner phones raise the number.</div>`;
     });
     tip('dl-quota', () => {
-      const s = st()?.session;
+      const g = st();
+      const s = g?.session;
       if (!s) return `<h4>Quota</h4><div class="tt-body">Pick a deadline to begin.</div>`;
+      const act = S.actOf(g.week);
+      const curve = act > 1
+        ? `<div class="tt-body">Week ${g.week} is in <b>act ${act}</b> — quotas are growing
+           <em>×${S.actGrowth(act).toFixed(2)}</em> a week, and every eighth week starts a steeper act.</div>`
+        : '';
       return `<h4>Quota</h4>
         <div class="tt-body">Book <em>${money(s.quota)}</em> in P/L before your trades run out.
         You have booked <b>${money(s.profit)}</b> with <b>${s.tradesLeft}</b> trade${s.tradesLeft === 1 ? '' : 's'} left.</div>
+        ${curve}
         <div class="tt-foot">Miss it and the run ends</div>`;
     });
     tip('draw-pile', () => {

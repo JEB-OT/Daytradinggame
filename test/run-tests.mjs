@@ -546,6 +546,53 @@ t('a destroyed candle leaves every pile', () => {
   eq(w.deck.length + w.board.length + w.swept.length, 51);
   ok(!w.deck.some((c) => c.uid === doomed.uid), 'gone from the deck');
 });
+t('dragging a candle on the board changes the print order', () => {
+  const st = S.newRun('DRAG');
+  const s = S.startDeadline(st, 0);
+  // Select three, deliberately clicked out of left-to-right order.
+  const [a, b, c] = [s.board[2], s.board[0], s.board[4]];
+  S.toggleSelect(st, a.uid); S.toggleSelect(st, b.uid); S.toggleSelect(st, c.uid);
+  eq(S.selectedCandles(st).map((x) => x.uid).join(), [a, b, c].map((x) => x.uid).join(),
+     'click order stands until something is moved');
+
+  // Drag the last one to the front of the board; the placement follows.
+  S.moveBoardCandle(st, c.uid, 0);
+  const order = S.selectedCandles(st).map((x) => x.uid);
+  const boardOrder = s.board.filter((x) => s.selected.includes(x.uid)).map((x) => x.uid);
+  eq(order.join(), boardOrder.join(), 'placement order is the board order');
+  eq(order[0], c.uid, 'the dragged candle now prints first');
+});
+t('ARRANGE moves the cards, not just the badges', () => {
+  const st = S.newRun('ARR');
+  const s = S.startDeadline(st, 0);
+  s.board = [mk('TECH', 9), mk('CRYPTO', 2), mk('ENERGY', 13), mk('FINANCE', 5)];
+  s.board.forEach((c) => S.toggleSelect(st, c.uid));
+  S.arrangeSelection(st, 'rising');
+  eq(s.board.map((c) => c.body).join(), '2,5,9,13', 'the board itself is now rising');
+  eq(S.selectedCandles(st).map((c) => c.body).join(), '2,5,9,13', 'and the placement agrees');
+  S.arrangeSelection(st, 'falling');
+  eq(s.board.map((c) => c.body).join(), '13,9,5,2');
+  eq(S.selectedCandles(st).map((c) => c.body).join(), '13,9,5,2');
+});
+t('ARRANGE leaves unselected candles where they are', () => {
+  const st = S.newRun('ARR2');
+  const s = S.startDeadline(st, 0);
+  s.board = [mk('TECH', 9), mk('CRYPTO', 2), mk('ENERGY', 13), mk('FINANCE', 5)];
+  // Only the outer two are placed; the middle pair must not shuffle.
+  S.toggleSelect(st, s.board[0].uid); S.toggleSelect(st, s.board[3].uid);
+  S.arrangeSelection(st, 'rising');
+  eq(s.board.map((c) => c.body).join(), '5,2,13,9', 'placed candles swapped, the rest held station');
+  eq(S.selectedCandles(st).map((c) => c.body).join(), '5,9');
+});
+t('syncPlacementToBoard drops candles that left the board', () => {
+  const st = S.newRun('SYNC');
+  const s = S.startDeadline(st, 0);
+  S.toggleSelect(st, s.board[0].uid); S.toggleSelect(st, s.board[1].uid);
+  const gone = s.board.splice(0, 1)[0];
+  S.syncPlacementToBoard(st);
+  eq(s.selected.length, 1);
+  ok(!s.selected.includes(gone.uid));
+});
 t('you cannot place more than five candles', () => {
   const st = S.newRun('SEL');
   const s = S.startDeadline(st, 0);
@@ -797,6 +844,31 @@ t('advancing past the boss rolls the week over', () => {
   S.finishDeadline(st);
   S.advanceAfterDeadline(st);
   eq(st.week, 2); eq(st.deadlineIndex, 0);
+});
+t('quotas get steeper at every eight-week act boundary', () => {
+  eq(S.actOf(1), 1); eq(S.actOf(8), 1);
+  eq(S.actOf(9), 2); eq(S.actOf(16), 2);
+  eq(S.actOf(17), 3); eq(S.actOf(24), 3); eq(S.actOf(25), 4);
+  // Each act grows faster per week than the one before it.
+  for (let a = 2; a < 10; a++) ok(S.actGrowth(a + 1) > S.actGrowth(a), 'act ' + a);
+
+  const step = (w) => S.weekBase(w) / S.weekBase(w - 1);
+  // Inside an act the rate holds; crossing a boundary it jumps.
+  ok(Math.abs(step(10) - step(16)) < 1e-6, 'flat inside act 2');
+  ok(step(17) > step(16) + 0.4, 'act 3 is steeper than act 2');
+  ok(step(25) > step(24) + 0.4, 'act 4 is steeper than act 3');
+  ok(step(33) > step(32) + 0.4, 'act 5 is steeper than act 4');
+  // And the old flat x2.4-forever curve is gone.
+  ok(step(40) > 4, 'late acts are far steeper than the old constant 2.4');
+});
+t('the quota curve stays finite and strictly rising deep into endless', () => {
+  let prev = 0;
+  for (let w = 1; w <= 200; w++) {
+    const v = S.weekBase(w);
+    ok(Number.isFinite(v), 'week ' + w + ' overflowed');
+    ok(v > prev, 'week ' + w + ' did not rise');
+    prev = v;
+  }
 });
 t('skipping a non-boss deadline grants a bonus', () => {
   const st = S.newRun('SKIP');

@@ -59,8 +59,19 @@ export function deadlineSelect(game) {
       </div>`;
   }).join('');
 
+  // Which eight-week act the run is in, and whether this week starts one. The
+  // curve steepens at every act boundary, so the player is told before they
+  // walk into a quota that is suddenly a different shape.
+  const act = S.actOf(st.week);
+  const actStart = act > 1 && (st.week - 1) % S.ACT_LENGTH === 0;
+  const actLine = act > 1
+    ? `<div class="act-badge ${actStart ? 'new' : ''}">ACT ${act} &middot; quotas grow
+         <b>×${S.actGrowth(act).toFixed(2)}</b> a week${actStart ? ' &mdash; steeper from here' : ''}</div>`
+    : '';
+
   const sheet = showOverlay(`
     <h2>WEEK ${st.week}</h2>
+    ${actLine}
     <div class="sub">Three deadlines. Clear all three to reach next week. Skipping trades the cash for a bonus.</div>
     <div class="dl-choices">${cards}</div>
     <div class="btn-row">
@@ -120,8 +131,9 @@ let shopDragUid = null;
  * desk, so a full desk or a full Chart shelf meant the pick you had just paid
  * for was unreachable with no way to sell anything and make room.
  */
-function floorBarHtml(st) {
-  return `<div class="floor-bar">
+function floorBarHtml(st, title) {
+  return `<div class="floor-bar${title ? ' titled' : ''}">
+      ${title ? `<div class="fb-title">${title}</div>` : ''}
       <div class="fb-group">
         <span class="fb-label">DESK <i>${S.slotsUsed(st)}/${st.mods.slots}</i></span>
         <div class="fb-items" id="shop-desk"></div>
@@ -325,7 +337,8 @@ export function packScreen(game) {
       <div class="pack-options" id="pack-opts"></div>
       <button class="btn ghost" id="pack-skip">${open.picks < open.pack.choose ? 'DONE' : 'SKIP'}</button>
     </div>
-    ${floorBarHtml(st)}`, { dismissable: false, width: '900px' });
+    ${floorBarHtml(st, 'YOUR DESK &amp; CHARTS &mdash; sell or use them right here, without losing the pack')}`,
+    { dismissable: false, width: '900px' });
 
   const wrap = sheet.querySelector('#pack-opts');
   open.options.forEach((opt, i) => {
@@ -677,6 +690,9 @@ export function helpScreen(game, fromTitle, back) {
               One sector across the board makes a <b>Cluster</b>.</li>
           <li>Three rising bulls in a row print <b>Three White Soldiers</b>; three falling bears print
               <b>Three Black Crows</b>. Use <span class="k">ARRANGE</span> to sort your placement.</li>
+          <li><b>Moving a candle moves it in the print order.</b> Drag one, <span class="k">ARRANGE</span>,
+              or re-sort the board and the badges re-read <b>1 2 3</b> straight across — what you see
+              left to right is what prints.</li>
         </ul>
       </div>
       <div>
