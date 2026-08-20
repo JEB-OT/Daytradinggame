@@ -678,3 +678,5 @@ class Game {
 const game = new Game();
 window.game = game;
 SC.homeScreen(game);
+// Tell the boot watchdog in index.html that the game came up.
+if (window.__MC_BOOT) window.__MC_BOOT.ok = true;

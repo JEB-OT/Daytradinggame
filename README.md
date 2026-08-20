@@ -7,22 +7,30 @@ Miss it and you're liquidated.
 Inspired by the "one more run" loop of *Balatro*, *Raccoin* and *Cloverpit* — a small pile of
 starting pieces, a shop full of things that break the rules, and a deadline that keeps moving.
 
-No build step, no dependencies. Open it in a browser and play.
+No build step, no dependencies — but it does need to be served over http (see below).
 
 ## Run it
 
-The game is plain HTML + ES modules. It needs a web server (ES modules won't load over `file://`),
-but nothing to build and nothing to install.
+> **Do not double-click `index.html`.** Browsers block a page opened from disk from loading its own
+> code, so you get a dead screen that *looks* like the game but does nothing. The game will tell you
+> so if you try it — but here is the short version.
+
+**Easiest — double-click the launcher.** It starts a server and opens the game for you:
+
+| Your machine | Double-click |
+|---|---|
+| macOS / Linux | `start.command` |
+| Windows | `start.bat` |
+
+Leave that window open while you play; closing it stops the server.
+
+**Or from a terminal**, in the game folder:
 
 ```bash
-git clone <this repo>
-cd Daytradinggame
-git checkout claude/roguelike-day-trading-game-vy5qsg
-
-npm start                     # → open http://localhost:8080
+npm start                     # → http://localhost:8080
 ```
 
-`npm start` is just a shortcut for a static file server. Any of these work identically:
+Any static file server does the same job:
 
 ```bash
 python3 -m http.server 8080   # Python 3, already on most machines
@@ -40,7 +48,10 @@ Then open **http://localhost:8080**. You land on the **home hub**, which has:
 - **Settings** — sound and ambient motion
 
 Type a seed if you want a reproducible run, then hit **START RUN**. Press `?` in-game for the rules
-or `Esc` for the menu; the Compendium and Glossary are reachable from there too.
+or `Esc` for the menu.
+
+If the game ever comes up blank or unresponsive, it now says why on screen — and a hard refresh
+(**Ctrl/Cmd + Shift + R**) clears a stale cached copy, which fixes most of the rest.
 
 Node is only needed for the test suite and the balance simulator — not to play:
 
