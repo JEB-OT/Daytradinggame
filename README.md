@@ -24,8 +24,9 @@ That is the whole thing. `npm start` prints a link and opens your browser at
 **http://localhost:8080**. Leave that terminal window open while you play; press `Ctrl+C` in it
 to stop.
 
-> Already cloned it? Run `git pull` first, then `npm start`.
-> If the branch matters: `git checkout claude/roguelike-day-trading-game-vy5qsg`.
+> **Already cloned it?** Run `npm run update` first — see
+> [Updating to the latest version](#updating-to-the-latest-version) below. Plain `git pull` is
+> often not enough, and it fails silently.
 
 ### Prefer not to use a terminal?
 
@@ -56,6 +57,8 @@ In game: `?` for the rules, `Esc` for the menu, and hover **anything** to see ex
 | `port 8080 is busy, trying 8081…` | Something else is using the port | Nothing — it moves to the next free port on its own. Use the link it prints |
 | A screen that **looks** like the game but nothing responds | You opened `index.html` by double-clicking it | Browsers block a page loaded from disk from importing its own code. The game says so on screen. Use `npm start` instead |
 | The page is blank, or an old version keeps showing | Stale browser cache | Hard refresh: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (macOS) |
+| `git pull` says `Already up to date` but the game has not changed | You are on a branch that does not have the new work | `npm run update` — it finds the branch that does and tells you how to switch |
+| A feature from the changelog is missing | You are running an older copy | Check the version in the title screen's bottom corner against [the table above](#checking-which-version-you-actually-have), then `npm run update` |
 | Anything else | — | The game prints the real error on screen now. Send that text and it can be diagnosed |
 
 ### Want a different port?
@@ -67,9 +70,56 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ### Other commands
 
 ```bash
-npm test                 # 141 assertions, no dependencies
+npm run update           # pull the latest version of the game
+npm test                 # 152 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 ```
+
+---
+
+## Updating to the latest version
+
+**Run this in the game folder:**
+
+```bash
+npm run update
+```
+
+Then `npm start`, and **hard-refresh** the page: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R`
+(macOS).
+
+### Why not just `git pull`?
+
+Because `git pull` only updates *the branch you are standing on*, and new work lands on a feature
+branch before it reaches the default one. If you are on the default branch, `git pull` will report
+`Already up to date` and change nothing — even when a finished patch is sitting one branch away.
+Nothing is broken and nothing tells you; the game simply keeps looking the same.
+
+`npm run update` closes that gap. It fetches, fast-forwards the branch you are on, and then checks
+whether another branch is ahead of you — and if one is, it prints the exact two commands to switch:
+
+```
+  claude/day-trading-candle-mechanics-mordep has 3 commits you do not have.
+  That is where the newest version lives. To switch to it:
+
+    git checkout claude/day-trading-candle-mechanics-mordep
+    git pull
+```
+
+It refuses to run at all if you have uncommitted changes, so it can never eat your work. Your save
+lives in the browser, not the repo, so switching branches keeps your run.
+
+### Checking which version you actually have
+
+**The title screen prints the version in the bottom corner.** Click it for the full changelog.
+
+| Version | What you should see |
+|---|---|
+| **v1.3.0** — The Print Shop | A **DECK** and a **SWEPT** pile either side of your board · the book laid out as fanned rows per sector with a body tally · a **REMAINING** tab · print-shop brokers · your desk visible inside packs |
+| v1.2.0 — The Desk | Sweep animation, no duplicate brokers, draggable desk |
+
+If the number on your title screen is older than the newest row here, you are running an old copy —
+run `npm run update`. If it matches but you still cannot see a feature, hard-refresh the page.
 
 ---
 
@@ -393,9 +443,10 @@ that three of the four have already been dealt.
 
 ```
 index.html            markup shell
+scripts/update.mjs    `npm run update` — fetch, fast-forward, and find the newest branch
 src/styles.css        the whole look
 src/main.js           controller: input, placement order, scoring animation, screen flow
-src/engine/           seeded RNG, formatting, event bus
+src/engine/           seeded RNG, formatting, event bus, the version stamp
 src/game/
   candles.js          candles: sector, body, polarity, enhancements, editions, stamps
   formations.js       formation evaluation (set-based + order-based marches) and Conviction

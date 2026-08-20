@@ -9,6 +9,7 @@ import { SECTORS, MAX_BODY } from '../game/candles.js';
 import * as S from '../game/state.js';
 import { candleEl, brokerEl, consumableEl, hideTip } from './components.js';
 import { sfx, toast } from './fx.js';
+import { VERSION, VERSION_NAME } from '../engine/version.js';
 
 const root = () => document.getElementById('overlay-root');
 
@@ -742,7 +743,8 @@ export function menuScreen(game, back) {
   const sheet = showOverlay(`
     <div class="title-wrap">
       <h2>MENU</h2>
-      <div class="sub">Seed ${game.state?.seed ?? '—'}</div>
+      <div class="sub">Seed ${game.state?.seed ?? '—'} &middot;
+        <span style="color:var(--cyan)">${VERSION}</span> ${VERSION_NAME}</div>
       <div style="display:flex;flex-direction:column;gap:8px;max-width:240px;margin:0 auto">
         <button class="btn wide" id="m-resume">RESUME</button>
         <button class="btn wide ghost" id="m-help">HOW TO PLAY</button>
