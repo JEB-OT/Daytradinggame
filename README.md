@@ -26,7 +26,7 @@ to stop.
 
 > **Already cloned it?** Run `npm run update` first — see
 > [Updating to the latest version](#updating-to-the-latest-version) below. Plain `git pull` is
-> often not enough, and it fails silently.
+> often not enough here, and it fails silently rather than telling you.
 
 ### Prefer not to use a terminal?
 
@@ -57,8 +57,8 @@ In game: `?` for the rules, `Esc` for the menu, and hover **anything** to see ex
 | `port 8080 is busy, trying 8081…` | Something else is using the port | Nothing — it moves to the next free port on its own. Use the link it prints |
 | A screen that **looks** like the game but nothing responds | You opened `index.html` by double-clicking it | Browsers block a page loaded from disk from importing its own code. The game says so on screen. Use `npm start` instead |
 | The page is blank, or an old version keeps showing | Stale browser cache | Hard refresh: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (macOS) |
-| `git pull` says `Already up to date` but the game has not changed | You are on a branch that does not have the new work | Run the three commands in [Updating](#first-time-get-onto-the-branch-with-the-latest-work) |
-| `npm error Missing script: "update"` | The update script is part of the update — you are still on the old branch | Run the three commands in [Updating](#first-time-get-onto-the-branch-with-the-latest-work) |
+| `git pull` says `Already up to date` but the game has not changed | You are on a branch that does not have the new work | See [Updating](#if-the-game-has-not-changed-or-npm-run-update-does-not-exist) |
+| `npm error Missing script: "update"` | The update script is part of the update — you are still on the old branch | See [Updating](#if-the-game-has-not-changed-or-npm-run-update-does-not-exist) |
 | `pathspec ... did not match any file(s) known to git` | Single-branch clone; git cannot see the branch yet | `git remote set-branches origin "*"` then `git fetch origin`, then retry the checkout |
 | A feature from the changelog is missing | You are running an older copy | Check the version in the title screen's bottom corner against [the table above](#checking-which-version-you-actually-have), then `npm run update` |
 | Anything else | — | The game prints the real error on screen now. Send that text and it can be diagnosed |
@@ -81,13 +81,30 @@ npm run sim              # a bot plays 200 runs and prints the difficulty curve
 
 ## Updating to the latest version
 
-### First time: get onto the branch with the latest work
+**In the game folder:**
 
-The newest version lives on a feature branch until its pull request is merged, so a fresh clone of
-the default branch does not have it — and `git pull` will keep saying `Already up to date` forever
-while the game stays exactly as it was.
+```bash
+npm run update
+```
 
-**Run these three, once, in the game folder:**
+Then `npm start`, and **hard-refresh** the page: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R`
+(macOS). It fetches, fast-forwards, refuses to run if you have uncommitted changes so it can never
+eat your work, and tells you which version you ended up on. Your save lives in the browser, not the
+repo, so none of this touches your run.
+
+### If the game has not changed, or `npm run update` does not exist
+
+Both symptoms have the same cause: **you are on a branch that does not have the new work.** New
+work lands on a feature branch and only reaches the default branch when its pull request is merged,
+and `git pull` only ever updates the branch you are standing on — so it reports `Already up to
+date` and changes nothing, which looks identical to the update being broken. `npm run update` is
+itself part of an update, so on an old branch it is simply missing:
+
+```
+npm error Missing script: "update"
+```
+
+**Run these three, once, to get onto the branch with the latest work:**
 
 ```bash
 git remote set-branches origin "*"
@@ -95,22 +112,11 @@ git fetch origin
 git checkout claude/day-trading-candle-mechanics-mordep
 ```
 
-Then `npm start`, and **hard-refresh** the page: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R`
-(macOS).
+> The first line matters. Clones are often made `--single-branch`, and then `git fetch` never
+> learns the other branches exist and the checkout fails with
+> `pathspec ... did not match any file(s) known to git`. It is harmless on a normal clone.
 
-> The first line matters. Clones are often made `--single-branch`, which means `git fetch` never
-> learns the other branches exist and `git checkout` fails with
-> `pathspec ... did not match any file(s) known to git`. That line widens the net; it is harmless
-> on a normal clone.
-
-### After that: `npm run update`
-
-```bash
-npm run update
-```
-
-Once you are on the branch, this is all you need. It fetches, fast-forwards, and if another branch
-has moved ahead it prints the exact commands to switch:
+After that `npm run update` works, and it will tell you if a branch ever moves ahead of you again:
 
 ```
   claude/day-trading-candle-mechanics-mordep has 3 commits you do not have.
@@ -120,11 +126,8 @@ has moved ahead it prints the exact commands to switch:
     git pull
 ```
 
-It refuses to run at all if you have uncommitted changes, so it can never eat your work. Your save
-lives in the browser, not the repo, so switching branches keeps your run.
-
-> `npm run update` is itself part of the update, so it only exists once you are on the branch. If
-> you get `Missing script: "update"`, you are still on the old branch — run the three commands above.
+Once a branch has been merged into the one you are on, the updater stops mentioning it — so after
+the pull request lands, plain `npm run update` on the default branch is the whole story.
 
 ### Checking which version you actually have
 
@@ -135,8 +138,8 @@ lives in the browser, not the repo, so switching branches keeps your run.
 | **v1.3.0** — The Print Shop | A **DECK** and a **SWEPT** pile either side of your board · the book laid out as fanned rows per sector with a body tally · a **REMAINING** tab · print-shop brokers · your desk visible inside packs |
 | v1.2.0 — The Desk | Sweep animation, no duplicate brokers, draggable desk |
 
-If the number on your title screen is older than the newest row here, you are running an old copy —
-run `npm run update`. If it matches but you still cannot see a feature, hard-refresh the page.
+If the number on your title screen is older than the newest row here, you are running an old copy.
+If it matches but you still cannot see a feature, hard-refresh the page.
 
 ---
 
