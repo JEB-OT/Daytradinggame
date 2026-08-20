@@ -9,12 +9,36 @@ starting pieces, a shop full of things that break the rules, and a deadline that
 
 No build step, no dependencies. Open it in a browser and play.
 
+## Run it
+
+The game is plain HTML + ES modules. It needs a web server (ES modules won't load over `file://`),
+but nothing to build and nothing to install.
+
 ```bash
-npm start          # serves on http://localhost:8080
-# or: python3 -m http.server 8080
+git clone <this repo>
+cd Daytradinggame
+git checkout claude/roguelike-day-trading-game-vy5qsg
+
+npm start                     # → open http://localhost:8080
 ```
 
-> ES modules need a real HTTP server — opening `index.html` from the filesystem won't work.
+`npm start` is just a shortcut for a static file server. Any of these work identically:
+
+```bash
+python3 -m http.server 8080   # Python 3, already on most machines
+npx serve -l 8080             # Node
+php -S localhost:8080         # PHP
+```
+
+Then open **http://localhost:8080** and hit **NEW RUN**. Type a seed first if you want a
+reproducible run. Press `?` in-game for the rules, or `Esc` for the menu.
+
+Node is only needed for the test suite and the balance simulator — not to play:
+
+```bash
+npm test                      # 102 assertions, zero dependencies
+node test/sim.mjs 200         # bot plays 200 runs, prints the difficulty curve
+```
 
 ---
 
@@ -51,6 +75,30 @@ Every candle has three independent axes:
 - **Polarity** — **BULL** (green) or **BEAR** (red). The book starts split exactly 26 / 26.
 
 Polarity is what makes candles more than re-skinned cards: it feeds **Conviction**.
+
+### Special candles
+
+Twelve of them, and each one looks unmistakably different on the board — its own frame colour,
+background and animated aura — so you can read your board at a glance.
+
+| Candle | Ability |
+|---|---|
+| **Bullion** | +30 Volume when it prints |
+| **Bloodstone** | +4 Leverage when it prints |
+| **Ember** | +15 Volume, and permanently gains +5 Volume every time it prints |
+| **Beacon** | +3 Leverage for every other placed candle sharing its sector |
+| **Chameleon** | Counts as every sector at once |
+| **Janus** | Counts as BOTH bull and bear — always agrees with your call |
+| **Glasswork** | ×2 Leverage. 1 in 4 chance to shatter after the trade |
+| **Cursed** | ×3 Leverage, but it costs you $4 every time it prints |
+| **Goldleaf** | $3 when held on the board at the close |
+| **Wardstone** | ×1.5 Leverage while held on the board |
+| **Wishbone** | 1 in 5 for +20 Leverage, 1 in 15 for $20 |
+| **Obsidian** | +50 Volume, but no body, sector or polarity |
+
+On top of that a candle can carry an **edition** — Foiled (+50 Volume), Prismatic (+10 Leverage),
+Runed (×1.5 Leverage) — and a **seal**: Echo (prints twice), Anchor (stays on the board),
+Coin ($3), Rune (leaves a Chart behind when swept).
 
 ### Conviction
 
@@ -123,17 +171,18 @@ Leveraged, Rotating, Volatile, Dividend, Hedged, Penny, **Swing**, Sealed), **ed
 
 ### Some builds that work
 
-- **The march** — Cadence drops Soldiers to two candles, Drill Sergeant multiplies them, and
-  Momentum Rider pays per candle in the run. Chart your book into rising bulls with Green Day.
-- **All-in conviction** — an all-bull book plus Conviction Desk and The True Believer means
-  every LONG is ×1.9, and Permabull stacks on top.
-- **The hedge book** — Swing candles count as *both* polarities, so The Hedge Book's even-split
-  bonus and full Conviction fire at the same time.
-- **Wrong-way desk** — Contrarian and Vol Surface pay you for calling it *wrong*, with
-  Tax-Loss Harvest banking cash on every red.
-- **Reprint stack** — Front Runner, Stamp Collector and Reissue stamps on a book of three
-  Block Tick 13s.
-- **Empty desk** — Dark Alpha pays ×0.35 more Leverage for every desk slot you leave *empty*.
+- **The march** — *Marching Drum* drops Soldiers to two candles, *Drillmaster* multiplies them and
+  *Coattails* pays per candle in the run. Chart your book into rising bulls with *Greenwake*.
+- **All-in conviction** — an all-bull book plus *Zealot's Badge* and *The Convert* makes every
+  LONG ×1.9, and *Sun Chaser* stacks on top.
+- **The two-faced book** — Janus candles count as *both* polarities, so *Janus Ledger*'s
+  even-split bonus and full Conviction fire at the same time.
+- **Wrong-way desk** — *The Fool* and *Scar Tissue* pay you for calling it wrong, with
+  *Salvager* banking cash on every red.
+- **Echo stack** — *Echo*, *Sigil Collector* and Echo Seals on a book of three Bullion 13s.
+- **The empty desk** — *Void Pact* pays ×0.35 more Leverage for every desk slot you leave *empty*.
+- **Bonfire** — Embers grow +5 Volume every print, so *Overspill* (everything prints) plus
+  *Echo* compounds a book of Embers permanently, run after run.
 
 ---
 

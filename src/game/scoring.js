@@ -120,26 +120,35 @@ function printCandle(state, ctx, c) {
   }
   const enh = ctx.enhOf(c);
   if (!ctx.mods.zeroCandleVolume) {
-    const bv = enh === 'sealed' ? 50 : baseVolume(c);
+    const bv = enh === 'obsidian' ? 50 : baseVolume(c);
     if (bv) { ctx.volume += bv; ctx.step('candleVolume', { name: 'Body' }, `+${bv} Vol`, { candleUid: c.uid, amount: bv }); }
   }
   if (c.bonusLeverage) ctx.addLeverage(c.bonusLeverage, { name: 'Bonus' }, c);
 
-  if (enh === 'blockTick') ctx.addVolume(30, { name: 'Block Tick' }, c);
-  else if (enh === 'leveraged') ctx.addLeverage(4, { name: 'Leveraged' }, c);
-  else if (enh === 'volatile') {
-    ctx.xLeverage(2, { name: 'Volatile' }, c);
+  if (enh === 'bullion') ctx.addVolume(30, { name: 'Bullion' }, c);
+  else if (enh === 'bloodstone') ctx.addLeverage(4, { name: 'Bloodstone' }, c);
+  else if (enh === 'ember') {
+    ctx.addVolume(15, { name: 'Ember' }, c);
+    if (ctx.commit) c.bonusVolume = (c.bonusVolume || 0) + 5;
+  } else if (enh === 'beacon') {
+    const kin = ctx.played.filter((o) => o !== c && !o.debuffed && o.sector === c.sector).length;
+    if (kin) ctx.addLeverage(3 * kin, { name: 'Beacon' }, c);
+  } else if (enh === 'glasswork') {
+    ctx.xLeverage(2, { name: 'Glasswork' }, c);
     if (ctx.commit && ctx.rng.next() < 0.25) ctx.destroyQueue.push(c);
-  } else if (enh === 'penny') {
-    if (luckyRoll(ctx, 5)) ctx.addLeverage(20, { name: 'Penny' }, c);
-    if (luckyRoll(ctx, 15)) ctx.earn(20, { name: 'Penny' }, c);
+  } else if (enh === 'cursed') {
+    ctx.xLeverage(3, { name: 'Cursed' }, c);
+    ctx.earn(-4, { name: 'Cursed' }, c);
+  } else if (enh === 'wishbone') {
+    if (luckyRoll(ctx, 5)) ctx.addLeverage(20, { name: 'Wishbone' }, c);
+    if (luckyRoll(ctx, 15)) ctx.earn(20, { name: 'Wishbone' }, c);
   }
 
-  if (c.edition === 'laminated') ctx.addVolume(50, { name: 'Laminated' }, c);
-  else if (c.edition === 'holographic') ctx.addLeverage(10, { name: 'Holographic' }, c);
-  else if (c.edition === 'algorithmic') ctx.xLeverage(1.5, { name: 'Algorithmic' }, c);
+  if (c.edition === 'laminated') ctx.addVolume(50, { name: 'Foiled' }, c);
+  else if (c.edition === 'holographic') ctx.addLeverage(10, { name: 'Prismatic' }, c);
+  else if (c.edition === 'algorithmic') ctx.xLeverage(1.5, { name: 'Runed' }, c);
 
-  if (c.stamp === 'payout') ctx.earn(3, { name: 'Payout Stamp' }, c);
+  if (c.stamp === 'payout') ctx.earn(3, { name: 'Coin Seal' }, c);
 
   for (let i = 0; i < state.brokers.length; i++) {
     if (state.mods.disableFirstBroker && i === 0) continue;
@@ -152,8 +161,8 @@ function printCandle(state, ctx, c) {
 function holdCandle(state, ctx, c) {
   if (c.debuffed) return;
   const enh = ctx.enhOf(c);
-  if (enh === 'dividend') ctx.earn(3, { name: 'Dividend' }, c);
-  else if (enh === 'hedged') ctx.xLeverage(1.5, { name: 'Hedged' }, c);
+  if (enh === 'goldleaf') ctx.earn(3, { name: 'Goldleaf' }, c);
+  else if (enh === 'wardstone') ctx.xLeverage(1.5, { name: 'Wardstone' }, c);
   for (let i = 0; i < state.brokers.length; i++) {
     if (state.mods.disableFirstBroker && i === 0) continue;
     const eb = effectiveBroker(state, i);
@@ -201,7 +210,7 @@ export function scoreTrade(state, o) {
   for (const c of ev.scoringCandles) {
     const n = triggersFor(state, ctx, c, false);
     for (let t = 0; t < n; t++) {
-      if (t > 0) ctx.step('retrigger', { name: 'Reprint' }, 'again', { candleUid: c.uid });
+      if (t > 0) ctx.step('retrigger', { name: 'Echo' }, 'again', { candleUid: c.uid });
       printCandle(state, ctx, c);
     }
   }

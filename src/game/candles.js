@@ -22,7 +22,7 @@ export const BODIES = Array.from({ length: MAX_BODY }, (_, i) => i + 1);
 export function isDoji(c) { return bodyOf(c) === 1; }
 export function isWide(c) { return bodyOf(c) >= 11; }
 export function isSmall(c) { return bodyOf(c) <= 4; }
-export function bodyOf(c) { return c.enhancement === 'sealed' ? 0 : c.body; }
+export function bodyOf(c) { return c.enhancement === 'obsidian' ? 0 : c.body; }
 
 export function bodyLabel(body) {
   if (body === 1) return 'DOJI';
@@ -34,30 +34,47 @@ export function bodyLabel(body) {
 // Enhancements — printed onto a candle.
 // ---------------------------------------------------------------------------
 export const ENHANCEMENTS = {
-  leveraged: { key: 'leveraged', name: 'Leveraged', short: 'LEV',  color: '#ff6b5c', desc: '+4 Leverage when it prints' },
-  blockTick: { key: 'blockTick', name: 'Block Tick', short: 'BLK', color: '#6ab7ff', desc: '+30 Volume when it prints' },
-  wild:      { key: 'wild',      name: 'Rotating',  short: 'ROT',  color: '#c9a4ff', desc: 'Counts as every sector' },
-  volatile:  { key: 'volatile',  name: 'Volatile',  short: 'VOL',  color: '#7ef9ff', desc: 'x2 Leverage. 1 in 4 chance to be destroyed after the trade' },
-  dividend:  { key: 'dividend',  name: 'Dividend',  short: 'DIV',  color: '#ffd94a', desc: '$3 when held on the board at the close' },
-  hedged:    { key: 'hedged',    name: 'Hedged',    short: 'HDG',  color: '#9fb2c9', desc: 'x1.5 Leverage while held on the board' },
-  penny:     { key: 'penny',     name: 'Penny',     short: 'PNY',  color: '#43e08a', desc: '1 in 5 for +20 Leverage, 1 in 15 for $20' },
-  swing:     { key: 'swing',     name: 'Swing',     short: 'SWG',  color: '#ff9f43', desc: 'Counts as BOTH bull and bear for Conviction' },
-  sealed:    { key: 'sealed',    name: 'Sealed',    short: 'SLD',  color: '#6b7480', desc: '+50 Volume, but no body, sector or polarity' },
+  bullion:   { key: 'bullion',   name: 'Bullion',   short: 'BUL', color: '#6ab7ff', tier: 'common',
+               desc: '+30 Volume when it prints' },
+  bloodstone:{ key: 'bloodstone',name: 'Bloodstone',short: 'BLD', color: '#ff6b5c', tier: 'common',
+               desc: '+4 Leverage when it prints' },
+  ember:     { key: 'ember',     name: 'Ember',     short: 'EMB', color: '#ff8a3d', tier: 'growth',
+               desc: '+15 Volume, and permanently gains +5 Volume every time it prints' },
+  beacon:    { key: 'beacon',    name: 'Beacon',    short: 'BCN', color: '#7ef9ff', tier: 'synergy',
+               desc: '+3 Leverage for every other placed candle sharing its sector' },
+  chameleon: { key: 'chameleon', name: 'Chameleon', short: 'CHM', color: '#c9a4ff', tier: 'synergy',
+               desc: 'Counts as every sector at once' },
+  janus:     { key: 'janus',     name: 'Janus',     short: 'JAN', color: '#ff9f43', tier: 'synergy',
+               desc: 'Counts as BOTH bull and bear — always agrees with your call' },
+  glasswork: { key: 'glasswork', name: 'Glasswork', short: 'GLS', color: '#7ef9ff', tier: 'risk',
+               desc: 'x2 Leverage. 1 in 4 chance to shatter after the trade' },
+  cursed:    { key: 'cursed',    name: 'Cursed',    short: 'CRS', color: '#b45cff', tier: 'risk',
+               desc: 'x3 Leverage, but it costs you $4 every time it prints' },
+  goldleaf:  { key: 'goldleaf',  name: 'Goldleaf',  short: 'GLD', color: '#ffd94a', tier: 'economy',
+               desc: '$3 when held on the board at the close' },
+  wardstone: { key: 'wardstone', name: 'Wardstone', short: 'WRD', color: '#9fb2c9', tier: 'economy',
+               desc: 'x1.5 Leverage while held on the board' },
+  wishbone:  { key: 'wishbone',  name: 'Wishbone',  short: 'WSH', color: '#43e08a', tier: 'risk',
+               desc: '1 in 5 for +20 Leverage, 1 in 15 for $20' },
+  obsidian:  { key: 'obsidian',  name: 'Obsidian',  short: 'OBS', color: '#8a93a3', tier: 'oddity',
+               desc: '+50 Volume, but no body, sector or polarity' },
 };
 export const ENHANCEMENT_KEYS = Object.keys(ENHANCEMENTS);
+/** Everything except Obsidian can be rolled onto a normal candle. */
+export const ROLLABLE_ENHANCEMENTS = ENHANCEMENT_KEYS.filter((k) => k !== 'obsidian');
 
 export const EDITIONS = {
-  laminated:   { key: 'laminated',   name: 'Laminated',   desc: '+50 Volume' },
-  holographic: { key: 'holographic', name: 'Holographic', desc: '+10 Leverage' },
-  algorithmic: { key: 'algorithmic', name: 'Algorithmic', desc: 'x1.5 Leverage' },
-  offbook:     { key: 'offbook',     name: 'Off-Book',    desc: 'Does not use a desk slot' },
+  laminated:   { key: 'laminated',   name: 'Foiled',    desc: '+50 Volume' },
+  holographic: { key: 'holographic', name: 'Prismatic', desc: '+10 Leverage' },
+  algorithmic: { key: 'algorithmic', name: 'Runed',     desc: 'x1.5 Leverage' },
+  offbook:     { key: 'offbook',     name: 'Spectral',  desc: 'Takes up no desk slot' },
 };
 
 export const STAMPS = {
-  reissue: { key: 'reissue', name: 'Reissue Stamp', color: '#ff5c5c', desc: 'This candle prints one extra time' },
-  hold:    { key: 'hold',    name: 'Hold Stamp',    color: '#4aa8ff', desc: 'Stays on the board when the trade resolves' },
-  payout:  { key: 'payout',  name: 'Payout Stamp',  color: '#ffd94a', desc: 'Earn $3 when this candle prints' },
-  filing:  { key: 'filing',  name: 'Filing Stamp',  color: '#c07bff', desc: 'Creates a Chart when swept (needs room)' },
+  reissue: { key: 'reissue', name: 'Echo Seal',   color: '#ff5c5c', desc: 'This candle prints one extra time' },
+  hold:    { key: 'hold',    name: 'Anchor Seal', color: '#4aa8ff', desc: 'Stays on the board when the trade resolves' },
+  payout:  { key: 'payout',  name: 'Coin Seal',   color: '#ffd94a', desc: 'Earn $3 when this candle prints' },
+  filing:  { key: 'filing',  name: 'Rune Seal',   color: '#c07bff', desc: 'Leaves a Chart behind when swept (needs room)' },
 };
 
 // ---------------------------------------------------------------------------
@@ -88,29 +105,29 @@ export function standardBook() {
 }
 
 export function candleName(c) {
-  if (c.enhancement === 'sealed') return 'Sealed Candle';
+  if (c.enhancement === 'obsidian') return 'Sealed Candle';
   const band = bodyLabel(c.body);
   return `${c.bull ? 'Bull' : 'Bear'} ${band ? band + ' ' : ''}${c.body} of ${SECTORS[c.sector].name}`;
 }
 
 export function baseVolume(c) {
-  if (c.enhancement === 'sealed') return 50;
+  if (c.enhancement === 'obsidian') return 50;
   return c.body + (c.bonusVolume || 0);
 }
 
-export function hasBody(c) { return c.enhancement !== 'sealed'; }
+export function hasBody(c) { return c.enhancement !== 'obsidian'; }
 
 export function matchesSector(c, sector) {
   if (c.debuffed) return c.sector === sector;
-  if (c.enhancement === 'sealed') return false;
-  if (c.enhancement === 'wild') return true;
+  if (c.enhancement === 'obsidian') return false;
+  if (c.enhancement === 'chameleon') return true;
   return c.sector === sector;
 }
 
 /** 'bull' | 'bear' | 'both' | 'none' */
 export function polarityOf(c) {
-  if (c.enhancement === 'sealed') return 'none';
-  if (c.enhancement === 'swing' && !c.debuffed) return 'both';
+  if (c.enhancement === 'obsidian') return 'none';
+  if (c.enhancement === 'janus' && !c.debuffed) return 'both';
   return c.bull ? 'bull' : 'bear';
 }
 
@@ -153,7 +170,7 @@ export function candleShape(c) {
   for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) >>> 0;
   const jitterA = ((h >>> 3) % 100) / 100;
   const jitterB = ((h >>> 11) % 100) / 100;
-  const body = c.enhancement === 'sealed' ? 34 : 12 + (c.body / MAX_BODY) * 58;
+  const body = c.enhancement === 'obsidian' ? 34 : 12 + (c.body / MAX_BODY) * 58;
   const room = Math.max(0, 100 - body);
   const upper = room * (0.18 + jitterA * 0.5);
   const lower = Math.max(0, room - upper) * (0.35 + jitterB * 0.55);

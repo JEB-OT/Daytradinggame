@@ -31,12 +31,12 @@ t('body size is the volume a candle contributes', () => {
   eq(baseVolume(mk('TECH', 13)), 13);
 });
 t('sealed candles are worth 50 and have no polarity', () => {
-  const c = mk('TECH', 5, true, { enhancement: 'sealed' });
+  const c = mk('TECH', 5, true, { enhancement: 'obsidian' });
   eq(baseVolume(c), 50);
   eq(polarityOf(c), 'none');
 });
 t('swing candles count as both polarities', () => {
-  eq(polarityOf(mk('TECH', 5, true, { enhancement: 'swing' })), 'both');
+  eq(polarityOf(mk('TECH', 5, true, { enhancement: 'janus' })), 'both');
 });
 t('body bands: doji at 1, wide at 11+', () => {
   ok(isDoji(mk('TECH', 1))); ok(!isDoji(mk('TECH', 2)));
@@ -88,14 +88,14 @@ t('bear candles cannot form soldiers', () => {
   eq(F([mk('TECH', 3, false), mk('CRYPTO', 6, false), mk('ENERGY', 9, false)]), 'tick');
 });
 t('swing candles march with either polarity', () => {
-  eq(F([mk('TECH', 3, false, { enhancement: 'swing' }), mk('CRYPTO', 6, true), mk('ENERGY', 9, true)]), 'soldiers');
+  eq(F([mk('TECH', 3, false, { enhancement: 'janus' }), mk('CRYPTO', 6, true), mk('ENERGY', 9, true)]), 'soldiers');
 });
 t('Cadence lets a march happen with 2 candles', () => {
   eq(F([mk('TECH', 4, true), mk('CRYPTO', 8, true)], { marchOfThree: true }), 'soldiers');
   eq(F([mk('TECH', 4, true), mk('CRYPTO', 8, true)]), 'tick');
 });
 t('rotating candles complete a cluster', () =>
-  eq(F([mk('TECH', 2), mk('TECH', 5, false), mk('CRYPTO', 7, false, { enhancement: 'wild' }), mk('TECH', 9), mk('TECH', 12, false)]), 'cluster'));
+  eq(F([mk('TECH', 2), mk('TECH', 5, false), mk('CRYPTO', 7, false, { enhancement: 'chameleon' }), mk('TECH', 9), mk('TECH', 12, false)]), 'cluster'));
 t('four fingers makes a 4-candle cluster', () => {
   const cs = [mk('TECH', 2), mk('TECH', 5, false), mk('TECH', 7, false), mk('TECH', 12, false)];
   eq(F(cs, { fourCard: true }), 'cluster');
@@ -106,7 +106,7 @@ t('shortcut allows a gapped staircase', () =>
 t('smeared sectors merge growth and value', () =>
   eq(F([mk('TECH', 2), mk('CRYPTO', 5, false), mk('TECH', 7, false), mk('CRYPTO', 9), mk('TECH', 12, false)], { smeared: true }), 'cluster'));
 t('sealed candles always print', () => {
-  const ev = evaluate([mk('TECH', 5), mk('CRYPTO', 5, false), mk('ENERGY', 9, true, { enhancement: 'sealed' }), mk('FINANCE', 2, false), mk('TECH', 12, false)]);
+  const ev = evaluate([mk('TECH', 5), mk('CRYPTO', 5, false), mk('ENERGY', 9, true, { enhancement: 'obsidian' }), mk('FINANCE', 2, false), mk('TECH', 12, false)]);
   eq(ev.key, 'tweezer');
   eq(ev.scoringCandles.length, 3);
 });
@@ -149,12 +149,12 @@ t('conviction flips with the direction called', () => {
   eq(convictionOf(cs, 'LONG').key, 'neutral');
 });
 t('swing candles satisfy conviction either way', () => {
-  const cs = [mk('TECH', 5, true, { enhancement: 'swing' }), mk('CRYPTO', 6, true, { enhancement: 'swing' })];
+  const cs = [mk('TECH', 5, true, { enhancement: 'janus' }), mk('CRYPTO', 6, true, { enhancement: 'janus' })];
   eq(convictionOf(cs, 'LONG').key, 'full');
   eq(convictionOf(cs, 'SHORT').key, 'full');
 });
 t('sealed candles are ignored by conviction', () => {
-  const cs = [mk('TECH', 5), mk('CRYPTO', 6, false, { enhancement: 'sealed' })];
+  const cs = [mk('TECH', 5), mk('CRYPTO', 6, false, { enhancement: 'obsidian' })];
   eq(convictionOf(cs, 'LONG').key, 'full');
 });
 t('convictionBonus raises the payoff, threshold widens it', () => {
@@ -220,10 +220,10 @@ t('a bare tweezer is volume x leverage', () => {
 });
 t('Sticky Note adds flat leverage', () => eq(scoreWith(['sticky'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).leverage, 6));
 t('Block Tick adds 30 volume', () => {
-  eq(scoreWith([], [mk('TECH', 10, true, { enhancement: 'blockTick' }), mk('CRYPTO', 10, false)]).volume, 60);
+  eq(scoreWith([], [mk('TECH', 10, true, { enhancement: 'bullion' }), mk('CRYPTO', 10, false)]).volume, 60);
 });
 t('hedged candles held on the board multiply leverage', () => {
-  eq(scoreWith([], [mk('TECH', 10), mk('CRYPTO', 10, false)], { held: [mk('ENERGY', 3, true, { enhancement: 'hedged' })] }).leverage, 3);
+  eq(scoreWith([], [mk('TECH', 10), mk('CRYPTO', 10, false)], { held: [mk('ENERGY', 3, true, { enhancement: 'wardstone' })] }).leverage, 3);
 });
 t('Reissue stamp reprints a candle', () => {
   const a = scoreWith([], [mk('TECH', 10), mk('CRYPTO', 10, false)]);
@@ -305,10 +305,10 @@ t('every broker can score without throwing', () => {
     st.session = { quota: 500, discardsLeft: 2, earnedThisDeadline: 10, greens: 1, board: [], tradesLeft: 2 };
     S.computeMods(st);
     const r = scoreTrade(st, {
-      played: [mk('TECH', 10), mk('CRYPTO', 10, false), mk('ENERGY', 11, true, { enhancement: 'wild' }),
-               mk('FINANCE', 5, false, { enhancement: 'volatile', edition: 'laminated', stamp: 'reissue' }),
-               mk('TECH', 5, true, { enhancement: 'swing' })],
-      held: [mk('TECH', 3, false, { enhancement: 'dividend' })],
+      played: [mk('TECH', 10), mk('CRYPTO', 10, false), mk('ENERGY', 11, true, { enhancement: 'chameleon' }),
+               mk('FINANCE', 5, false, { enhancement: 'glasswork', edition: 'laminated', stamp: 'reissue' }),
+               mk('TECH', 5, true, { enhancement: 'janus' })],
+      held: [mk('TECH', 3, false, { enhancement: 'goldleaf' })],
       direction: 'LONG', correct: true, regimeMult: 1.25,
       rng: new RNG('p' + k), commit: true, tradeIndex: 1, tradesLeft: 2, greenStreak: 2, greensThisDeadline: 2, quota: 500,
     });

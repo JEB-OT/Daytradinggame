@@ -18,14 +18,14 @@ const sectorBoss = (key, name, art, sector) => ({
 
 export const BOSSES = {
   auditor:   sectorBoss('auditor', 'The Auditor', '🔎', 'TECH'),
-  regulator: sectorBoss('regulator', 'The Regulator', '⚖️', 'FINANCE'),
-  embargo:   sectorBoss('embargo', 'The Embargo', '🚧', 'ENERGY'),
-  rugPull:   sectorBoss('rugPull', 'The Rug Pull', '🪤', 'CRYPTO'),
+  regulator: sectorBoss('regulator', "The Inquisitor", '⚖️', 'FINANCE'),
+  embargo:   sectorBoss('embargo', "The Blight", '🚧', 'ENERGY'),
+  rugPull:   sectorBoss('rugPull', "The Trickster", '🪤', 'CRYPTO'),
 
-  greenScreen: { key: 'greenScreen', name: 'Green Screen', art: '🟩',
+  greenScreen: { key: 'greenScreen', name: "Bulls' Bane", art: '🟩',
     blurb: 'All BULL candles are blanked', debuffPolarity: 'bull' },
 
-  redScreen: { key: 'redScreen', name: 'Red Screen', art: '🟥',
+  redScreen: { key: 'redScreen', name: "Bears' Bane", art: '🟥',
     blurb: 'All BEAR candles are blanked', debuffPolarity: 'bear' },
 
   noConviction: { key: 'noConviction', name: 'The Doubt', art: '😶‍🌫️',
@@ -39,14 +39,14 @@ export const BOSSES = {
     blurb: 'Your first trade of the deadline prints nothing',
     scoreHook: (ctx) => { if (ctx.tradeIndex === 0) ctx.xLeverage(0, { name: 'Flash Crash', boss: true }); } },
 
-  marginCall: { key: 'marginCall', name: 'Margin Call', art: '☎️',
+  marginCall: { key: 'marginCall', name: "The Collector", art: '☎️',
     blurb: 'Every trade costs you $4',
     afterTrade: (state) => { state.cash = Math.max(0, state.cash - 4); } },
 
-  circuitBreaker: { key: 'circuitBreaker', name: 'Circuit Breaker', art: '🔌',
+  circuitBreaker: { key: 'circuitBreaker', name: "The Cage", art: '🔌',
     blurb: 'You get only 1 sweep', mods: { setDiscards: 1 } },
 
-  shortLadder: { key: 'shortLadder', name: 'Short Ladder Attack', art: '🪜',
+  shortLadder: { key: 'shortLadder', name: "The Ladder Trap", art: '🪜',
     blurb: 'LONG calls score x0.4',
     scoreHook: (ctx) => { if (ctx.direction === 'LONG') ctx.xLeverage(0.4, { name: 'Short Ladder', boss: true }); } },
 
@@ -54,7 +54,7 @@ export const BOSSES = {
     blurb: 'SHORT calls score x0.4',
     scoreHook: (ctx) => { if (ctx.direction === 'SHORT') ctx.xLeverage(0.4, { name: 'Bull Trap', boss: true }); } },
 
-  washSale: { key: 'washSale', name: 'The Wash Sale', art: '🔁',
+  washSale: { key: 'washSale', name: "The Wash", art: '🔁',
     blurb: 'You cannot call the same direction twice in a row',
     beforeTrade: (state, t) => {
       const last = state.session.lastDirection;
@@ -62,7 +62,7 @@ export const BOSSES = {
       return null;
     } },
 
-  repeatBan: { key: 'repeatBan', name: 'Formation Ban', art: '🚫',
+  repeatBan: { key: 'repeatBan', name: "Repetition", art: '🚫',
     blurb: 'You cannot print the same formation twice in a row',
     beforeTrade: (state, t) => {
       if (state.session.lastFormation && state.session.lastFormation === t.formationKey) {
@@ -71,31 +71,31 @@ export const BOSSES = {
       return null;
     } },
 
-  darkPoolBan: { key: 'darkPoolBan', name: 'Dark Pool Ban', art: '🌒',
+  darkPoolBan: { key: 'darkPoolBan', name: "The Narrowing", art: '🌒',
     blurb: 'Board size -2', mods: { handSize: -2 } },
 
-  quietPeriod: { key: 'quietPeriod', name: 'Quiet Period', art: '🤫',
+  quietPeriod: { key: 'quietPeriod', name: "The Silence", art: '🤫',
     blurb: 'The signal is hidden entirely', mods: { hideSignal: true } },
 
-  fatFinger: { key: 'fatFinger', name: 'Fat Finger', art: '🖐️',
+  fatFinger: { key: 'fatFinger', name: "The Palsy", art: '🖐️',
     blurb: 'One random candle is blanked every time the board refills',
     onDeal: (state, fresh, rng) => { if (fresh.length) rng.pick(fresh).debuffed = true; } },
 
   whaleWall: { key: 'whaleWall', name: 'The Whale Wall', art: '🐳',
     blurb: 'One fewer trade than usual', mods: { trades: -1 } },
 
-  insiderProbe: { key: 'insiderProbe', name: 'Insider Probe', art: '🚔',
+  insiderProbe: { key: 'insiderProbe', name: "The Purge", art: '🚔',
     blurb: 'All formations score at level 1', mods: { flatFormationLevels: true } },
 
-  taxSeason: { key: 'taxSeason', name: 'Tax Season', art: '🧾',
+  taxSeason: { key: 'taxSeason', name: "The Tithe Lord", art: '🧾',
     blurb: 'You lose half your cash when the deadline starts',
     onStart: (state) => { state.cash = Math.floor(state.cash / 2); } },
 
-  slippage: { key: 'slippage', name: 'Slippage', art: '🧈',
+  slippage: { key: 'slippage', name: "The Slick", art: '🧈',
     blurb: 'Final Leverage is halved',
     scoreHook: (ctx) => ctx.xLeverage(0.5, { name: 'Slippage', boss: true }) },
 
-  delisting: { key: 'delisting', name: 'Delisting', art: '🗑️',
+  delisting: { key: 'delisting', name: "The Delister", art: '🗑️',
     blurb: 'A random printed candle is destroyed after every trade',
     afterTrade: (state, res, rng) => {
       if (!res.played?.length) return;
@@ -108,17 +108,17 @@ export const BOSSES = {
   clawback: { key: 'clawback', name: 'The Clawback', art: '🪝',
     blurb: 'Your leftmost broker is disabled', mods: { disableFirstBroker: true } },
 
-  volatilityHalt: { key: 'volatilityHalt', name: 'Volatility Halt', art: '⏸️',
+  volatilityHalt: { key: 'volatilityHalt', name: "The Halt", art: '⏸️',
     blurb: 'All candle enhancements are switched off', mods: { disableEnhancements: true } },
 
   theCeiling: { key: 'theCeiling', name: 'The Ceiling', art: '🧱',
     blurb: 'No single trade may book more than 60% of the quota', capFraction: 0.6 },
 
-  wideControl: { key: 'wideControl', name: 'Position Limits', art: '🎭',
+  wideControl: { key: 'wideControl', name: "The Blindfold", art: '🎭',
     blurb: 'WIDE candles (body 11+) are dealt face down until placed',
     mods: { faceDownWide: true } },
 
-  hardClose: { key: 'hardClose', name: 'Hard Close', art: '⏰',
+  hardClose: { key: 'hardClose', name: "The Long Night", art: '⏰',
     blurb: 'Quota is 40% higher, but you get +1 trade and +1 sweep',
     quotaMult: 1.4, mods: { trades: 1, discards: 1 } },
 

@@ -1,5 +1,5 @@
 import { RNG, randomSeedString } from '../engine/rng.js';
-import { standardBook, makeCandle, SECTOR_KEYS, BODIES, MAX_BODY, sortCandles, isWide } from './candles.js';
+import { standardBook, makeCandle, SECTOR_KEYS, BODIES, MAX_BODY, sortCandles, isWide, ROLLABLE_ENHANCEMENTS } from './candles.js';
 import { defaultFormationLevels, FORMATION_KEYS, FORMATIONS } from './formations.js';
 import { BROKERS, makeBroker, rollBrokerKey, brokerSellValue, RARITY } from './brokers.js';
 import { CHARTS, CONTRACTS, RUMORS, ALL_CONSUMABLES, makeConsumable, rollChart, rollContract, rollRumor } from './consumables.js';
@@ -614,7 +614,7 @@ export function buyPack(state, index) {
     } else {
       const candle = makeCandle(rng.pick(SECTOR_KEYS), rng.pick(BODIES), rng.chance(0.5));
       const r = rng.next();
-      if (r < 0.30) candle.enhancement = rng.pick(['blockTick', 'leveraged', 'wild', 'volatile', 'dividend', 'hedged', 'penny', 'swing']);
+      if (r < 0.32) candle.enhancement = rng.pick(ROLLABLE_ENHANCEMENTS);
       if (rng.next() < 0.16) candle.edition = rng.pickWeighted([
         { item: 'laminated', weight: 6 }, { item: 'holographic', weight: 3 }, { item: 'algorithmic', weight: 1 },
       ]);

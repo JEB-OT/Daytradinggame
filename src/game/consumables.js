@@ -43,22 +43,25 @@ export const CHARTS = {};
 function addChart(list) { for (const c of list) CHARTS[c.key] = c; }
 
 addChart([
-  enhancer('analyst', 'The Analyst', '📊', 'blockTick', 1, 1, 'Turn 1 selected candle into a Block Tick (+30 Volume)'),
-  enhancer('quant', 'The Quant', '🧮', 'leveraged', 1, 1, 'Turn 1 selected candle Leveraged (+4 Leverage)'),
-  enhancer('gambler', 'The Gambler', '🎰', 'volatile', 1, 1, 'Turn 1 selected candle Volatile (x2 Leverage, may shatter)'),
-  enhancer('landlord', 'The Landlord', '🏘️', 'dividend', 1, 2, 'Turn up to 2 selected candles into Dividend payers'),
-  enhancer('custodian', 'The Custodian', '🛡️', 'hedged', 1, 2, 'Turn up to 2 selected candles Hedged (x1.5 Leverage while held)'),
-  enhancer('wildcard', 'The Wildcard', '🃏', 'wild', 1, 2, 'Turn up to 2 selected candles Rotating (counts as every sector)'),
-  enhancer('lottery', 'The Lottery', '🎟️', 'penny', 1, 2, 'Turn up to 2 selected candles into Penny candles'),
-  enhancer('vault', 'The Vault', '🔒', 'sealed', 1, 1, 'Seal 1 selected candle (+50 Volume, no body, sector or polarity)'),
-  enhancer('pivot', 'The Pivot', '🔀', 'swing', 1, 2, 'Turn up to 2 selected candles into Swing candles (count as bull AND bear)'),
+  enhancer('analyst', "The Mint", '🏛️', 'bullion', 1, 1, 'Turn 1 selected candle into a Bullion (+30 Volume)'),
+  enhancer('quant', "The Blade", '🗡️', 'bloodstone', 1, 1, 'Turn 1 selected candle Bloodstone (+4 Leverage)'),
+  enhancer('gambler', "The Gambler", '🎰', 'glasswork', 1, 1, 'Turn 1 selected candle Glasswork (x2 Leverage, may shatter)'),
+  enhancer('landlord', "The Tithe-Collector", '🏘️', 'goldleaf', 1, 2, 'Turn up to 2 selected candles into Goldleaf payers'),
+  enhancer('custodian', "The Warden", '🛡️', 'wardstone', 1, 2, 'Turn up to 2 selected candles Wardstone (x1.5 Leverage while held)'),
+  enhancer('wildcard', "The Shapeshifter", '🃏', 'chameleon', 1, 2, 'Turn up to 2 selected candles Chameleon (counts as every sector)'),
+  enhancer('lottery', "The Wishing Well", '⛲', 'wishbone', 1, 2, 'Turn up to 2 selected candles into Wishbone candles'),
+  enhancer('vault', "The Tomb", '🪦', 'obsidian', 1, 1, 'Seal 1 selected candle (+50 Volume, no body, sector or polarity)'),
+  enhancer('forge', 'The Forge', '🔨', 'ember', 1, 1, 'Turn 1 selected candle into an Ember (+15 Volume, and it grows every print)'),
+  enhancer('lighthouse', 'The Lighthouse', '🗼', 'beacon', 1, 2, 'Turn up to 2 selected candles into Beacons (+3 Leverage per sector-mate placed)'),
+  enhancer('hex', 'The Hex', '☠️', 'cursed', 1, 1, 'Curse 1 selected candle (x3 Leverage, but $4 every print)'),
+  enhancer('pivot', "The Threshold", '🚪', 'janus', 1, 2, 'Turn up to 2 selected candles into Janus candles (count as bull AND bear)'),
 
-  sectorShift('techWave', 'Tech Wave', '💻', 'TECH'),
-  sectorShift('oilShock', 'Oil Shock', '🛢️', 'ENERGY'),
-  sectorShift('bankRun', 'Bank Run', '🏛️', 'FINANCE'),
-  sectorShift('altSeason', 'Alt Season', '🌕', 'CRYPTO'),
+  sectorShift('techWave', "Surge", '💻', 'TECH'),
+  sectorShift('oilShock', "Wildfire", '⛽', 'ENERGY'),
+  sectorShift('bankRun', "Bank Run", '🏦', 'FINANCE'),
+  sectorShift('altSeason', "Moonrise", '🌗', 'CRYPTO'),
 
-  { key: 'pump', name: 'Pump', art: '🚀', family: 'chart', cost: 3, select: [1, 2],
+  { key: 'pump', name: "Waxing", art: '🌔', family: 'chart', cost: 3, select: [1, 2],
     text: 'Grow the body of up to 2 selected candles by 1',
     use: (api) => {
       const err = need(api, 1, 2); if (err) return { ok: false, msg: err };
@@ -66,7 +69,7 @@ addChart([
       return { ok: true, msg: 'Bodies pumped' };
     } },
 
-  { key: 'dump', name: 'Dump', art: '📉', family: 'chart', cost: 3, select: [1, 2],
+  { key: 'dump', name: "Waning", art: '🌒', family: 'chart', cost: 3, select: [1, 2],
     text: 'Shrink the body of up to 2 selected candles by 1',
     use: (api) => {
       const err = need(api, 1, 2); if (err) return { ok: false, msg: err };
@@ -74,7 +77,7 @@ addChart([
       return { ok: true, msg: 'Bodies dumped' };
     } },
 
-  { key: 'theFlip', name: 'The Flip', art: '🔁', family: 'chart', cost: 3, select: [1, 3],
+  { key: 'theFlip', name: "Reversal", art: '🔁', family: 'chart', cost: 3, select: [1, 3],
     text: 'Invert the polarity of up to 3 selected candles',
     use: (api) => {
       const err = need(api, 1, 3); if (err) return { ok: false, msg: err };
@@ -82,7 +85,7 @@ addChart([
       return { ok: true, msg: 'Polarity flipped' };
     } },
 
-  { key: 'greenDay', name: 'Green Day', art: '🐂', family: 'chart', cost: 3, select: [1, 3],
+  { key: 'greenDay', name: "Greenwake", art: '🟢', family: 'chart', cost: 3, select: [1, 3],
     text: 'Turn up to 3 selected candles BULL',
     use: (api) => {
       const err = need(api, 1, 3); if (err) return { ok: false, msg: err };
@@ -90,7 +93,7 @@ addChart([
       return { ok: true, msg: 'Everything is green' };
     } },
 
-  { key: 'redDay', name: 'Red Day', art: '🐻', family: 'chart', cost: 3, select: [1, 3],
+  { key: 'redDay', name: "Redwake", art: '🔴', family: 'chart', cost: 3, select: [1, 3],
     text: 'Turn up to 3 selected candles BEAR',
     use: (api) => {
       const err = need(api, 1, 3); if (err) return { ok: false, msg: err };
@@ -98,7 +101,7 @@ addChart([
       return { ok: true, msg: 'Everything is red' };
     } },
 
-  { key: 'buyback', name: 'Buyback', art: '🔥', family: 'chart', cost: 3, select: [1, 2],
+  { key: 'buyback', name: "The Pyre", art: '🧨', family: 'chart', cost: 3, select: [1, 2],
     text: 'Burn up to 2 selected candles out of your book',
     use: (api) => {
       const err = need(api, 1, 2); if (err) return { ok: false, msg: err };
@@ -107,7 +110,7 @@ addChart([
       return { ok: true, msg: `${n} candle(s) retired` };
     } },
 
-  { key: 'split', name: 'Stock Split', art: '🪞', family: 'chart', cost: 4, select: [1, 1],
+  { key: 'split', name: "Cloning Vat", art: '👯', family: 'chart', cost: 4, select: [1, 1],
     text: 'Add a perfect copy of 1 selected candle to your book',
     use: (api) => {
       const err = need(api, 1, 1); if (err) return { ok: false, msg: err };
@@ -118,7 +121,7 @@ addChart([
       return { ok: true, msg: 'Split' };
     } },
 
-  { key: 'merger', name: 'Merger', art: '🤝', family: 'chart', cost: 4, select: [2, 2],
+  { key: 'merger', name: "The Graft", art: '🧷', family: 'chart', cost: 4, select: [2, 2],
     text: 'Turn the second selected candle into a copy of the first',
     use: (api) => {
       const err = need(api, 2, 2); if (err) return { ok: false, msg: err };
@@ -127,7 +130,7 @@ addChart([
       return { ok: true, msg: 'Merged' };
     } },
 
-  { key: 'filing', name: 'The Filing', art: '📮', family: 'chart', cost: 4, select: [1, 1],
+  { key: 'filing', name: "The Sigil", art: '📮', family: 'chart', cost: 4, select: [1, 1],
     text: 'Add a random stamp to 1 selected candle',
     use: (api) => {
       const err = need(api, 1, 1); if (err) return { ok: false, msg: err };
@@ -136,15 +139,15 @@ addChart([
       return { ok: true, msg: `${STAMPS[stamp].name} applied` };
     } },
 
-  { key: 'insiderLeak', name: 'Insider Leak', art: '🕳️', family: 'chart', cost: 3, select: [0, 0],
+  { key: 'insiderLeak', name: "Whispers", art: '💬', family: 'chart', cost: 3, select: [0, 0],
     text: 'Create 2 random Charts (needs room)',
     use: (api) => { const n = api.createChart(2); return n ? { ok: true, msg: `${n} Chart(s) leaked` } : { ok: false, msg: 'No room' }; } },
 
-  { key: 'bonusRound', name: 'Bonus Round', art: '🎁', family: 'chart', cost: 3, select: [0, 0],
+  { key: 'bonusRound', name: "The Pact", art: '🎁', family: 'chart', cost: 3, select: [0, 0],
     text: 'Create 1 random Contract (needs room)',
     use: (api) => { const n = api.createContract(1); return n ? { ok: true, msg: 'Contract signed' } : { ok: false, msg: 'No room' }; } },
 
-  { key: 'fireSale', name: 'Fire Sale', art: '💰', family: 'chart', cost: 3, select: [0, 0],
+  { key: 'fireSale', name: "Fire Sale", art: '💰', family: 'chart', cost: 3, select: [0, 0],
     text: 'Gain $4 per broker on your desk (max $30)',
     use: (api) => {
       const amt = Math.min(30, 4 * api.state.brokers.length);
@@ -152,7 +155,7 @@ addChart([
       return { ok: true, msg: `+$${amt}` };
     } },
 
-  { key: 'roadshow', name: 'Roadshow', art: '🚌', family: 'chart', cost: 4, select: [0, 0],
+  { key: 'roadshow', name: "Gilding", art: '✨', family: 'chart', cost: 4, select: [0, 0],
     text: 'Laminate a random candle in your book',
     use: (api) => {
       const pool = api.state.book.filter((c) => !c.edition);
@@ -161,14 +164,14 @@ addChart([
       return { ok: true, msg: 'Laminated' };
     } },
 
-  { key: 'ipo', name: 'The IPO', art: '🔔', family: 'chart', cost: 4, select: [0, 0],
+  { key: 'ipo', name: "First Light", art: '🌅', family: 'chart', cost: 4, select: [0, 0],
     text: 'Add 2 random body-13 candles to your book',
     use: (api) => {
       for (let i = 0; i < 2; i++) api.addCandle(makeCandle(api.rng.pick(SECTOR_KEYS), MAX_BODY, api.rng.chance(0.5)));
       return { ok: true, msg: 'Two marubozu listed' };
     } },
 
-  { key: 'ladderPrint', name: 'Ladder Print', art: '🪜', family: 'chart', cost: 4, select: [0, 0],
+  { key: 'ladderPrint', name: "Muster", art: '⛰️', family: 'chart', cost: 4, select: [0, 0],
     text: 'Add three rising BULL candles (bodies 4, 5, 6) to your book',
     use: (api) => {
       const s = api.rng.pick(SECTOR_KEYS);
@@ -176,7 +179,7 @@ addChart([
       return { ok: true, msg: 'Soldiers recruited' };
     } },
 
-  { key: 'crowPrint', name: 'Crow Print', art: '🐦‍⬛', family: 'chart', cost: 4, select: [0, 0],
+  { key: 'crowPrint', name: "Murder", art: '🖤', family: 'chart', cost: 4, select: [0, 0],
     text: 'Add three falling BEAR candles (bodies 10, 9, 8) to your book',
     use: (api) => {
       const s = api.rng.pick(SECTOR_KEYS);
@@ -209,7 +212,7 @@ export const RUMORS = {};
 function addRumor(list) { for (const r of list) RUMORS[r.key] = { family: 'rumor', cost: 4, ...r }; }
 
 addRumor([
-  { key: 'nakedShort', name: 'Naked Short', art: '🩲', select: [1, 1],
+  { key: 'nakedShort', name: "Blood Pact", art: '🗡️', select: [1, 1],
     text: 'Add a Reissue Stamp to 1 selected candle, then burn a random one',
     use: (api) => {
       const e = need(api, 1, 1); if (e) return { ok: false, msg: e };
@@ -219,31 +222,31 @@ addRumor([
       return { ok: true, msg: 'Reissued' };
     } },
 
-  { key: 'blockTrade', name: 'Block Trade', art: '🧱', select: [1, 1],
+  { key: 'blockTrade', name: "Anchor Rite", art: '🧱', select: [1, 1],
     text: 'Add a Hold Stamp to 1 selected candle',
     use: (api) => { const e = need(api, 1, 1); if (e) return { ok: false, msg: e }; api.selected[0].stamp = 'hold'; return { ok: true, msg: 'Held' }; } },
 
-  { key: 'kickback', name: 'Kickback', art: '🤑', select: [1, 1],
+  { key: 'kickback', name: "Bribe", art: '🤑', select: [1, 1],
     text: 'Add a Payout Stamp to 1 selected candle',
     use: (api) => { const e = need(api, 1, 1); if (e) return { ok: false, msg: e }; api.selected[0].stamp = 'payout'; return { ok: true, msg: 'Stamped' }; } },
 
-  { key: 'paperTrail', name: 'Paper Trail', art: '🧻', select: [1, 1],
+  { key: 'paperTrail', name: "Rune Scrawl", art: '📜', select: [1, 1],
     text: 'Add a Filing Stamp to 1 selected candle',
     use: (api) => { const e = need(api, 1, 1); if (e) return { ok: false, msg: e }; api.selected[0].stamp = 'filing'; return { ok: true, msg: 'Filed' }; } },
 
-  { key: 'gilding', name: 'Gilding', art: '✨', select: [0, 0],
+  { key: 'gilding', name: "Foil Press", art: '✨', select: [0, 0],
     text: 'Laminate a random broker (+50 Volume)',
     use: (api) => api.editionRandomBroker('laminated') },
 
-  { key: 'nakedCall', name: 'Naked Call', art: '🌈', select: [0, 0],
+  { key: 'nakedCall', name: "Prism", art: '🌈', select: [0, 0],
     text: 'Make a random broker Holographic (+10 Leverage)',
     use: (api) => api.editionRandomBroker('holographic') },
 
-  { key: 'quantModel', name: 'Quant Model', art: '🧊', select: [0, 0],
+  { key: 'quantModel', name: "Runecarver", art: '🔷', select: [0, 0],
     text: 'Make a random broker Algorithmic (x1.5 Leverage)',
     use: (api) => api.editionRandomBroker('algorithmic') },
 
-  { key: 'offBookDeal', name: 'Off-Book Deal', art: '🕶️', select: [0, 0],
+  { key: 'offBookDeal', name: "Faustian Deal", art: '🕶️', select: [0, 0],
     text: 'Make a random broker Off-Book (+1 slot), then fire another at random',
     use: (api) => {
       const r = api.editionRandomBroker('offbook');
@@ -252,11 +255,11 @@ addRumor([
       return { ok: true, msg: 'Kept off the books' };
     } },
 
-  { key: 'hostileTakeover', name: 'Hostile Takeover', art: '⚔️', select: [0, 0],
+  { key: 'hostileTakeover', name: "Doppelgänger", art: '⚔️', select: [0, 0],
     text: 'Clone a random broker on your desk (needs a slot)',
     use: (api) => api.copyBroker() },
 
-  { key: 'restructure', name: 'Restructure', art: '🏗️', select: [0, 0],
+  { key: 'restructure', name: "Upheaval", art: '🏗️', select: [0, 0],
     text: 'Rotate every candle on your board into one random sector',
     use: (api) => {
       const board = api.state.session?.board || [];
@@ -266,7 +269,7 @@ addRumor([
       return { ok: true, msg: `Board rotated to ${SECTORS[s].name}` };
     } },
 
-  { key: 'squeezePlay', name: 'Squeeze Play', art: '🗜️', select: [0, 0],
+  { key: 'squeezePlay', name: "Ascension", art: '🕊️', select: [0, 0],
     text: 'Turn every candle on your board BULL and step their bodies into a rising ladder',
     use: (api) => {
       const board = api.state.session?.board || [];
@@ -275,7 +278,7 @@ addRumor([
       return { ok: true, msg: 'Ladder printed' };
     } },
 
-  { key: 'capitulation', name: 'Capitulation', art: '🩸', select: [0, 0],
+  { key: 'capitulation', name: "Descent", art: '🩸', select: [0, 0],
     text: 'Turn every candle on your board BEAR and step their bodies into a falling ladder',
     use: (api) => {
       const board = api.state.session?.board || [];
@@ -284,7 +287,7 @@ addRumor([
       return { ok: true, msg: 'Crows released' };
     } },
 
-  { key: 'insiderWhisper', name: 'Insider Whisper', art: '🤐', select: [0, 0],
+  { key: 'insiderWhisper', name: "Hive Mind", art: '🤐', select: [0, 0],
     text: 'Turn every candle on your board into a copy of a random one of them',
     use: (api) => {
       const board = api.state.session?.board || [];
@@ -294,7 +297,7 @@ addRumor([
       return { ok: true, msg: 'Everyone got the same tip' };
     } },
 
-  { key: 'shellGame', name: 'Shell Game', art: '🥥', select: [0, 0],
+  { key: 'shellGame', name: "Shell Game", art: '🥥', select: [0, 0],
     text: 'Permanently +2 board size, then burn 2 random candles',
     use: (api) => {
       api.state.permanent.handSize += 2;
@@ -302,16 +305,16 @@ addRumor([
       return { ok: true, msg: '+2 board size' };
     } },
 
-  { key: 'blackout', name: 'Blackout', art: '⬛', select: [0, 0],
+  { key: 'blackout', name: "Eclipse", art: '🌑', select: [0, 0],
     text: 'Seal every candle on your board (+50 Volume each, no body or polarity)',
     use: (api) => {
       const board = api.state.session?.board || [];
       if (!board.length) return { ok: false, msg: 'No board' };
-      for (const c of board) c.enhancement = 'sealed';
+      for (const c of board) c.enhancement = 'obsidian';
       return { ok: true, msg: 'Board went dark' };
     } },
 
-  { key: 'dilution', name: 'Dilution', art: '💧', select: [0, 0],
+  { key: 'dilution', name: "Spawn", art: '💧', select: [0, 0],
     text: 'Add 4 random candles sharing one random body size to your book',
     use: (api) => {
       const body = api.rng.pick(BODIES);
@@ -319,7 +322,7 @@ addRumor([
       return { ok: true, msg: 'Book diluted' };
     } },
 
-  { key: 'chapter11', name: 'Chapter 11', art: '🧨', select: [0, 0],
+  { key: 'chapter11', name: "Sacrifice", art: '🔻', select: [0, 0],
     text: 'Lose all cash, then level up your most-printed formation by 3',
     use: (api) => {
       const lost = api.state.cash;
@@ -330,7 +333,7 @@ addRumor([
       return { ok: true, msg: `Lost $${lost}, ${FORMATIONS[best].name} +3` };
     } },
 
-  { key: 'frontOffice', name: 'Front Office', art: '🏢', select: [0, 0],
+  { key: 'frontOffice', name: "Expansion", art: '🏢', select: [0, 0],
     text: 'Permanently +1 desk slot, then lose half your cash',
     use: (api) => {
       api.state.permanent.slots += 1;
@@ -338,7 +341,7 @@ addRumor([
       return { ok: true, msg: '+1 desk slot' };
     } },
 
-  { key: 'totalRecall', name: 'Total Recall', art: '🌀', select: [0, 0],
+  { key: 'totalRecall', name: "Reshuffle", art: '🔄', select: [0, 0],
     text: 'Permanently -1 board size, +1 desk slot, +1 Chart slot',
     use: (api) => {
       api.state.permanent.handSize -= 1;
@@ -347,7 +350,7 @@ addRumor([
       return { ok: true, msg: 'Desk reorganised' };
     } },
 
-  { key: 'theSqueeze', name: 'Melt-Up', art: '🌡️', select: [0, 0], cost: 6,
+  { key: 'theSqueeze', name: "Apotheosis", art: '🌡️', select: [0, 0], cost: 6,
     text: 'Level up every formation by 1',
     use: (api) => { for (const k of FORMATION_KEYS) api.levelFormation(k, 1); return { ok: true, msg: 'Everything levelled' }; } },
 ]);

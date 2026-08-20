@@ -44,7 +44,7 @@ function findCluster(candles, need, smeared) {
   for (const b of buckets) {
     const hit = candles.filter((c) => {
       if (c.debuffed) return sectorBucket(c, smeared) === b;
-      if (c.enhancement === 'wild') return true;
+      if (c.enhancement === 'chameleon') return true;
       return sectorBucket(c, smeared) === b;
     });
     if (hit.length >= need && (!best || hit.length > best.length)) best = hit;

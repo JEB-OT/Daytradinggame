@@ -8,9 +8,9 @@ import { LICENSES } from '../game/licenses.js';
 // ---------------------------------------------------------------------------
 export function candleEl(c, opts = {}) {
   const s = SECTORS[c.sector];
-  const sealed = c.enhancement === 'sealed';
+  const sealed = c.enhancement === 'obsidian';
   const el = document.createElement('div');
-  el.className = 'candle ' + (sealed ? 'sealed' : c.bull ? 'bull' : 'bear');
+  el.className = 'candle ' + (sealed ? 'obsidian' : c.bull ? 'bull' : 'bear');
   el.dataset.uid = c.uid;
   if (c.enhancement) el.classList.add('enh-' + c.enhancement);
   if (c.edition) el.classList.add('ed-' + c.edition);
@@ -24,6 +24,7 @@ export function candleEl(c, opts = {}) {
   const band = bodyLabel(c.body);
 
   el.innerHTML = `
+    <div class="cd-aura"></div>
     <div class="cd-top">
       <span class="cd-num">${sealed ? '—' : c.body}</span>
       <span class="cd-sector">${sealed ? '▪' : s.glyph}</span>
@@ -34,7 +35,7 @@ export function candleEl(c, opts = {}) {
         <div class="cd-wick" style="bottom:${offset}%;height:${span}%"></div>
         <div class="cd-real" style="bottom:${offset + g.lower}%;height:${Math.max(4, g.body)}%"></div>`}
     </div>
-    <div class="cd-foot">${sealed ? 'SEALED' : (c.bull ? '▲ BULL' : '▼ BEAR')}${band ? ` · ${band}` : ''}</div>
+    <div class="cd-foot">${sealed ? 'OBSIDIAN' : (c.bull ? '▲ BULL' : '▼ BEAR')}${band ? ` · ${band}` : ''}</div>
   `;
   if (c.enhancement && !sealed) {
     const tag = document.createElement('div');
@@ -60,11 +61,15 @@ export function candleEl(c, opts = {}) {
 }
 
 function candleTip(c) {
-  const bits = [`<div class="tt-body">Body contributes <em>${baseVolume(c)}</em> Volume</div>`];
-  if (c.enhancement !== 'sealed') {
+  const bits = [];
+  if (c.enhancement) {
+    const e = ENHANCEMENTS[c.enhancement];
+    bits.push(`<div class="tt-special" style="--ec:${e.color}"><b>${e.name}</b><span>${e.desc}</span></div>`);
+  }
+  bits.push(`<div class="tt-body">Body contributes <em>${baseVolume(c)}</em> Volume</div>`);
+  if (c.enhancement !== 'obsidian') {
     bits.push(`<div class="tt-body">Polarity <em>${c.bull ? 'BULL' : 'BEAR'}</em> — counts toward Conviction on a ${c.bull ? 'LONG' : 'SHORT'} call</div>`);
   }
-  if (c.enhancement) bits.push(`<div class="tt-body"><b>${ENHANCEMENTS[c.enhancement].name}</b> — ${ENHANCEMENTS[c.enhancement].desc}</div>`);
   if (c.edition) bits.push(`<div class="tt-body"><b>${EDITIONS[c.edition].name}</b> — ${EDITIONS[c.edition].desc}</div>`);
   if (c.stamp) bits.push(`<div class="tt-body"><b>${STAMPS[c.stamp].name}</b> — ${STAMPS[c.stamp].desc}</div>`);
   if (c.debuffed) bits.push('<div class="tt-body" style="color:var(--red)">Blanked by the boss — prints nothing.</div>');
@@ -82,9 +87,11 @@ export function brokerEl(inst, state, opts = {}) {
   if (opts.disabled) el.classList.add('disabled');
   const ctr = counterText(inst);
   el.innerHTML = `
+    <div class="bk-glow"></div>
     <div class="bk-art">${d.art || '📌'}</div>
     <div class="bk-name">${d.name}</div>
     ${ctr ? `<div class="bk-ctr">${ctr}</div>` : ''}
+    <div class="bk-strip"></div>
   `;
   attachTip(el, () => brokerTip(inst, state, opts));
   return el;
@@ -115,7 +122,7 @@ export function consumableEl(inst, state) {
   const el = document.createElement('div');
   el.className = `consumable family-${d.family}`;
   el.dataset.uid = inst.uid;
-  el.innerHTML = `<div class="cs-art">${d.art}</div><div class="cs-name">${d.name}</div>`;
+  el.innerHTML = `<div class="cs-glow"></div><div class="cs-art">${d.art}</div><div class="cs-name">${d.name}</div>`;
   attachTip(el, () => consumableTip(inst, state));
   return el;
 }
