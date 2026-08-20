@@ -763,27 +763,98 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 .pack-opt.taken { opacity: .2; pointer-events: none }
 
 /* ---------- book / formations ---------- */
-/* The deck view: one row per sector, one column per body 1..13. Gaps are drawn
-   as empty outlines, because in the REMAINING view the gaps are the point. */
-.book-board { display: flex; flex-direction: column; gap: 8px; }
+/* The deck view: a summary rail, a per-body tally, and one fanned row per
+   sector running high body to low. Gaps are drawn as outlines, because in the
+   REMAINING view the gaps carry as much information as the cards. */
+.bk-layout { display: grid; grid-template-columns: 172px 62px 1fr; gap: 12px; align-items: start; }
+.bk-side { display: flex; flex-direction: column; gap: 10px; }
+
+.bk-total {
+  padding: 10px 12px; border-radius: var(--r-sm); text-align: center;
+  background: var(--ink-hole); border: 2px solid var(--rim);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.6);
+}
+.bk-total label { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: .16em; color: var(--ink-faint); }
+.bk-total b { display: block; font-size: 30px; font-weight: 900; line-height: 1.1; text-shadow: var(--outline); }
+.bk-total small { display: block; font-size: 9.5px; color: var(--ink-dim); margin-top: 3px; }
+
+.bk-base {
+  padding: 10px; border-radius: var(--r-sm);
+  background: var(--ink-hole); border: 2px solid var(--rim);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.6);
+}
+.bc-title {
+  font-size: 11px; font-weight: 900; letter-spacing: .14em; color: var(--red);
+  text-align: center; margin-bottom: 8px; text-shadow: var(--outline);
+}
+.bc-bands { display: flex; flex-direction: column; gap: 3px; }
+.bc-band {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 4px 7px; border-radius: 5px; background: rgba(0,0,0,.3);
+  border: 1px solid rgba(60,80,120,.4);
+}
+.bc-band span { font-size: 8.5px; font-weight: 700; letter-spacing: .1em; color: var(--ink-faint); }
+.bc-band b { font-size: 14px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.bc-sectors { display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; margin-top: 8px; }
+.bc-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 5px 2px; border-radius: 5px; background: rgba(0,0,0,.3);
+  border: 1px solid rgba(60,80,120,.4);
+}
+.bc-glyph { font-size: 13px; text-shadow: 0 0 8px currentColor; }
+.bc-cell b { font-size: 12px; font-weight: 900; font-variant-numeric: tabular-nums; }
+
+/* how many of each body size — "4 of the 7s" at a glance */
+.bk-tally {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 5px; border-radius: var(--r-sm);
+  background: var(--ink-hole); border: 2px solid var(--rim);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.6);
+}
+.bt-head { font-size: 7.5px; font-weight: 700; letter-spacing: .14em; color: var(--ink-faint); text-align: center; margin-bottom: 2px; }
+.bt-row {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 2px 4px; border-radius: 20px; background: rgba(0,0,0,.32);
+  border: 1px solid rgba(60,80,120,.4);
+}
+.bt-body {
+  min-width: 17px; text-align: center; font-size: 10.5px; font-weight: 900;
+  color: var(--ink-dim); font-variant-numeric: tabular-nums;
+}
+.bt-n { font-size: 12px; font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
+.bt-of { font-size: 8px; font-style: normal; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.bt-row.zero { opacity: .42; }
+.bt-row.zero .bt-n { color: var(--red); }
+
+.book-board { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 .bk-row {
   --rc: #40d9ff;
-  display: grid; grid-template-columns: 104px 1fr; align-items: center; gap: 10px;
-  padding: 7px 9px; border-radius: var(--r-sm);
+  display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: var(--r-sm);
   background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 13%, transparent), rgba(0,0,0,.22) 42%);
   border: 2px solid rgba(44,61,95,.7); border-left: 4px solid var(--rc);
 }
-.bk-rowhead { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.bk-glyph { font-size: 17px; color: var(--rc); text-shadow: 0 0 10px currentColor; }
-.bk-secname { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; color: var(--ink); }
+.bk-rowhead { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.bk-glyph { font-size: 16px; color: var(--rc); text-shadow: 0 0 10px currentColor; }
+.bk-secname { font-size: 9.5px; font-weight: 800; letter-spacing: .08em; color: var(--ink); }
 .bk-seccount { margin-left: auto; font-size: 13px; font-weight: 900; color: var(--rc); font-variant-numeric: tabular-nums; }
 .bk-seccount i { font-size: 9px; font-style: normal; color: var(--ink-faint); font-weight: 700; }
 
-.bk-strip-row { display: grid; grid-template-columns: repeat(13, 1fr); gap: 4px; }
-.bk-strip-row.loose { display: flex; flex-wrap: wrap; }
-.bk-cell { position: relative; display: flex; align-items: center; justify-content: center; }
+/* the fan itself — cards overlap, and the hovered one lifts clear */
+.bk-fan { display: flex; align-items: flex-end; justify-content: flex-start; padding-left: 4px; }
+.bk-fan > .bk-cell { margin-left: -13px; }
+.bk-fan > .bk-cell:first-child { margin-left: 0; }
+/* Each card lies on top of the one to its left, so what gets covered is always
+   a card's right edge and never its top-left corner — which is where the body
+   number and sector glyph live. Stacking it the other way hides the numbers. */
+.bk-cell {
+  position: relative; flex: 0 0 auto; z-index: calc(1 + var(--n, 0));
+  transition: transform .14s;
+}
+.bk-cell:hover { z-index: 40; transform: translateY(-9px) scale(1.07); }
 .bk-cell .candle {
-  width: 100%; max-width: 54px; height: 80px; padding: 3px; border-width: 2px; cursor: default;
+  width: 62px; height: 90px; padding: 3px; border-width: 2px; cursor: default;
+  box-shadow: 0 3px 0 var(--lip), -4px 0 9px rgba(0,0,0,.55);
 }
 .bk-cell .cd-num { font-size: 12px }
 .bk-cell .cd-sector { font-size: 9px }
@@ -791,21 +862,20 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 .bk-cell .cd-real { width: 15px; margin-left: -7.5px }
 .bk-cell .cd-tag { font-size: 5.5px; bottom: 12px; padding: 1px 3px }
 .bk-cell .cd-stamp { width: 8px; height: 8px; top: 3px }
-.bk-cell .candle:hover { transform: translateY(-5px) scale(1.06); z-index: 5; }
 
-/* an empty column — either never owned, or owned but no longer in the deck */
+/* an empty square — either never owned, or owned but no longer in the deck */
 .bk-ghost {
-  width: 100%; max-width: 54px; height: 80px; border-radius: 8px;
-  border: 2px dashed rgba(74,96,140,.55); background: rgba(0,0,0,.25);
+  width: 62px; height: 90px; border-radius: 8px;
+  border: 2px dashed rgba(74,96,140,.5); background: rgba(4,8,16,.6);
   display: flex; align-items: center; justify-content: center;
 }
-.bk-ghost span { font-size: 15px; font-weight: 900; color: rgba(120,140,175,.34); text-shadow: none; }
-.bk-cell.gone .bk-ghost { border-color: rgba(255,84,104,.34); background: rgba(255,84,104,.06); }
-.bk-cell.gone .bk-ghost span { color: rgba(255,120,135,.4); }
+.bk-ghost span { font-size: 16px; font-weight: 900; color: rgba(120,140,175,.32); text-shadow: none; }
+.bk-cell.gone .bk-ghost { border-color: rgba(255,84,104,.34); background: rgba(60,10,18,.5); }
+.bk-cell.gone .bk-ghost span { color: rgba(255,120,135,.42); }
 
 /* more than one candle sits on the same square */
 .bk-dup {
-  position: absolute; right: -2px; bottom: -3px; z-index: 6;
+  position: absolute; left: -3px; bottom: -3px; z-index: 6;
   padding: 1px 4px; border-radius: 8px; font-size: 9px; font-weight: 900;
   background: var(--gold); color: #241800; border: 2px solid #0a0f1c;
 }
@@ -824,7 +894,7 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 
 .bk-where {
   display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
-  padding: 8px 12px; margin-top: 10px; border-radius: var(--r-sm);
+  padding: 8px 12px; margin: 10px 0 12px; border-radius: var(--r-sm);
   background: var(--ink-hole); border: 2px solid var(--rim);
   font-size: 11px; color: var(--ink-dim);
 }
@@ -840,12 +910,14 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 .bk-legend span { display: flex; align-items: center; gap: 6px; }
 .bk-legend i { width: 13px; height: 17px; border-radius: 3px; display: inline-block; }
 .bk-legend .lg-have { background: linear-gradient(180deg,#16233c,#0b1120); border: 2px solid #4a6ea8; }
-.bk-legend .lg-gone { border: 2px dashed rgba(255,84,104,.45); background: rgba(255,84,104,.06); }
+.bk-legend .lg-gone { border: 2px dashed rgba(255,84,104,.45); background: rgba(60,10,18,.5); }
 
-@media (max-width: 1120px) {
-  .bk-row { grid-template-columns: 84px 1fr; }
-  .bk-cell .candle, .bk-ghost { height: 66px; }
-  .bk-secname { font-size: 9px }
+@media (max-width: 1220px) {
+  .bk-layout { grid-template-columns: 150px 54px 1fr; }
+  .bk-cell .candle, .bk-ghost { width: 52px; height: 76px; }
+  .bk-fan > .bk-cell { margin-left: -11px; }
+  .bk-row { grid-template-columns: 80px 1fr; }
+  .bk-secname { font-size: 8.5px }
 }
 .stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 11px; margin-bottom: 16px; }
 .stat-box { background: var(--ink-hole); border: 2px solid var(--rim); border-radius: var(--r-sm); padding: 9px; text-align: center; box-shadow: inset 0 2px 6px rgba(0,0,0,.6) }
@@ -1255,6 +1327,13 @@ body.no-motion *::after { animation: none !important; }
   font-size: 13px; color: #ffe9ab;
 }
 .pack-lead b { font-size: 17px; font-weight: 900; color: var(--gold); }
+.pack-warn {
+  display: inline-block; margin: 0 0 10px; padding: 7px 15px; border-radius: var(--r-sm);
+  background: rgba(255,84,104,.12); border: 2px solid rgba(255,84,104,.5);
+  font-size: 11.5px; color: #ffc2c9; line-height: 1.45;
+}
+/* slot counts on the Floor strip, so a blocked pick explains itself */
+.fb-label i { font-style: normal; color: var(--ink); font-weight: 900; }
 
 
 /* ==========================================================================

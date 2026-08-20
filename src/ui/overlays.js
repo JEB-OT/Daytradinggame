@@ -113,6 +113,88 @@ export function payoutScreen(game, payout) {
 // so the layout never leaves a dead column when stock is thin.
 // ---------------------------------------------------------------------------
 let shopDragUid = null;
+
+/**
+ * The strip of your desk and your Charts that runs along the bottom of the
+ * Floor. A pack shows it too: opening a pack used to lock you out of your own
+ * desk, so a full desk or a full Chart shelf meant the pick you had just paid
+ * for was unreachable with no way to sell anything and make room.
+ */
+function floorBarHtml(st) {
+  return `<div class="floor-bar">
+      <div class="fb-group">
+        <span class="fb-label">DESK <i>${S.slotsUsed(st)}/${st.mods.slots}</i></span>
+        <div class="fb-items" id="shop-desk"></div>
+      </div>
+      <div class="fb-group">
+        <span class="fb-label">CHARTS <i>${st.consumables.length}/${st.mods.chartSlots}</i></span>
+        <div class="fb-items" id="shop-cons"></div>
+      </div>
+      <span class="fb-hint">right-click to sell &middot; click a chart to use it &middot; drag to reorder</span>
+    </div>`;
+}
+
+/**
+ * @param rerender  redraws whichever screen owns the strip, so selling from a
+ *                  pack refreshes the pack rather than kicking you back out.
+ */
+function wireFloorBar(game, sheet, rerender) {
+  const st = game.state;
+  const desk = sheet.querySelector('#shop-desk');
+  if (!desk) return;
+  st.brokers.forEach((b) => {
+    const el = brokerEl(b, st);
+    el.draggable = true;
+    el.addEventListener('dragstart', (e) => {
+      shopDragUid = b.uid;
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', b.uid); } catch {}
+    });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('drop-target'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drop-target'));
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      el.classList.remove('drop-target');
+      const from = st.brokers.findIndex((q) => q.uid === shopDragUid);
+      const to = st.brokers.findIndex((q) => q.uid === b.uid);
+      if (from < 0 || to < 0 || from === to) return;
+      const [moved] = st.brokers.splice(from, 1);
+      st.brokers.splice(to, 0, moved);
+      sfx.select();
+      rerender();
+      game.render();
+    });
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const r = S.sellBroker(st, b.uid);
+      if (r.ok) { sfx.cash(); toast(`Sold for $${r.value}`, 'good'); rerender(); game.render(); }
+    });
+    desk.appendChild(el);
+  });
+  for (let i = S.slotsUsed(st); i < st.mods.slots; i++) {
+    const e = document.createElement('div'); e.className = 'slot-empty'; desk.appendChild(e);
+  }
+
+  const cons = sheet.querySelector('#shop-cons');
+  st.consumables.forEach((c) => {
+    const el = consumableEl(c, st);
+    el.onclick = () => {
+      const r = S.useConsumable(st, c.uid, []);
+      if (r.ok) { sfx.buy(); toast(r.msg, 'good'); rerender(); game.render(); }
+      else toast(r.msg || 'Needs candles selected — use it during a deadline', 'bad');
+    };
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault(); S.sellConsumable(st, c.uid); sfx.cash(); rerender(); game.render();
+    });
+    cons.appendChild(el);
+  });
+  for (let i = st.consumables.length; i < st.mods.chartSlots; i++) {
+    const e = document.createElement('div'); e.className = 'slot-empty'; cons.appendChild(e);
+  }
+}
+
 export function shopScreen(game) {
   const st = game.state;
   const shop = st.shop;
@@ -124,6 +206,9 @@ export function shopScreen(game) {
     const KIND = { broker: 'BROKER · DESK SLOT', chart: 'CHART · ONE USE', contract: 'CONTRACT · ONE USE', rumor: 'RUMOR · ONE USE' };
     const desc = it.type === 'broker' ? brokerText(it.inst, st) : consumableText(d, st);
     const rar = it.type === 'broker' ? BROKERS[it.key].rarity : null;
+    // Only reachable by hiring a duplicate under Hall of Mirrors and then
+    // selling the Hall — but if it happens, say so instead of failing on click.
+    const employed = it.type === 'broker' && S.alreadyEmployed(st, it.key);
     tiles.push(`<div class="shop-slot ${it.sold ? 'sold' : ''} ${rar ? 'rar-' + rar : 'kind-' + it.type}">
       <div class="s-kind">${KIND[it.type] || it.type.toUpperCase()}</div>
       <div class="s-art">${d.art}</div>
@@ -131,7 +216,7 @@ export function shopScreen(game) {
       ${rar ? `<div class="s-rarity" style="color:${RARITY[rar].color}">${RARITY[rar].name.toUpperCase()}</div>` : ''}
       <div class="s-desc">${desc}</div>
       <div class="s-price">$${price}</div>
-      <button class="btn" data-buy="${i}" ${st.cash < price ? 'disabled' : ''}>BUY</button>
+      <button class="btn" data-buy="${i}" ${st.cash < price || employed ? 'disabled' : ''}>${employed ? 'EMPLOYED' : 'BUY'}</button>
     </div>`);
   });
 
@@ -177,17 +262,7 @@ export function shopScreen(game) {
       <span><i>$1</i> per $${st.mods.interestRate} you are holding, up to <i>$${st.mods.interestCap}</i>
         &mdash; maxed at $${st.mods.interestCap * st.mods.interestRate} banked</span>
     </div>
-    <div class="floor-bar">
-      <div class="fb-group">
-        <span class="fb-label">DESK</span>
-        <div class="fb-items" id="shop-desk"></div>
-      </div>
-      <div class="fb-group">
-        <span class="fb-label">CHARTS</span>
-        <div class="fb-items" id="shop-cons"></div>
-      </div>
-      <span class="fb-hint">right-click to sell · click a chart to use it</span>
-    </div>
+    ${floorBarHtml(st)}
     <div class="btn-row">
       <button class="btn" id="shop-reroll" ${st.cash < rerollCost && shop.freeRerolls <= 0 ? 'disabled' : ''}>
         REROLL ${shop.freeRerolls > 0 ? '(FREE ×' + shop.freeRerolls + ')' : '$' + rerollCost}</button>
@@ -196,58 +271,7 @@ export function shopScreen(game) {
       <button class="btn primary" id="shop-next">NEXT DEADLINE →</button>
     </div>`, { dismissable: false, width: '1020px' });
 
-  const desk = sheet.querySelector('#shop-desk');
-  st.brokers.forEach((b) => {
-    const el = brokerEl(b, st);
-    el.draggable = true;
-    el.addEventListener('dragstart', (e) => {
-      shopDragUid = b.uid;
-      el.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      try { e.dataTransfer.setData('text/plain', b.uid); } catch {}
-    });
-    el.addEventListener('dragend', () => el.classList.remove('dragging'));
-    el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('drop-target'); });
-    el.addEventListener('dragleave', () => el.classList.remove('drop-target'));
-    el.addEventListener('drop', (e) => {
-      e.preventDefault();
-      el.classList.remove('drop-target');
-      const from = st.brokers.findIndex((q) => q.uid === shopDragUid);
-      const to = st.brokers.findIndex((q) => q.uid === b.uid);
-      if (from < 0 || to < 0 || from === to) return;
-      const [moved] = st.brokers.splice(from, 1);
-      st.brokers.splice(to, 0, moved);
-      sfx.select();
-      shopScreen(game);
-      game.render();
-    });
-    el.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      const r = S.sellBroker(st, b.uid);
-      if (r.ok) { sfx.cash(); toast(`Sold for $${r.value}`, 'good'); shopScreen(game); game.render(); }
-    });
-    desk.appendChild(el);
-  });
-  for (let i = S.slotsUsed(st); i < st.mods.slots; i++) {
-    const e = document.createElement('div'); e.className = 'slot-empty'; desk.appendChild(e);
-  }
-
-  const cons = sheet.querySelector('#shop-cons');
-  st.consumables.forEach((c) => {
-    const el = consumableEl(c, st);
-    el.onclick = () => {
-      const r = S.useConsumable(st, c.uid, []);
-      if (r.ok) { sfx.buy(); toast(r.msg, 'good'); shopScreen(game); game.render(); }
-      else toast(r.msg || 'Needs candles selected — use it during a deadline', 'bad');
-    };
-    el.addEventListener('contextmenu', (e) => {
-      e.preventDefault(); S.sellConsumable(st, c.uid); sfx.cash(); shopScreen(game); game.render();
-    });
-    cons.appendChild(el);
-  });
-  for (let i = st.consumables.length; i < st.mods.chartSlots; i++) {
-    const e = document.createElement('div'); e.className = 'slot-empty'; cons.appendChild(e);
-  }
+  wireFloorBar(game, sheet, () => shopScreen(game));
 
   sheet.querySelectorAll('[data-buy]').forEach((b) => b.onclick = () => {
     const r = S.buyShopItem(st, +b.dataset.buy);
@@ -277,6 +301,17 @@ export function packScreen(game) {
   if (!open) return shopScreen(game);
 
   const contents = S.PACK_CONTENTS[open.pack.family];
+  // Whether a pick needs a slot, and whether you have one. A pack that wants
+  // room you do not have is the whole reason the desk strip is on this screen.
+  const wantsDesk = open.options.some((o) => !o.taken && o.type === 'broker');
+  const wantsChart = open.options.some((o) => !o.taken && o.type !== 'broker' && o.type !== 'candle');
+  const noDesk = wantsDesk && !S.hasBrokerRoom(st);
+  const noChart = wantsChart && st.consumables.length >= st.mods.chartSlots;
+  const warn = noDesk || noChart
+    ? `<div class="pack-warn">${noDesk ? 'Your desk is full' : 'Your Chart slots are full'} &mdash;
+       sell something below to make room, or this pick is lost.</div>`
+    : '';
+
   const sheet = showOverlay(`
     <div style="text-align:center">
       <h2>${open.pack.name.toUpperCase()}</h2>
@@ -286,15 +321,21 @@ export function packScreen(game) {
       <div class="sub" style="margin-bottom:4px">${open.pack.choose > 1
         ? `This pack lets you keep <b>${open.pack.choose}</b>. Anything you do not take is gone.`
         : 'Anything you do not take is gone.'}</div>
+      ${warn}
       <div class="pack-options" id="pack-opts"></div>
       <button class="btn ghost" id="pack-skip">${open.picks < open.pack.choose ? 'DONE' : 'SKIP'}</button>
-    </div>`, { dismissable: false, width: '820px' });
+    </div>
+    ${floorBarHtml(st)}`, { dismissable: false, width: '900px' });
 
   const wrap = sheet.querySelector('#pack-opts');
   open.options.forEach((opt, i) => {
     let el;
     if (opt.type === 'candle') { el = candleEl(opt.candle, { reveal: true }); el.style.transform = 'scale(1.15)'; el.style.margin = '8px 10px'; }
-    else if (opt.type === 'broker') { el = brokerEl(opt.inst, st, { hideSell: true }); el.style.transform = 'scale(1.3)'; el.style.margin = '12px 18px'; }
+    else if (opt.type === 'broker') {
+      el = brokerEl(opt.inst, st, { hideSell: true });
+      el.style.transform = 'scale(1.3)'; el.style.margin = '12px 18px';
+      if (S.alreadyEmployed(st, opt.key)) el.classList.add('taken');
+    }
     else { el = consumableEl({ key: opt.key, uid: 'pk' + i }, st); el.style.transform = 'scale(1.3)'; el.style.margin = '12px 16px'; }
     el.classList.add('pack-opt');
     if (opt.taken) el.classList.add('taken');
@@ -305,6 +346,7 @@ export function packScreen(game) {
     };
     wrap.appendChild(el);
   });
+  wireFloorBar(game, sheet, () => packScreen(game));
   sheet.querySelector('#pack-skip').onclick = () => { S.closePack(st); shopScreen(game); };
 }
 
@@ -322,12 +364,20 @@ export function packScreen(game) {
 // whole point: the gaps are the information.
 // ---------------------------------------------------------------------------
 const BOOK_VIEWS = {
-  all:       { key: 'all',       label: 'ALL BOOK',  blurb: 'every candle you own, wherever it is right now' },
+  all:       { key: 'all',       label: 'FULL BOOK', blurb: 'every candle you own, wherever it is right now' },
   remaining: { key: 'remaining', label: 'REMAINING', blurb: 'only what is still in the deck and can still be dealt to you' },
 };
 
-/** One sector row: 13 body columns, each holding the candles of that body. */
-function bookRow(game, sectorKey, candles, all) {
+/** Bodies high to low, the way a deck view reads: 13 down to 1. */
+const BOOK_BODIES = Array.from({ length: MAX_BODY }, (_, i) => MAX_BODY - i);
+
+/**
+ * One sector's row, fanned. Cards overlap so a full run of thirteen stays wide
+ * enough to read, and the one under the cursor lifts clear of its neighbours.
+ * Empty squares are drawn as outlines — in the REMAINING view the gaps are the
+ * whole point, so they have to be as visible as the cards.
+ */
+function bookRow(sectorKey, candles, all) {
   const sec = SECTORS[sectorKey];
   const wrap = document.createElement('div');
   wrap.className = 'bk-row';
@@ -340,16 +390,15 @@ function bookRow(game, sectorKey, candles, all) {
     <span class="bk-seccount">${candles.length}<i>/${all.length}</i></span>`;
   wrap.appendChild(head);
 
-  const strip = document.createElement('div');
-  strip.className = 'bk-strip-row';
-  for (let body = 1; body <= MAX_BODY; body++) {
+  const fan = document.createElement('div');
+  fan.className = 'bk-fan';
+  BOOK_BODIES.forEach((body, i) => {
     const here = candles.filter((c) => c.body === body);
     const owned = all.filter((c) => c.body === body);
     const cell = document.createElement('div');
     cell.className = 'bk-cell';
+    cell.style.setProperty('--n', i);
     if (!here.length) {
-      // Nothing of this body available in this view. Say which of the two
-      // reasons it is: never owned, or owned but no longer in the deck.
       cell.classList.add(owned.length ? 'gone' : 'missing');
       cell.innerHTML = `<div class="bk-ghost"><span>${body}</span></div>`;
       cell.title = owned.length
@@ -364,10 +413,50 @@ function bookRow(game, sectorKey, candles, all) {
         cell.appendChild(dup);
       }
     }
-    strip.appendChild(cell);
-  }
-  wrap.appendChild(strip);
+    fan.appendChild(cell);
+  });
+  wrap.appendChild(fan);
   return wrap;
+}
+
+/** The tally column: how many of each body size you are holding. */
+function bodyTally(shown, all) {
+  const rows = BOOK_BODIES.map((body) => {
+    const n = shown.filter((c) => c.body === body).length;
+    const owned = all.filter((c) => c.body === body).length;
+    return `<div class="bt-row ${n === 0 ? 'zero' : ''}">
+      <span class="bt-body">${body}</span>
+      <span class="bt-n">${n}</span>
+      ${owned !== n ? `<i class="bt-of">/${owned}</i>` : ''}
+    </div>`;
+  }).join('');
+  return `<div class="bk-tally"><div class="bt-head">BODY</div>${rows}</div>`;
+}
+
+/**
+ * The summary panel. Counts the things you actually build around: the
+ * silhouette bands, the sectors, and the bull/bear split.
+ */
+function baseCards(shown) {
+  const band = (lo, hi) => shown.filter((c) => c.body >= lo && c.body <= hi).length;
+  const bands = [
+    { label: 'DOJI', hint: 'body 1', n: band(1, 1) },
+    { label: 'SPINNER', hint: 'bodies 2–4', n: band(2, 4) },
+    { label: 'STANDARD', hint: 'bodies 5–7', n: band(5, 7) },
+    { label: 'HEAVY', hint: 'bodies 8–10', n: band(8, 10) },
+    { label: 'MARUBOZU', hint: 'bodies 11–13', n: band(11, 13) },
+  ];
+  const sectors = Object.entries(SECTORS).map(([k, sec]) =>
+    `<div class="bc-cell" title="${sec.name}">
+       <span class="bc-glyph" style="color:${sec.color}">${sec.glyph}</span>
+       <b>${shown.filter((c) => c.sector === k).length}</b>
+     </div>`).join('');
+  return `<div class="bk-base">
+    <div class="bc-title">Base Cards</div>
+    <div class="bc-bands">${bands.map((b) =>
+      `<div class="bc-band" title="${b.hint}"><span>${b.label}</span><b>${b.n}</b></div>`).join('')}</div>
+    <div class="bc-sectors">${sectors}</div>
+  </div>`;
 }
 
 export function bookScreen(game, back, view = 'all') {
@@ -380,6 +469,11 @@ export function bookScreen(game, back, view = 'all') {
   const enhanced = shown.filter((c) => c.enhancement).length;
   const avg = shown.length ? (shown.reduce((a, c) => a + c.body, 0) / shown.length).toFixed(1) : '0';
   const sealed = shown.filter((c) => c.enhancement === 'obsidian');
+  // Obsidian has no body or sector to sit on, so it cannot go on the grid and
+  // must not skew the tallies either — it gets its own shelf underneath.
+  const gridable = (c) => c.enhancement !== 'obsidian';
+  const grid = shown.filter(gridable);
+  const allGrid = st.book.filter(gridable);
 
   const tabs = Object.values(BOOK_VIEWS).map((b) =>
     `<button class="bk-tab ${b.key === v ? 'on' : ''}" data-view="${b.key}">${b.label}</button>`).join('');
@@ -398,45 +492,49 @@ export function bookScreen(game, back, view = 'all') {
       <div class="bk-tabs">${tabs}</div>
     </div>
     ${split}
-    <div class="stat-grid" style="margin-top:12px">
-      <div class="stat-box"><label>${v === 'remaining' ? 'IN DECK' : 'CANDLES'}</label><b>${shown.length}</b></div>
-      <div class="stat-box"><label style="color:var(--green)">BULL</label><b>${bulls}</b></div>
-      <div class="stat-box"><label style="color:var(--red)">BEAR</label><b>${shown.length - bulls}</b></div>
-      <div class="stat-box"><label>AVG BODY</label><b>${avg}</b></div>
+    <div class="bk-layout">
+      <div class="bk-side">
+        <div class="bk-total">
+          <label>${v === 'remaining' ? 'LEFT TO DRAW' : 'IN YOUR BOOK'}</label>
+          <b>${shown.length}</b>
+          <small><span style="color:var(--green)">${bulls} bull</span> ·
+                 <span style="color:var(--red)">${shown.length - bulls} bear</span> ·
+                 avg body ${avg}</small>
+        </div>
+        ${baseCards(grid)}
+      </div>
+      ${bodyTally(grid, allGrid)}
+      <div class="book-board" id="book-board"></div>
     </div>
-    <div class="book-board" id="book-board"></div>
     <div class="bk-legend">
       <span><i class="lg-have"></i>held</span>
       <span><i class="lg-gone"></i>${v === 'remaining' ? 'already dealt' : 'not in your book'}</span>
       <span>${enhanced} enhanced${sealed.length ? ` · ${sealed.length} sealed` : ''}</span>
     </div>
     <div class="btn-row"><button class="btn" id="bk-back">BACK</button></div>`,
-    { dismissable: false, width: '1080px' });
+    { dismissable: false, width: '1180px' });
 
   const board = sheet.querySelector('#book-board');
-  // A candle's body column is its body, so an Obsidian — which has no body or
-  // sector at all — cannot sit on the grid. Those get their own shelf below it.
-  const gridable = (c) => c.enhancement !== 'obsidian';
   Object.keys(SECTORS).forEach((k) => {
-    board.appendChild(bookRow(game,
-      k,
-      shown.filter((c) => gridable(c) && c.sector === k),
-      st.book.filter((c) => gridable(c) && c.sector === k)));
+    board.appendChild(bookRow(k,
+      grid.filter((c) => c.sector === k),
+      allGrid.filter((c) => c.sector === k)));
   });
   if (sealed.length) {
     const row = document.createElement('div');
     row.className = 'bk-row sealed-row';
     row.innerHTML = `<div class="bk-rowhead"><span class="bk-glyph">▪</span>
       <span class="bk-secname">Sealed</span><span class="bk-seccount">${sealed.length}</span></div>`;
-    const strip = document.createElement('div');
-    strip.className = 'bk-strip-row loose';
-    sealed.forEach((c) => {
+    const fan = document.createElement('div');
+    fan.className = 'bk-fan loose';
+    sealed.forEach((c, i) => {
       const cell = document.createElement('div');
       cell.className = 'bk-cell';
+      cell.style.setProperty('--n', i);
       cell.appendChild(candleEl(c, { reveal: true }));
-      strip.appendChild(cell);
+      fan.appendChild(cell);
     });
-    row.appendChild(strip);
+    row.appendChild(fan);
     board.appendChild(row);
   }
 
@@ -595,6 +693,11 @@ export function helpScreen(game, fromTitle, back) {
         <ul>
           <li><b>Brokers</b> sit on your desk and trigger left to right. Drag to reorder — order matters
               when multipliers are involved.</li>
+          <li><b>One of each.</b> You never employ the same broker twice, and the Floor never shows the
+              same one twice — not on the shelf and inside a pack at once. <b>Hall of Mirrors</b> lifts
+              that rule while you hold it.</li>
+          <li>Your desk and Charts stay in reach <b>while a pack is open</b>, so you can sell something
+              to make room for the pick.</li>
           <li><b>Charts</b> reshape your book, <b>Contracts</b> level a formation permanently,
               <b>Rumors</b> are high-risk power spikes, <b>Licences</b> are permanent upgrades.</li>
           <li>Every third deadline is a <b>boss</b> that breaks one rule. Read it and buy around it.</li>

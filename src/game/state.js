@@ -178,6 +178,30 @@ export function ownedBrokerKeys(state) {
   return state.mods.allowDuplicates ? [] : state.brokers.map((b) => b.key);
 }
 
+/**
+ * Every broker key currently *visible* on the Floor: unsold shelf items plus
+ * the untaken options of an open pack.
+ *
+ * The shelf and a pack are rolled at different moments, so without this they
+ * roll against each other blind — the same broker turns up in both, and taking
+ * one then buying the other lands two of them on your desk. Passing this as
+ * `exclude` makes the Floor de-duplicate against itself as a whole.
+ */
+export function brokersOnOffer(state) {
+  const shop = state.shop;
+  if (!shop || state.mods.allowDuplicates) return [];
+  const keys = shop.items.filter((i) => i.type === 'broker' && !i.sold).map((i) => i.key);
+  for (const o of shop.pack?.options || []) {
+    if (o.type === 'broker' && !o.taken) keys.push(o.key);
+  }
+  return keys;
+}
+
+/** Would taking this broker put a second copy on the desk? */
+export function alreadyEmployed(state, key) {
+  return !state.mods.allowDuplicates && state.brokers.some((b) => b.key === key);
+}
+
 export function slotsUsed(state) { return state.brokers.filter((b) => b.edition !== 'offbook').length; }
 export function hasBrokerRoom(state) { return slotsUsed(state) < state.mods.slots; }
 export function hasConsumableRoom(state) { return state.consumables.length < state.mods.chartSlots; }
@@ -600,17 +624,20 @@ export function applyBonus(state, key) {
       if (hasBrokerRoom(state)) {
         state.brokers.push(makeBroker(rollBrokerKey(rng, {
           allowLegendary: state.mods.allowLegendary, owned: ownedBrokerKeys(state),
+          exclude: brokersOnOffer(state),
         }), rng));
       }
       break;
     case 'uncommonBroker':
       if (hasBrokerRoom(state)) {
-        state.brokers.push(makeBroker(rollBrokerKey(rng, { rarity: 'uncommon', owned: ownedBrokerKeys(state) }), rng));
+        state.brokers.push(makeBroker(rollBrokerKey(rng,
+          { rarity: 'uncommon', owned: ownedBrokerKeys(state), exclude: brokersOnOffer(state) }), rng));
       }
       break;
     case 'rareBroker':
       if (hasBrokerRoom(state)) {
-        state.brokers.push(makeBroker(rollBrokerKey(rng, { rarity: 'rare', owned: ownedBrokerKeys(state) }), rng));
+        state.brokers.push(makeBroker(rollBrokerKey(rng,
+          { rarity: 'rare', owned: ownedBrokerKeys(state), exclude: brokersOnOffer(state) }), rng));
       }
       break;
     case 'charts':
@@ -658,7 +685,7 @@ function rollShopItem(state, rng) {
     const key = rollBrokerKey(rng, {
       allowLegendary: m.allowLegendary && rng.chance(0.12),
       owned: ownedBrokerKeys(state),
-      exclude: state.shop?.items?.filter((i) => i.type === 'broker').map((i) => i.key) || [],
+      exclude: brokersOnOffer(state),
     });
     const inst = makeBroker(key, rng);
     let cost = BROKERS[key].cost + (inst.edition ? 3 : 0);
@@ -714,6 +741,7 @@ export function buyShopItem(state, index) {
   if (!item || item.sold) return { blocked: 'Gone' };
   const price = itemPrice(state, item.cost);
   if (state.cash < price) return { blocked: 'Not enough cash' };
+  if (item.type === 'broker' && alreadyEmployed(state, item.key)) return { blocked: 'You already employ them' };
   if (item.type === 'broker' && !hasBrokerRoom(state) && item.inst.edition !== 'offbook') return { blocked: 'No desk slots left' };
   if (item.type !== 'broker' && !hasConsumableRoom(state)) return { blocked: 'No Chart slots left' };
   state.cash -= price;
@@ -755,7 +783,7 @@ export function buyPack(state, index) {
       const key = rollBrokerKey(rng, {
         allowLegendary: state.mods.allowLegendary && rng.chance(0.15),
         owned: ownedBrokerKeys(state),
-        exclude: options.map((o) => o.key),
+        exclude: [...brokersOnOffer(state), ...options.map((o) => o.key)],
       });
       options.push({ type: 'broker', key, inst: makeBroker(key, rng) });
     } else {
@@ -779,6 +807,7 @@ export function pickFromPack(state, optionIndex) {
   const opt = open.options[optionIndex];
   if (!opt || opt.taken) return { blocked: 'Already taken' };
   if (opt.type === 'broker') {
+    if (alreadyEmployed(state, opt.key)) return { blocked: 'You already employ them' };
     if (!hasBrokerRoom(state) && opt.inst.edition !== 'offbook') return { blocked: 'No desk slots left' };
     state.brokers.push(opt.inst);
   } else if (opt.type === 'candle') {

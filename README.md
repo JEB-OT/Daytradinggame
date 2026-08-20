@@ -242,7 +242,7 @@ candle or broker is worth more before a multiplying one. You control both.
 
 | Layer | Count | What it does |
 |---|---:|---|
-| **Brokers** | 131 | Sit on your desk and trigger left to right. The combo engine. You are never offered one you already employ &mdash; unless **Hall of Mirrors** is on the desk, which re-opens the duplicate pool. |
+| **Brokers** | 131 | Sit on your desk and trigger left to right. The combo engine. **One of each, ever** &mdash; see below. |
 | **Charts** | 29 | Reshape the candles in your book — bodies, sectors, polarity, enhancements. |
 | **Contracts** | 14 | Permanently level one formation. |
 | **Rumors** | 20 | High-risk power spikes with a real cost. |
@@ -252,9 +252,28 @@ candle or broker is worth more before a multiplying one. You control both.
 | **Bonuses** | 12 | Paid out for skipping a non-boss deadline. |
 
 **Broker order matters, exactly like candle order.** Both fire left to right, so additive brokers
-want to sit before multiplying ones. Drag them around your desk &mdash; on the board or on the Floor
-&mdash; to change the order. Mimic copies whatever is to its right, so where you drop *it* changes
-everything.
+want to sit before multiplying ones. Drag them around your desk &mdash; on the board, on the Floor,
+or inside a pack &mdash; to change the order. Mimic copies whatever is to its right, so where you
+drop *it* changes everything.
+
+### One of each
+
+You can never employ the same broker twice, and the Floor never shows you the same broker twice
+either. The shelf, an open pack and a skip bonus all roll against **everything already visible
+anywhere on the Floor**, not just against their own batch &mdash; otherwise a broker could sit on
+the shelf and inside a pack at once, and taking one then buying the other would put two on your
+desk.
+
+The single exception is **Hall of Mirrors**. While it is on your desk the whole rule lifts:
+brokers you already employ turn up on the Floor again and you may hire duplicates. Sell it and the
+rule snaps straight back on &mdash; though whatever duplicates you already hired stay hired.
+
+### Packs keep your desk in reach
+
+Opening a pack leaves your desk and your Charts on screen, with their slot counts. You can sell a
+broker, sell a chart or use a chart **while the pack is open**, so a full desk no longer means the
+pick you just paid for is unreachable. If a pack is offering something you have no room for, it
+says so above the options.
 
 Candles stack four independent layers of their own: sector, **enhancement** (Block Tick,
 Leveraged, Rotating, Volatile, Dividend, Hedged, Penny, **Swing**, Sealed), **edition**
@@ -325,21 +344,28 @@ a build; six is a printing press.
 ## The book
 
 `BOOK`, from the top bar or any menu, lays your candles out the way a deck view should read: one
-row per **sector**, one column per **body 1&ndash;13**. Duplicates stack under a `×2` badge and
-anything you do not own is drawn as an empty outline, so the shape of your book is one glance
-rather than a wall of tiles.
+**fanned row per sector**, running body 13 down to 1. Duplicates stack under a `×2` badge, and
+anything the view does not hold is drawn as an empty outline — so the shape of your book is one
+glance rather than a wall of tiles.
+
+Beside it are two readouts:
+
+- a **BODY** column counting how many of each size you are holding — *four 13s, three 7s* — with a
+  `/4` beside anything that is short of the full set
+- a **Base Cards** panel totalling the five silhouette bands (Doji, Spinner, Standard, Heavy,
+  Marubozu) and the four sectors, which is what a build is actually shaped out of
 
 Two views share that layout:
 
 | View | Shows |
 |---|---|
-| **ALL BOOK** | every candle you own, wherever it is right now |
+| **FULL BOOK** | every candle you own, wherever it is right now |
 | **REMAINING** | only what is **still in the deck** and can still be dealt to you |
 
 `REMAINING` is the one you plan with. The strip along the top splits your book into *in the deck*,
-*on the board* and *traded or swept*, and the empty squares in the grid are the candles already
-gone — so before you spend a sweep chasing a Four Winds of 7s you can see that three of the four
-have already been dealt.
+*on the board* and *traded or swept*, the empty squares are the candles already gone, and the BODY
+column drops to what is left — so before you spend a sweep chasing a Four Winds of 7s you can see
+that three of the four have already been dealt.
 
 ---
 

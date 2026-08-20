@@ -363,8 +363,11 @@ add([
     text: 'Copies the ability of the broker immediately to its right',
     copiesRight: true },
 
+  // The one escape hatch from the one-of-each rule. It works only while the
+  // Hall is actually on your desk — sell it and the rule snaps straight back on,
+  // though whatever duplicates you already hired stay hired.
   { key: 'hallOfMirrors', name: 'Hall of Mirrors', cost: 10, rarity: 'rare', art: '🎪',
-    text: 'Brokers you already employ can turn up on the Floor again — duplicates allowed',
+    text: 'While held, brokers you already employ turn up on the Floor again — you may hire duplicates',
     mods: { allowDuplicates: true } },
 
   { key: 'quantIntern', name: 'Apprentice', cost: 7, rarity: 'uncommon', art: '🎓',
@@ -719,12 +722,16 @@ export function brokerSellValue(inst, state) {
 }
 
 /**
- * @param opts.exclude    keys already on offer in this same batch
+ * @param opts.exclude    keys already visible elsewhere on the Floor
  * @param opts.owned      keys the player already employs — never offered twice
  *                        unless Hall of Mirrors is on the desk
  * @param opts.rarity     restrict to one rarity band
- * If filtering leaves nothing at all, the restrictions are dropped rather than
- * handing back undefined.
+ *
+ * The two restrictions are not equal, so they are relaxed one at a time rather
+ * than dropped together. `exclude` only keeps one Floor from showing the same
+ * broker twice; `owned` is the rule that stops a second copy reaching the desk,
+ * so it is the last thing to give — and it never gives while there is still any
+ * unowned broker to offer instead.
  */
 export function rollBrokerKey(rng, opts = {}) {
   const base = BROKER_KEYS.filter((k) => {
@@ -733,8 +740,10 @@ export function rollBrokerKey(rng, opts = {}) {
     if (d.rarity === 'legendary' && !opts.allowLegendary && !opts.rarity) return false;
     return true;
   });
-  const filtered = base.filter((k) =>
-    !opts.exclude?.includes(k) && !opts.owned?.includes(k));
-  const pool = filtered.length ? filtered : (base.length ? base : BROKER_KEYS);
+  const unowned = base.filter((k) => !opts.owned?.includes(k));
+  const fresh = unowned.filter((k) => !opts.exclude?.includes(k));
+  const pool = fresh.length ? fresh
+    : unowned.length ? unowned
+    : base.length ? base : BROKER_KEYS;
   return rng.pickWeighted(pool.map((k) => ({ item: k, weight: RARITY[BROKERS[k].rarity].weight || 1 })));
 }

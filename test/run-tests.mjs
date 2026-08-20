@@ -879,6 +879,91 @@ t('a shop restock never repeats within its own stock', () => {
     S.rerollShop(st);
   }
 });
+t('the Floor never shows the same broker on the shelf and inside a pack', () => {
+  // The shelf and a pack are rolled at different moments. Without a Floor-wide
+  // exclusion the same broker turns up in both, and taking one then buying the
+  // other lands two of them on the desk.
+  let overlaps = 0, checked = 0;
+  for (let i = 0; i < 250; i++) {
+    const st = S.newRun('FLOOR' + i);
+    st.cash = 99999;
+    st.permanent.slots = 40;
+    S.computeMods(st);
+    S.openShop(st);
+    const pi = st.shop.packs.findIndex((p) => p.family === 'broker');
+    if (pi < 0) continue;
+    const r = S.buyPack(st, pi);
+    if (!r.ok) continue;
+    checked++;
+    const shelf = st.shop.items.filter((x) => x.type === 'broker' && !x.sold).map((x) => x.key);
+    const opts = r.pack.options.filter((o) => o.type === 'broker').map((o) => o.key);
+    if (opts.some((k) => shelf.includes(k))) overlaps++;
+  }
+  ok(checked > 20, 'expected some broker packs to test, saw ' + checked);
+  eq(overlaps, 0, 'a broker was on the shelf and in the pack at once');
+});
+t('you cannot end up employing the same broker twice', () => {
+  for (let i = 0; i < 250; i++) {
+    const st = S.newRun('TWICE' + i);
+    st.cash = 99999;
+    st.permanent.slots = 40;
+    S.computeMods(st);
+    S.openShop(st);
+    // Take everything the Floor will give: every pack option, then every item.
+    for (let p = 0; p < st.shop.packs.length; p++) {
+      const r = S.buyPack(st, p);
+      if (!r.ok) continue;
+      for (let o = 0; o < r.pack.options.length; o++) S.pickFromPack(st, o);
+      S.closePack(st);
+    }
+    for (let n = 0; n < st.shop.items.length; n++) S.buyShopItem(st, n);
+    const keys = st.brokers.map((b) => b.key);
+    eq(new Set(keys).size, keys.length, 'desk holds two of the same broker, seed ' + i);
+  }
+});
+t('an already-employed broker is refused rather than duplicated', () => {
+  const st = S.newRun('EMPL');
+  st.cash = 999;
+  st.permanent.slots = 40;
+  S.computeMods(st);
+  S.openShop(st);
+  // Simulate the one route that reaches this: buy a duplicate under Hall of
+  // Mirrors, then sell the Mirrors so the rule snaps back on.
+  st.shop.items = [{ type: 'broker', key: 'sticky', inst: makeBroker('sticky', null), cost: 4 }];
+  st.brokers = [makeBroker('sticky', null)];
+  S.computeMods(st);
+  ok(S.alreadyEmployed(st, 'sticky'));
+  eq(S.buyShopItem(st, 0).blocked, 'You already employ them');
+  eq(st.brokers.length, 1);
+  // With Hall of Mirrors held it goes through again.
+  st.brokers.push(makeBroker('hallOfMirrors', null));
+  S.computeMods(st);
+  ok(!S.alreadyEmployed(st, 'sticky'));
+  ok(S.buyShopItem(st, 0).ok);
+  eq(st.brokers.filter((b) => b.key === 'sticky').length, 2);
+});
+t('brokersOnOffer reads the shelf and any open pack', () => {
+  const st = S.newRun('OFFER');
+  eq(S.brokersOnOffer(st).length, 0, 'no Floor open');
+  st.cash = 99999;
+  S.openShop(st);
+  st.shop.items = [{ type: 'broker', key: 'sticky', inst: makeBroker('sticky', null), cost: 4, sold: false }];
+  st.shop.pack = { pack: {}, options: [{ type: 'broker', key: 'techBro', inst: makeBroker('techBro', null) }], picks: 1 };
+  eq(S.brokersOnOffer(st).sort().join(','), 'sticky,techBro');
+  st.shop.items[0].sold = true;               // sold stock is no longer on offer
+  st.shop.pack.options[0].taken = true;
+  eq(S.brokersOnOffer(st).length, 0);
+});
+t('rollBrokerKey gives up exclude before it gives up owned', () => {
+  // Own everything but one broker, and put that one on the exclude list. The
+  // roll must still avoid the owned pile rather than dropping both rules.
+  const all = Object.keys(BROKERS);
+  const spare = all[7];
+  const owned = all.filter((k) => k !== spare);
+  for (let i = 0; i < 60; i++) {
+    eq(rollBrokerKey(new RNG('relax' + i), { owned, exclude: [spare] }), spare);
+  }
+});
 t('Hall of Mirrors re-opens the duplicate pool', () => {
   const st = S.newRun('MIRROR');
   st.brokers = [makeBroker('sticky', null), makeBroker('hallOfMirrors', null)];
