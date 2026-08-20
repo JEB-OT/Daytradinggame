@@ -30,8 +30,17 @@ npx serve -l 8080             # Node
 php -S localhost:8080         # PHP
 ```
 
-Then open **http://localhost:8080** and hit **NEW RUN**. Type a seed first if you want a
-reproducible run. Press `?` in-game for the rules, or `Esc` for the menu.
+Then open **http://localhost:8080**. You land on the **home hub**, which has:
+
+- **Tutorial** — a seven-step primer covering how to read a candle, what Volume and Leverage
+  actually do (with worked numbers), formations, the call, and Conviction
+- **How to play** — the full rules and controls
+- **Compendium** — browse every special candle, broker, formation, chart, boss and licence, searchable
+- **Glossary** — every term the game uses
+- **Settings** — sound and ambient motion
+
+Type a seed if you want a reproducible run, then hit **START RUN**. Press `?` in-game for the rules
+or `Esc` for the menu; the Compendium and Glossary are reachable from there too.
 
 Node is only needed for the test suite and the balance simulator — not to play:
 
@@ -70,8 +79,20 @@ Clear it and you hit **The Floor** to spend the payout before the next bell.
 Every candle has three independent axes:
 
 - **Sector** — Tech ▲, Crypto ◆ (Growth) · Energy ⚡, Finance ● (Value)
-- **Body** — 1 to 13. The body is drawn to scale on the tile, and contributes that much Volume.
-  A body of 1 is a **doji**; 11 and up is **wide**.
+- **Body** — 1 to 13, worth exactly that much Volume. The body also sets the candle's
+  **silhouette**, so size is readable without doing arithmetic:
+
+  | Body | Shape | Looks like |
+  |---|---|---|
+  | 1 | **Doji** | a thin crossbar between long wicks |
+  | 2–4 | **Spinner** | a small body floating between long wicks |
+  | 5–7 | **Standard** | even body and wicks |
+  | 8–10 | **Heavy** | thick body, short wicks |
+  | 11–13 | **Marubozu** | a solid slab, barely any wick |
+
+  Sector shows up as a **texture inside the body** — scanlines for Tech, diagonal hatch for Crypto,
+  vertical bars for Energy, dots for Finance — so shape, fill and colour are three independent
+  channels you can read at a glance.
 - **Polarity** — **BULL** (green) or **BEAR** (red). The book starts split exactly 26 / 26.
 
 Polarity is what makes candles more than re-skinned cards: it feeds **Conviction**.

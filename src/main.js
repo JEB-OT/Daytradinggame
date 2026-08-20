@@ -2,15 +2,16 @@ import * as S from './game/state.js';
 import { RNG } from './engine/rng.js';
 import { money, bignum } from './engine/util.js';
 import { previewTrade } from './game/scoring.js';
-import { convictionOf } from './game/formations.js';
+import { convictionOf, FORMATIONS } from './game/formations.js';
 import { BROKERS, brokerSellValue } from './game/brokers.js';
 import { BOSSES } from './game/bosses.js';
 import { sortCandles } from './game/candles.js';
 import { ChartView } from './ui/chart.js';
-import { candleEl, brokerEl, consumableEl, hideTip } from './ui/components.js';
+import { candleEl, brokerEl, consumableEl, hideTip, showTip } from './ui/components.js';
 import * as FX from './ui/fx.js';
 import { sfx, toast, shake, popText, particles } from './ui/fx.js';
 import * as OV from './ui/overlays.js';
+import * as SC from './ui/screens.js';
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -26,6 +27,9 @@ class Game {
     FX.setMuted(this.muted);
     this.sortMode = 'body';
     this.arrangeMode = 'rising';
+    this.reducedMotion = localStorage.getItem('margincall.motion') === '0';
+    this.applyMotion();
+    this.coach = new Set();
     this.bindGlobal();
   }
 
@@ -34,7 +38,26 @@ class Game {
   save() { if (this.state) { try { localStorage.setItem(S.SAVE_KEY, S.serialize(this.state)); } catch {} } }
   clearSave() { localStorage.removeItem(S.SAVE_KEY); }
 
-  toTitle() { this.state = null; OV.titleScreen(this, this.hasSave()); }
+  toHome() { this.state = null; SC.homeScreen(this); }
+  openCompendium(back) { SC.compendiumScreen(this, back); }
+  openGlossary(back) { SC.glossaryScreen(this, back); }
+
+  applyMotion() { document.body.classList.toggle('no-motion', this.reducedMotion); }
+  toggleMotion() {
+    this.reducedMotion = !this.reducedMotion;
+    localStorage.setItem('margincall.motion', this.reducedMotion ? '0' : '1');
+    this.applyMotion();
+  }
+
+  /** One-shot nudges the first time a player meets a mechanic. */
+  hint(key, msg) {
+    if (this.coach.has(key)) return;
+    const seen = SC.career().hints || {};
+    if (seen[key]) return;
+    this.coach.add(key);
+    SC.saveCareer({ hints: { ...seen, [key]: 1 } });
+    setTimeout(() => toast(msg), 420);
+  }
 
   startRun(seed) {
     this.state = S.newRun(seed);
@@ -69,6 +92,7 @@ class Game {
     st.session.sortMode = this.sortMode;
     st.session.board = sortCandles(st.session.board, this.sortMode);
     this.chart.setMarket(st.session.market);
+    this.hint('leverage', 'Volume × Leverage = P/L. Hover either number to see what feeds it.');
     OV.closeOverlay();
     this.render();
     this.renderBoard(st.session.board.map((c) => c.uid));
@@ -84,7 +108,13 @@ class Game {
 
   afterSkip() { this.render(); OV.deadlineSelect(this); this.save(); }
 
-  openFloor() { S.openShop(this.state); this.render(); OV.shopScreen(this); this.save(); }
+  openFloor() {
+    S.openShop(this.state);
+    this.render();
+    OV.shopScreen(this);
+    this.hint('floor', 'Brokers trigger left to right — drag them on your desk to change the order.');
+    this.save();
+  }
 
   leaveFloor() {
     const st = this.state;
@@ -99,7 +129,19 @@ class Game {
     this.save();
   }
 
+  recordCareer(won) {
+    const st = this.state;
+    if (!st) return;
+    const c = SC.career();
+    SC.saveCareer({
+      bestWeek: Math.max(c.bestWeek || 0, st.week),
+      deadlines: (c.deadlines || 0) + st.stats.deadlinesCleared,
+      wins: (c.wins || 0) + (won ? 1 : 0),
+    });
+  }
+
   winScreen() {
+    this.recordCareer(true);
     const st = this.state;
     const sheet = OV.showOverlay(`
       <div class="title-wrap">
@@ -120,6 +162,7 @@ class Game {
   }
 
   gameOver() {
+    this.recordCareer();
     sfx.fail(); shake(true); this.clearSave();
     setTimeout(() => OV.gameOverScreen(this, false), 700);
   }
@@ -238,6 +281,7 @@ class Game {
     st.brokers.forEach((b) => {
       const disabled = st.session && st.mods.disableFirstBroker && st.brokers[0] === b && !(st.session.bossGraceLeft > 0);
       const el = brokerEl(b, st, { disabled });
+      el.style.setProperty('--i', st.brokers.indexOf(b));
       el.draggable = true;
       el.addEventListener('dragstart', () => { this.dragUid = b.uid; hideTip(); });
       el.addEventListener('dragover', (e) => e.preventDefault());
@@ -259,7 +303,8 @@ class Game {
       row.appendChild(el);
     });
     for (let i = S.slotsUsed(st); i < st.mods.slots; i++) {
-      const e = document.createElement('div'); e.className = 'slot-empty'; row.appendChild(e);
+      const e = document.createElement('div'); e.className = 'slot-empty';
+      e.style.setProperty('--i', i); row.appendChild(e);
     }
   }
 
@@ -270,6 +315,7 @@ class Game {
     $('cons-count').textContent = `${st.consumables.length}/${st.mods.chartSlots}`;
     st.consumables.forEach((c) => {
       const el = consumableEl(c, st);
+      el.style.setProperty('--i', st.consumables.indexOf(c));
       el.onclick = () => this.useConsumable(c);
       el.addEventListener('contextmenu', (e) => {
         e.preventDefault(); S.sellConsumable(st, c.uid); sfx.cash(); this.render(); this.save();
@@ -289,6 +335,7 @@ class Game {
     s.board.forEach((c, i) => {
       const idx = s.selected.indexOf(c.uid);
       const el = candleEl(c, { order: idx >= 0 ? idx + 1 : null });
+      el.style.setProperty('--i', i);
       if (idx >= 0) el.classList.add('selected');
       if (animateNew.includes(c.uid)) { el.classList.add('dealing'); el.style.animationDelay = (i * 45) + 'ms'; }
       el.onclick = () => this.toggleCandle(c.uid);
@@ -355,6 +402,12 @@ class Game {
     const was = s.selected.includes(uid);
     S.toggleSelect(st, uid);
     const now = s.selected.includes(uid);
+    if (now && s.selected.length === 1) {
+      this.hint('place', 'The number on a candle is its placement order — marches read it left to right.');
+    }
+    if (now && s.selected.length === 3) {
+      this.hint('conviction', 'Check the ▲/▼ line under your score: that is what each call is worth in Conviction.');
+    }
     if (now !== was) (was ? sfx.deselect() : sfx.select());
     else if (!now) { sfx.err(); toast('You can place at most 5 candles', 'bad'); }
     this.renderBoard();
@@ -508,15 +561,88 @@ class Game {
     this.save();
   }
 
+  /** Explain the HUD. Every number on screen should be able to say what it is. */
+  bindExplainers() {
+    const tip = (id, fn) => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('mouseenter', () => showTip(el, fn()));
+      el.addEventListener('mouseleave', hideTip);
+    };
+    const st = () => this.state;
+    tip('sc-volume', () => `<h4>Volume</h4>
+      <div class="tt-rarity" style="color:var(--cyan)">THE SIZE OF THE POSITION</div>
+      <div class="tt-body">The formation sets a base, then <b>every candle that prints adds its body</b> on top.
+      Anything that reads <em>+X Volume</em> lands here.</div>
+      <div class="tt-foot">Volume × Leverage = P/L</div>`);
+    tip('sc-leverage', () => `<h4>Leverage</h4>
+      <div class="tt-rarity" style="color:var(--red)">THE MULTIPLIER</div>
+      <div class="tt-body"><em>+X Leverage</em> adds to this number. <em>×X Leverage</em> multiplies whatever has
+      already been added — which is why the order of your brokers changes the result.</div>
+      <div class="tt-foot">Once Volume is large, a ×2 beats any +50</div>`);
+    tip('sc-pl', () => `<h4>Projected P/L</h4>
+      <div class="tt-body">Volume × Leverage, before the tape resolves. Book enough of it to clear the quota
+      before your trades run out.</div>`);
+    tip('conviction-row', () => `<h4>Conviction</h4>
+      <div class="tt-rarity" style="color:var(--gold)">YOUR CANDLES BACKING YOUR CALL</div>
+      <div class="tt-body">Every printed candle that agrees with the direction you call pays you for it.
+      <b>All of them agree</b> is <em>×1.5 Leverage</em>; <b>most of them</b> is <em>×1.2</em>.</div>
+      <div class="tt-foot">▲ is what LONG pays · ▼ is what SHORT pays</div>`);
+    tip('formation-name', () => {
+      const s = st()?.session;
+      const sel = s ? S.selectedCandles(st()) : [];
+      if (!sel.length) return `<h4>Formation</h4><div class="tt-body">Place candles to print one.</div>`;
+      const pv = previewTrade(st(), sel, s.board.filter((c) => !s.selected.includes(c.uid)), new RNG('tip'));
+      const f = FORMATIONS[pv.formationKey];
+      return `<h4>${f.name}</h4>
+        <div class="tt-rarity" style="color:var(--cyan)">LEVEL ${pv.level}</div>
+        <div class="tt-body">Made of <b>${f.made}</b>.</div>
+        <div class="tt-body">Base <em>${pv.volume ? f.volume : f.volume} Volume</em> × <em>${f.leverage} Leverage</em> at level 1.
+        Contracts level it permanently.</div>`;
+    });
+    tip('signal-box', () => {
+      const m = st()?.mods;
+      if (!m) return '<h4>Desk signal</h4>';
+      if (m.hideSignal) return `<h4>Desk signal</h4><div class="tt-body">Hidden by the boss this deadline. You are calling it blind.</div>`;
+      return `<h4>Desk signal</h4>
+        <div class="tt-rarity" style="color:var(--ink-dim)">${m.perfectSignal ? 'ALWAYS TRUTHFUL' : Math.round(m.accuracy * 100) + '% TRUTHFUL'}</div>
+        <div class="tt-body">The arrow points where the tape goes next — but it lies the rest of the time.
+        Terminals, feeds and burner phones raise the number.</div>`;
+    });
+    tip('dl-quota', () => {
+      const s = st()?.session;
+      if (!s) return `<h4>Quota</h4><div class="tt-body">Pick a deadline to begin.</div>`;
+      return `<h4>Quota</h4>
+        <div class="tt-body">Book <em>${money(s.quota)}</em> in P/L before your trades run out.
+        You have booked <b>${money(s.profit)}</b> with <b>${s.tradesLeft}</b> trade${s.tradesLeft === 1 ? '' : 's'} left.</div>
+        <div class="tt-foot">Miss it and the run ends</div>`;
+    });
+    tip('r-trades', () => `<h4>Trades</h4><div class="tt-body">One placement plus one call each. Unused trades pay
+      <em>$1</em> apiece when you clear the deadline.</div>`);
+    tip('r-sweeps', () => `<h4>Sweeps</h4><div class="tt-body">Throw candles back and draw replacements without
+      spending a trade. Use them to chase a better formation.</div>`);
+    tip('r-greens', () => `<h4>Green trades</h4><div class="tt-body">Calls you got right this deadline. Several
+      brokers scale off a green streak.</div>`);
+    tip('regime-badge', () => {
+      const s = st()?.session;
+      if (!s) return '<h4>Market regime</h4>';
+      const r = s.market.regime;
+      return `<h4>${r.name}</h4><div class="tt-rarity" style="color:${r.color}">MARKET REGIME</div>
+        <div class="tt-body">${r.blurb}</div>
+        <div class="tt-foot">LONG pays ×${r.longMult} · SHORT pays ×${r.shortMult} on a correct call</div>`;
+    });
+  }
+
   // ---------------------------------------------------------------- global
   bindGlobal() {
+    this.bindExplainers();
     $('btn-long').onclick = () => this.play('LONG');
     $('btn-short').onclick = () => this.play('SHORT');
     $('btn-sweep').onclick = () => this.sweep();
     $('btn-arrange').onclick = () => this.arrange();
     $('btn-sort').onclick = () => this.sortBoard();
     $('btn-help').onclick = () => OV.helpScreen(this);
-    $('btn-menu').onclick = () => (this.state ? OV.menuScreen(this) : OV.titleScreen(this, this.hasSave()));
+    $('btn-menu').onclick = () => (this.state ? OV.menuScreen(this) : this.toHome());
     $('btn-book').onclick = () => this.state && OV.bookScreen(this, () => OV.closeOverlay());
     $('btn-formations').onclick = () => this.state && OV.formationScreen(this, () => OV.closeOverlay());
 
@@ -549,4 +675,4 @@ class Game {
 
 const game = new Game();
 window.game = game;
-OV.titleScreen(game, game.hasSave());
+SC.homeScreen(game);

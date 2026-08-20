@@ -24,11 +24,32 @@ export function isWide(c) { return bodyOf(c) >= 11; }
 export function isSmall(c) { return bodyOf(c) <= 4; }
 export function bodyOf(c) { return c.enhancement === 'obsidian' ? 0 : c.body; }
 
-export function bodyLabel(body) {
-  if (body === 1) return 'DOJI';
-  if (body >= 11) return 'WIDE';
-  return '';
+/**
+ * Silhouette bands. A candle's body size decides its SHAPE, not just its
+ * height, so a board can be read at a glance without counting numbers.
+ *   1      Doji      — a cross; almost no body, long wicks both ways
+ *   2-4    Spinner   — small body floating between long wicks
+ *   5-7    Standard  — even body and wicks
+ *   8-10   Heavy     — thick body, short wicks
+ *   11-13  Marubozu  — a solid slab, barely any wick at all
+ */
+export const BANDS = {
+  doji:     { key: 'doji',     name: 'Doji',     body: 4,  wick: 44, jitter: 0 },
+  spinner:  { key: 'spinner',  name: 'Spinner',  body: 14, wick: 34, jitter: 8 },
+  standard: { key: 'standard', name: 'Standard', body: 30, wick: 22, jitter: 10 },
+  heavy:    { key: 'heavy',    name: 'Heavy',    body: 50, wick: 14, jitter: 8 },
+  marubozu: { key: 'marubozu', name: 'Marubozu', body: 74, wick: 5,  jitter: 10 },
+};
+
+export function bandOf(body) {
+  if (body <= 1) return BANDS.doji;
+  if (body <= 4) return BANDS.spinner;
+  if (body <= 7) return BANDS.standard;
+  if (body <= 10) return BANDS.heavy;
+  return BANDS.marubozu;
 }
+
+export function bodyLabel(body) { return bandOf(body).name.toUpperCase(); }
 
 // ---------------------------------------------------------------------------
 // Enhancements — printed onto a candle.
@@ -162,17 +183,25 @@ export function describeCandle(c) {
 
 /**
  * Deterministic drawing proportions for one candle, as percentages of the
- * tile's chart area. Wick lengths jitter per-uid so a board never looks flat.
+ * tile's chart area. The band sets the silhouette; a small per-candle jitter
+ * keeps a board from looking mechanical without blurring the bands.
  */
 export function candleShape(c) {
   let h = 0;
   const s = String(c.uid);
   for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) >>> 0;
-  const jitterA = ((h >>> 3) % 100) / 100;
-  const jitterB = ((h >>> 11) % 100) / 100;
-  const body = c.enhancement === 'obsidian' ? 34 : 12 + (c.body / MAX_BODY) * 58;
+  const jA = ((h >>> 3) % 100) / 100;
+  const jB = ((h >>> 11) % 100) / 100;
+
+  if (c.enhancement === 'obsidian') return { band: 'obsidian', body: 40, upper: 26, lower: 26 };
+
+  const band = bandOf(c.body);
+  const body = band.body + jA * band.jitter;
   const room = Math.max(0, 100 - body);
-  const upper = room * (0.18 + jitterA * 0.5);
-  const lower = Math.max(0, room - upper) * (0.35 + jitterB * 0.55);
-  return { body, upper, lower, bottom: lower };
+  // Split the leftover between the two wicks, leaning one way per candle.
+  const lean = 0.34 + jB * 0.32;
+  const wickRoom = Math.min(room, band.wick * 2);
+  const upper = wickRoom * lean;
+  const lower = wickRoom - upper;
+  return { band: band.key, body, upper, lower };
 }

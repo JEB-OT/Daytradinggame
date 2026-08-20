@@ -475,6 +475,47 @@ t('interest is capped', () => {
   s.tradesLeft = 0;
   eq(S.finishDeadline(st).lines.find((l) => l.label.startsWith('Interest')).amount, 5);
 });
+t('clearing a deadline unlocks the next one', () => {
+  const st = S.newRun('ADV');
+  S.startDeadline(st, 0);
+  st.session.profit = st.session.quota;
+  S.finishDeadline(st);
+  S.openShop(st);
+  st.shop = null;
+  S.advanceAfterDeadline(st);
+  eq(st.deadlineIndex, 1, 'should be on deadline 2');
+  eq(st.week, 1);
+  ok(st.upcoming[0].done, 'first is cleared');
+  ok(!st.upcoming[1].done, 'second is playable');
+  // and it must actually start
+  const s = S.startDeadline(st, 1);
+  eq(s.board.length, st.mods.handSize);
+});
+t('a whole week can be played end to end', () => {
+  const st = S.newRun('WEEKLOOP');
+  for (let i = 0; i < 3; i++) {
+    eq(st.deadlineIndex, i, `expected to be on deadline ${i + 1}`);
+    ok(!st.upcoming[i].done, `deadline ${i + 1} should be playable`);
+    S.startDeadline(st, i);
+    st.session.profit = st.session.quota;
+    S.finishDeadline(st);
+    S.advanceAfterDeadline(st);
+  }
+  eq(st.week, 2);
+  eq(st.deadlineIndex, 0);
+  ok(st.upcoming.every((u) => !u.done), 'a fresh week is all playable');
+});
+t('skipping then clearing still walks forward', () => {
+  const st = S.newRun('MIXED');
+  S.skipDeadline(st, 0);
+  eq(st.deadlineIndex, 1);
+  S.startDeadline(st, 1);
+  st.session.profit = st.session.quota;
+  S.finishDeadline(st);
+  S.advanceAfterDeadline(st);
+  eq(st.deadlineIndex, 2);
+  ok(st.upcoming[2].boss, 'lands on the boss');
+});
 t('advancing past the boss rolls the week over', () => {
   const st = S.newRun('WK');
   S.startDeadline(st, 2);

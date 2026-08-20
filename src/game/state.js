@@ -443,6 +443,10 @@ export function advanceAfterDeadline(state) {
     state.week += 1;
     state.deadlineIndex = 0;
     state.upcoming = buildWeek(state);
+  } else {
+    // Step onto the next deadline of the week. Without this the cleared slot
+    // stays "current", renders as CLEARED, and every other slot stays LOCKED.
+    state.deadlineIndex = idx + 1;
   }
   computeMods(state);
 }

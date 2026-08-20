@@ -32,37 +32,6 @@ export function showOverlay(inner, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
-export function titleScreen(game, hasSave) {
-  const sheet = showOverlay(`
-    <div class="title-wrap">
-      <div class="title-logo">MARGIN<em>CALL</em></div>
-      <div class="title-tag">HIT THE QUOTA OR GET LIQUIDATED</div>
-      <p style="color:var(--ink-dim);font-size:12px;line-height:1.7;max-width:580px;margin:0 auto 6px">
-        A roguelike day-trading deckbuilder made of candlesticks. Place candles left to right to print a
-        formation, call the tape <b style="color:var(--green)">LONG</b> or <b style="color:var(--red)">SHORT</b>,
-        and book enough P/L to clear the day's quota. Three deadlines a week. The third one bites back.
-      </p>
-      <div class="seed-row"><input id="seed-input" placeholder="SEED (optional)" maxlength="16" /></div>
-      <div class="title-actions">
-        <button class="btn primary" id="t-new">NEW RUN</button>
-        ${hasSave ? '<button class="btn" id="t-continue">CONTINUE</button>' : ''}
-        <button class="btn ghost" id="t-help">HOW TO PLAY</button>
-      </div>
-      <div style="margin-top:20px;font-size:10px;color:var(--ink-faint);letter-spacing:.14em">
-        ${Object.keys(BROKERS).length} BROKERS · ${Object.keys(ALL_CONSUMABLES).length} CONSUMABLES ·
-        ${Object.keys(LICENSES).length} LICENCES · ${Object.keys(BOSSES).length} BOSS DEADLINES
-      </div>
-    </div>`, { dismissable: false, width: '680px' });
-
-  sheet.querySelector('#t-new').onclick = () => {
-    const seed = sheet.querySelector('#seed-input').value.trim().toUpperCase();
-    sfx.open(); game.startRun(seed || null);
-  };
-  sheet.querySelector('#t-continue')?.addEventListener('click', () => { sfx.open(); game.continueRun(); });
-  sheet.querySelector('#t-help').onclick = () => helpScreen(game, true);
-}
-
-// ---------------------------------------------------------------------------
 export function deadlineSelect(game) {
   const st = game.state;
   const cards = st.upcoming.map((slot, i) => {
@@ -411,12 +380,12 @@ export function gameOverScreen(game, won) {
       <div class="title-actions">
         <button class="btn primary" id="go-again">NEW RUN</button>
         <button class="btn ghost" id="go-same">REPLAY SEED</button>
-        <button class="btn ghost" id="go-title">TITLE</button>
+        <button class="btn ghost" id="go-title">MAIN MENU</button>
       </div>
     </div>`, { dismissable: false, width: '640px' });
   sheet.querySelector('#go-again').onclick = () => game.startRun(null);
   sheet.querySelector('#go-same').onclick = () => game.startRun(st.seed);
-  sheet.querySelector('#go-title').onclick = () => game.toTitle();
+  sheet.querySelector('#go-title').onclick = () => game.toHome();
 }
 
 // ---------------------------------------------------------------------------
@@ -478,7 +447,7 @@ export function helpScreen(game, fromTitle, back) {
     <div class="btn-row"><button class="btn primary" id="h-back">GOT IT</button></div>`,
     { dismissable: !fromTitle, width: '940px' });
   sheet.querySelector('#h-back').onclick = () => {
-    if (fromTitle) titleScreen(game, game.hasSave());
+    if (fromTitle) game.toHome();
     else if (back) back();
     else closeOverlay();
   };
@@ -494,6 +463,8 @@ export function menuScreen(game, back) {
         <button class="btn wide" id="m-resume">RESUME</button>
         <button class="btn wide ghost" id="m-help">HOW TO PLAY</button>
         <button class="btn wide ghost" id="m-run">RUN INFO</button>
+        <button class="btn wide ghost" id="m-comp">COMPENDIUM</button>
+        <button class="btn wide ghost" id="m-gloss">GLOSSARY</button>
         <button class="btn wide ghost" id="m-mute">${game.muted ? 'UNMUTE' : 'MUTE'}</button>
         <button class="btn wide danger" id="m-quit">ABANDON RUN</button>
       </div>
@@ -502,6 +473,8 @@ export function menuScreen(game, back) {
   sheet.querySelector('#m-resume').onclick = resume;
   sheet.querySelector('#m-help').onclick = () => helpScreen(game, false, () => menuScreen(game, back));
   sheet.querySelector('#m-run').onclick = () => runInfoScreen(game, () => menuScreen(game, back));
+  sheet.querySelector('#m-comp').onclick = () => game.openCompendium(() => menuScreen(game, back));
+  sheet.querySelector('#m-gloss').onclick = () => game.openGlossary(() => menuScreen(game, back));
   sheet.querySelector('#m-mute').onclick = () => { game.toggleMute(); menuScreen(game, back); };
-  sheet.querySelector('#m-quit').onclick = () => game.toTitle();
+  sheet.querySelector('#m-quit').onclick = () => game.toHome();
 }

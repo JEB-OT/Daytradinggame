@@ -1,4 +1,4 @@
-import { SECTORS, ENHANCEMENTS, EDITIONS, STAMPS, candleName, baseVolume, candleShape, bodyLabel } from '../game/candles.js';
+import { SECTORS, ENHANCEMENTS, EDITIONS, STAMPS, candleName, baseVolume, candleShape, bodyLabel, bandOf } from '../game/candles.js';
 import { BROKERS, RARITY, brokerText, brokerSellValue } from '../game/brokers.js';
 import { ALL_CONSUMABLES } from '../game/consumables.js';
 import { LICENSES } from '../game/licenses.js';
@@ -10,7 +10,9 @@ export function candleEl(c, opts = {}) {
   const s = SECTORS[c.sector];
   const sealed = c.enhancement === 'obsidian';
   const el = document.createElement('div');
-  el.className = 'candle ' + (sealed ? 'obsidian' : c.bull ? 'bull' : 'bear');
+  const g0 = candleShape(c);
+  el.className = 'candle ' + (sealed ? 'obsidian' : c.bull ? 'bull' : 'bear')
+    + ' sec-' + c.sector + ' band-' + g0.band;
   el.dataset.uid = c.uid;
   if (c.enhancement) el.classList.add('enh-' + c.enhancement);
   if (c.edition) el.classList.add('ed-' + c.edition);
@@ -33,9 +35,9 @@ export function candleEl(c, opts = {}) {
       <div class="cd-grid"></div>
       ${sealed ? '<div class="cd-sealed"></div>' : `
         <div class="cd-wick" style="bottom:${offset}%;height:${span}%"></div>
-        <div class="cd-real" style="bottom:${offset + g.lower}%;height:${Math.max(4, g.body)}%"></div>`}
+        <div class="cd-real" style="bottom:${offset + g.lower}%;height:${Math.max(4, g.body)}%"><i></i></div>`}
     </div>
-    <div class="cd-foot">${sealed ? 'OBSIDIAN' : (c.bull ? '▲ BULL' : '▼ BEAR')}${band ? ` · ${band}` : ''}</div>
+    <div class="cd-foot">${sealed ? '▪ OBSIDIAN' : `${c.bull ? '▲' : '▼'} ${band}`}</div>
   `;
   if (c.enhancement && !sealed) {
     const tag = document.createElement('div');
@@ -66,9 +68,11 @@ function candleTip(c) {
     const e = ENHANCEMENTS[c.enhancement];
     bits.push(`<div class="tt-special" style="--ec:${e.color}"><b>${e.name}</b><span>${e.desc}</span></div>`);
   }
-  bits.push(`<div class="tt-body">Body contributes <em>${baseVolume(c)}</em> Volume</div>`);
+  const band = bandOf(c.body);
+  bits.push(`<div class="tt-body">A <b>${band.name}</b> — its body is worth <em>${baseVolume(c)} Volume</em>, added when it prints.</div>`);
+  bits.push(`<div class="tt-body"><b>${SECTORS[c.sector].name} ${SECTORS[c.sector].glyph}</b> — five of one sector on the board prints a Sector Cluster.</div>`);
   if (c.enhancement !== 'obsidian') {
-    bits.push(`<div class="tt-body">Polarity <em>${c.bull ? 'BULL' : 'BEAR'}</em> — counts toward Conviction on a ${c.bull ? 'LONG' : 'SHORT'} call</div>`);
+    bits.push(`<div class="tt-body"><b style="color:${c.bull ? 'var(--green)' : 'var(--red)'}">${c.bull ? 'BULL' : 'BEAR'}</b> — agrees with a <b>${c.bull ? 'LONG' : 'SHORT'}</b> call, which is what earns Conviction.</div>`);
   }
   if (c.edition) bits.push(`<div class="tt-body"><b>${EDITIONS[c.edition].name}</b> — ${EDITIONS[c.edition].desc}</div>`);
   if (c.stamp) bits.push(`<div class="tt-body"><b>${STAMPS[c.stamp].name}</b> — ${STAMPS[c.stamp].desc}</div>`);
