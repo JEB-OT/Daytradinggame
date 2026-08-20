@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>MARGIN CALL — a roguelike day-trading deckbuilder</title>
+<meta name="description" content="Hit the daily quota or get liquidated. A 2D roguelike deckbuilder about day trading." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>📈</text></svg>" />
+<link rel="stylesheet" href="src/styles.css" />
+</head>
+<body>
+<div id="crt"></div>
+<div id="app" class="app">
+
+  <!-- ================= TOP BAR ================= -->
+  <header id="topbar">
+    <div class="brand"><span class="brand-mark">▚</span><span class="brand-name">MARGIN&nbsp;CALL</span></div>
+    <div class="topstats">
+      <div class="tstat"><label>WEEK</label><b id="t-week">1</b></div>
+      <div class="tstat"><label>DEADLINE</label><b id="t-deadline">1 / 3</b></div>
+      <div class="tstat cash"><label>CASH</label><b id="t-cash">$8</b></div>
+      <div class="tstat"><label>DESK</label><b id="t-slots">0/5</b></div>
+    </div>
+    <div class="topbtns">
+      <button class="mini" id="btn-portfolio" title="View portfolio">PORTFOLIO</button>
+      <button class="mini" id="btn-patterns" title="Chart patterns">PATTERNS</button>
+      <button class="mini" id="btn-help" title="How to play">?</button>
+      <button class="mini" id="btn-menu" title="Menu">≡</button>
+    </div>
+  </header>
+
+  <!-- ================= MAIN ================= -->
+  <main id="main">
+    <!-- LEFT COLUMN -->
+    <aside id="left">
+      <section id="deadline-card" class="panel deadline-card">
+        <div class="dl-tag" id="dl-tag">MORNING BELL</div>
+        <div class="dl-art" id="dl-art">🔔</div>
+        <div class="dl-quota-label">QUOTA</div>
+        <div class="dl-quota" id="dl-quota">$220</div>
+        <div class="dl-reward" id="dl-reward">Clears for <b>$4</b></div>
+        <div class="dl-boss" id="dl-boss" hidden></div>
+        <div class="dl-progress"><div class="dl-progress-fill" id="dl-progress-fill"></div></div>
+        <div class="dl-profit"><span id="dl-profit">$0</span><small> booked</small></div>
+      </section>
+
+      <section id="score-panel" class="panel score-panel">
+        <div class="pattern-line">
+          <span id="pattern-name">—</span>
+          <span class="pattern-level" id="pattern-level">lv.1</span>
+        </div>
+        <div class="score-eq">
+          <div class="chip volume" id="sc-volume">0</div>
+          <div class="eq-x">×</div>
+          <div class="chip leverage" id="sc-leverage">0</div>
+        </div>
+        <div class="pl-readout"><label>PROJECTED P/L</label><b id="sc-pl">$0</b></div>
+      </section>
+
+      <section class="panel resources">
+        <div class="res"><label>TRADES</label><b id="r-trades">4</b></div>
+        <div class="res"><label>DISCARDS</label><b id="r-discards">3</b></div>
+        <div class="res"><label>GREEN</label><b id="r-greens" class="green">0</b></div>
+        <div class="res"><label>STREAK</label><b id="r-streak">0</b></div>
+      </section>
+
+      <section class="panel tape-panel">
+        <div class="tape-title">TODAY'S TAPE</div>
+        <div class="tape-list" id="tape-list"><div class="tape-empty">no trades booked</div></div>
+      </section>
+
+      <section class="panel deckinfo">
+        <div class="res"><label>PORTFOLIO</label><b id="r-deck">52</b></div>
+        <div class="res"><label>IN DECK</label><b id="r-draw">44</b></div>
+      </section>
+    </aside>
+
+    <!-- RIGHT COLUMN -->
+    <section id="right">
+      <div id="perk-strip" class="strip">
+        <div class="strip-label">DESK <span id="perk-count">0/5</span></div>
+        <div class="strip-cards" id="perk-row"></div>
+      </div>
+
+      <div id="consumable-strip" class="strip small">
+        <div class="strip-label">CHARTS <span id="cons-count">0/2</span></div>
+        <div class="strip-cards" id="consumable-row"></div>
+      </div>
+
+      <div id="table">
+        <div id="chart-wrap">
+          <canvas id="chart"></canvas>
+          <div id="chart-overlay">
+            <div id="ticker-badge"><span id="ticker-sym">MEME</span><span id="ticker-price">$120.00</span></div>
+            <div id="regime-badge"><span id="regime-name">Bull Run</span><small id="regime-blurb"></small></div>
+          </div>
+          <div id="signal-box">
+            <label>DESK SIGNAL</label>
+            <div class="signal-arrow" id="signal-arrow">▲</div>
+            <div class="signal-conf" id="signal-conf">62% confidence</div>
+          </div>
+          <div id="fx-layer"></div>
+        </div>
+
+        <div id="play-area">
+          <div id="position-ghost"><span>YOUR POSITION</span><small>pick 1–5 tickers, then call the tape</small></div>
+          <div id="played-cards"></div>
+          <div id="score-burst"></div>
+        </div>
+
+        <div id="hand-area">
+          <div id="hand-row"></div>
+        </div>
+
+        <div id="actions">
+          <button class="act long" id="btn-long"><span class="act-glyph">▲</span><span>GO LONG</span></button>
+          <button class="act discard" id="btn-discard">DISCARD</button>
+          <button class="act sort" id="btn-sort" title="Sort hand">RANK</button>
+          <button class="act short" id="btn-short"><span class="act-glyph">▼</span><span>GO SHORT</span></button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast-stack"></div>
+  <div id="tooltip" class="tooltip" hidden></div>
+</div>
+
+<!-- ================= OVERLAYS ================= -->
+<div id="overlay-root"></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
