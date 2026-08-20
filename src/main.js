@@ -73,7 +73,9 @@ class Game {
       this.state = S.deserialize(localStorage.getItem(S.SAVE_KEY));
       OV.closeOverlay();
       this.render();
-      OV.deadlineSelect(this);
+      // A run saved on the Floor picks up right there rather than losing the visit.
+      if (this.state.phase === 'shop' && this.state.shop) OV.shopScreen(this);
+      else OV.deadlineSelect(this);
     } catch (e) {
       console.error(e); toast('Save is corrupt — starting fresh', 'bad'); this.startRun(null);
     }

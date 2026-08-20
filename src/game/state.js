@@ -436,18 +436,43 @@ export function finishDeadline(state) {
   return payout;
 }
 
-export function advanceAfterDeadline(state) {
-  const idx = state.deadlineIndex;
-  state.session = null;
-  if (idx >= 2) {
+/**
+ * Park the run on the first deadline that still needs playing, rolling the week
+ * over once all three are done.
+ *
+ * This is deliberately IDEMPOTENT: running it twice changes nothing. Progress
+ * used to be a blind `index + 1`, which meant any state that arrived with the
+ * index out of step — a save written at the payout screen or on the Floor,
+ * where the slot is already cleared but the index has not moved yet — resumed
+ * onto a slot that was both "current" and "done". The select screen draws that
+ * as CLEARED with no button and locks everything else, so the run was
+ * unplayable. Deriving the position from what is actually done removes the
+ * whole class of problem.
+ */
+export function normalizeProgress(state) {
+  if (!Array.isArray(state.upcoming) || state.upcoming.length !== DEADLINE_SLOTS.length) {
+    state.upcoming = buildWeek(state);
+    state.deadlineIndex = 0;
+    return state;
+  }
+  let i = clamp(state.deadlineIndex | 0, 0, state.upcoming.length - 1);
+  while (i < state.upcoming.length && state.upcoming[i].done) i++;
+  if (i >= state.upcoming.length) {
+    // Nothing left to play this week — including the boss. Roll over.
     state.week += 1;
     state.deadlineIndex = 0;
     state.upcoming = buildWeek(state);
-  } else {
-    // Step onto the next deadline of the week. Without this the cleared slot
-    // stays "current", renders as CLEARED, and every other slot stays LOCKED.
-    state.deadlineIndex = idx + 1;
+    return state;
   }
+  state.deadlineIndex = i;
+  return state;
+}
+
+export function advanceAfterDeadline(state) {
+  state.session = null;
+  state.shop = null;
+  state.phase = 'select';
+  normalizeProgress(state);
   computeMods(state);
 }
 
@@ -728,9 +753,11 @@ export function useConsumable(state, uid, selectedUids = []) {
 
 // ---------------------------------------------------------------------------
 export function serialize(state) {
+  // The shop is plain data apart from its RNG, which is re-forked on load.
+  const shop = state.shop ? { ...state.shop, rng: undefined } : null;
   return JSON.stringify({
     seed: state.seed, rngState: state.rng.state, rngCalls: state.rng.calls,
-    phase: state.phase, week: state.week, deadlineIndex: state.deadlineIndex, cash: state.cash,
+    phase: state.phase, shop, week: state.week, deadlineIndex: state.deadlineIndex, cash: state.cash,
     book: state.book, brokers: state.brokers, consumables: state.consumables, licenses: state.licenses,
     formations: state.formations, discoveredFormations: state.discoveredFormations, permanent: state.permanent,
     seenBosses: state.seenBosses, pendingBonuses: state.pendingBonuses, stats: state.stats,
@@ -751,6 +778,17 @@ export function deserialize(json) {
   });
   if (typeof raw.rngState === 'number') { state.rng.state = raw.rngState; state.rng.calls = raw.rngCalls || 0; }
   state.session = null;
+
+  // A run saved on the Floor comes back to the Floor, with the same stock.
+  if (raw.phase === 'shop' && raw.shop) {
+    state.shop = { ...raw.shop, rng: state.rng.fork('shop-resume') };
+    state.phase = 'shop';
+  } else {
+    state.shop = null;
+    state.phase = 'select';
+    // Anything else resumes between deadlines, on whichever one is still owed.
+    normalizeProgress(state);
+  }
   computeMods(state);
   return state;
 }

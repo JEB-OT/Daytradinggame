@@ -516,6 +516,75 @@ t('skipping then clearing still walks forward', () => {
   eq(st.deadlineIndex, 2);
   ok(st.upcoming[2].boss, 'lands on the boss');
 });
+t('a run saved at the payout screen resumes playable', () => {
+  const st = S.newRun('RES1');
+  S.startDeadline(st, 0);
+  st.session.profit = st.session.quota;
+  S.finishDeadline(st);                       // autosave fires here
+  const back = S.deserialize(S.serialize(st));
+  eq(back.deadlineIndex, 1, 'must have stepped off the cleared slot');
+  ok(!back.upcoming[1].done, 'next deadline is playable');
+  eq(S.startDeadline(back, 1).board.length, back.mods.handSize);
+});
+t('a run saved on the Floor resumes on the Floor with its stock', () => {
+  const st = S.newRun('RES2');
+  S.startDeadline(st, 0);
+  st.session.profit = st.session.quota;
+  S.finishDeadline(st);
+  S.openShop(st);
+  const items = st.shop.items.length;
+  const back = S.deserialize(S.serialize(st));
+  eq(back.phase, 'shop');
+  eq(back.shop.items.length, items);
+  ok(back.shop.rng, 'shop RNG is re-forked so rerolls still work');
+  ok(S.rerollShop(back).ok || back.cash < 5);
+  // and leaving it still lands on the next deadline exactly once
+  back.shop = null;
+  S.advanceAfterDeadline(back);
+  eq(back.deadlineIndex, 1);
+});
+t('leaving the Floor clears the shop phase', () => {
+  const st = S.newRun('PHASE');
+  S.startDeadline(st, 0);
+  st.session.profit = st.session.quota;
+  S.finishDeadline(st);
+  S.openShop(st);
+  eq(st.phase, 'shop');
+  S.advanceAfterDeadline(st);
+  eq(st.phase, 'select');
+  eq(st.shop, null);
+  eq(S.deserialize(S.serialize(st)).phase, 'select');
+});
+t('normalising progress is idempotent', () => {
+  const st = S.newRun('IDEM');
+  S.startDeadline(st, 0);
+  st.session.profit = st.session.quota;
+  S.finishDeadline(st);
+  S.advanceAfterDeadline(st);
+  eq(st.deadlineIndex, 1);
+  S.advanceAfterDeadline(st);
+  eq(st.deadlineIndex, 1, 'a second advance must not skip a deadline');
+  S.normalizeProgress(st);
+  eq(st.deadlineIndex, 1);
+});
+t('a week whose slots are all done rolls over on its own', () => {
+  const st = S.newRun('ROLL');
+  st.upcoming.forEach((u) => { u.done = true; });
+  S.normalizeProgress(st);
+  eq(st.week, 2);
+  eq(st.deadlineIndex, 0);
+  ok(st.upcoming.every((u) => !u.done));
+});
+t('a corrupt index cannot lock the player out', () => {
+  const st = S.newRun('CORRUPT');
+  st.upcoming[0].done = true;
+  st.deadlineIndex = 0;            // the exact broken state players hit
+  S.normalizeProgress(st);
+  eq(st.deadlineIndex, 1);
+  st.deadlineIndex = 99;
+  S.normalizeProgress(st);
+  ok(st.deadlineIndex >= 0 && st.deadlineIndex <= 2);
+});
 t('advancing past the boss rolls the week over', () => {
   const st = S.newRun('WK');
   S.startDeadline(st, 2);

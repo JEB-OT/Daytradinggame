@@ -34,12 +34,14 @@ export function showOverlay(inner, opts = {}) {
 // ---------------------------------------------------------------------------
 export function deadlineSelect(game) {
   const st = game.state;
+  // Never render a locked-out week: re-derive where the run actually stands.
+  S.normalizeProgress(st);
   const cards = st.upcoming.map((slot, i) => {
     const boss = slot.boss ? BOSSES[slot.boss] : null;
     const quota = Math.round((S.quotaFor(st, slot) * (boss?.quotaMult || 1)) / 10) * 10;
     const regime = REGIMES[slot.regime];
-    const current = i === st.deadlineIndex;
-    const done = slot.done || i < st.deadlineIndex;
+    const done = !!slot.done;
+    const current = !done && i === st.deadlineIndex;
     return `
       <div class="dl-choice ${current ? 'current' : ''} ${slot.boss ? 'boss' : ''} ${done ? 'done' : ''}">
         <div class="c-art">${boss ? boss.art : slot.art}</div>
