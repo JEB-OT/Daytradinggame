@@ -160,7 +160,23 @@
           <div id="score-burst"></div>
         </div>
 
-        <div id="board-area"><div id="board-row"></div></div>
+        <div id="board-area">
+          <div class="pile draw" id="draw-pile">
+            <div class="pile-stack" id="draw-stack"></div>
+            <div class="pile-face">
+              <span class="pile-label">DECK</span>
+              <span class="pile-count" id="draw-count">44</span>
+            </div>
+          </div>
+          <div id="board-row"></div>
+          <div class="pile swept" id="swept-pile">
+            <div class="pile-stack" id="swept-stack"></div>
+            <div class="pile-face">
+              <span class="pile-label">SWEPT</span>
+              <span class="pile-count" id="swept-count">0</span>
+            </div>
+          </div>
+        </div>
 
         <div id="actions">
           <button class="act long" id="btn-long"><span class="act-glyph">▲</span><span>GO LONG</span></button>

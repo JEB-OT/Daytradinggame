@@ -433,6 +433,27 @@ export function sweepSelected(state) {
   return { swept: candles.length, created };
 }
 
+/**
+ * Where every candle in the book physically is right now: still in the deck,
+ * sitting on the board, or already spent. Between deadlines nothing has been
+ * dealt, so the whole book counts as deck.
+ *
+ * Anything in the book that is in neither the draw pile nor the board has been
+ * traded or swept, so `swept` is derived rather than read straight off the
+ * session — that keeps stamps like Anchor, which put a candle back on the
+ * board, from being counted twice.
+ */
+export function bookLocations(state) {
+  const s = state.session;
+  if (!s) return { deck: state.book.slice(), board: [], swept: [], dealt: false };
+  const inBook = new Set(state.book.map((c) => c.uid));
+  const deck = s.drawPile.filter((c) => inBook.has(c.uid));
+  const board = s.board.filter((c) => inBook.has(c.uid));
+  const live = new Set([...deck, ...board].map((c) => c.uid));
+  const swept = state.book.filter((c) => !live.has(c.uid));
+  return { deck, board, swept, dealt: true };
+}
+
 export function removeFromBook(state, candle) {
   const i = state.book.findIndex((c) => c.uid === candle.uid);
   if (i >= 0) state.book.splice(i, 1);

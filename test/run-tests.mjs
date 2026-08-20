@@ -231,6 +231,79 @@ t('Reissue stamp reprints a candle', () => {
   eq(b.volume - a.volume, 10);
 });
 t('Front Runner reprints every candle', () => eq(scoreWith(['frontRunner'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).volume, 50));
+
+// ---------------------------------------------------------------- the print shop
+t('Fine Print reprints bodies 2-5 and leaves the rest alone', () => {
+  // A tweezer of 4s prints each body twice: base 10 + (4+4)*2 = 26.
+  eq(scoreWith(['finePrint'], [mk('TECH', 4), mk('CRYPTO', 4, false)]).volume, 26);
+  // Bodies outside 2-5 are untouched.
+  eq(scoreWith(['finePrint'], [mk('TECH', 6), mk('CRYPTO', 6, false)]).volume, 22);
+  eq(scoreWith(['finePrint'], [mk('TECH', 1), mk('CRYPTO', 1, false)]).volume, 12);
+});
+t('Press Run prints wide candles three times each', () => {
+  eq(scoreWith(['pressRun'], [mk('TECH', 12), mk('CRYPTO', 12, false)]).volume, 10 + 12 * 6);
+  eq(scoreWith(['pressRun'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).volume, 30);
+});
+t('Hairline prints a doji four times', () => {
+  eq(scoreWith(['hairline'], [mk('TECH', 1), mk('CRYPTO', 1, false)]).volume, 10 + 1 * 8);
+});
+t('Last Word reprints the final candle, Encore the first', () => {
+  // Overspill makes every placed candle print, so the two hooks land on
+  // different bodies and the difference between them is readable.
+  const played = [mk('TECH', 2), mk('CRYPTO', 9, false), mk('ENERGY', 5)];
+  const plain = scoreWith(['splitter'], played).volume;
+  eq(scoreWith(['splitter', 'lastWord'], played).volume - plain, 5);
+  eq(scoreWith(['splitter', 'caffeinated'], played).volume - plain, 2);
+});
+t('Kerning reprints candles whose body is matched', () => {
+  // The pair of 7s prints twice each; the lone 2 is not part of the tweezer.
+  eq(scoreWith(['kerning'], [mk('TECH', 7), mk('CRYPTO', 7, false)]).volume, 10 + 7 * 4);
+  // Unmatched bodies print a Single Tick, which scores the biggest one once.
+  eq(scoreWith(['kerning'], [mk('TECH', 7), mk('CRYPTO', 8, false)]).volume, 5 + 8);
+});
+t('Misprint reprints candles carrying an edition', () => {
+  const plain = scoreWith(['misprint'], [mk('TECH', 9), mk('CRYPTO', 9, false)]);
+  const foiled = scoreWith(['misprint'], [mk('TECH', 9, true, { edition: 'laminated' }), mk('CRYPTO', 9, false)]);
+  eq(plain.volume, 28);
+  eq(foiled.volume - plain.volume, 9 + 50 * 2, 'body and Foiled both print twice');
+});
+t('Run-Off and Ink Press are paid per extra print', () => {
+  // Echo gives every candle one extra print: two candles -> two extra prints.
+  eq(scoreWith(['frontRunner', 'runOff'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).volume, 50 + 70);
+  eq(scoreWith(['frontRunner', 'inkPress'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).leverage, 2 + 10);
+  // With nothing reprinting they are dead weight, which is the trade-off.
+  eq(scoreWith(['runOff'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).volume, 30);
+});
+t('Print Shop pays a dollar per extra print', () => {
+  eq(scoreWith(['frontRunner', 'printShop'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).money, 2);
+});
+t('Overprint needs a candle that printed three times', () => {
+  eq(scoreWith(['frontRunner', 'overprint'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).leverage, 2);
+  // Echo + Understudy on a wide candle is three prints.
+  const r = scoreWith(['frontRunner', 'blueSuit', 'overprint'], [mk('TECH', 12), mk('CRYPTO', 12, false)]);
+  eq(+r.leverage.toFixed(2), 3.2);
+});
+t('Split Run wants one small candle and one wide one', () => {
+  eq(scoreWith(['splitRun'], [mk('TECH', 3), mk('CRYPTO', 3, false)]).leverage, 2);
+  // Pillars — three 3s and two 12s — prints all five, so both bands are there.
+  const mixed = scoreWith(['splitRun'],
+    [mk('TECH', 3), mk('CRYPTO', 3, false), mk('ENERGY', 3), mk('FINANCE', 12), mk('TECH', 12, false)]);
+  eq(mixed.formationKey, 'pillars');
+  eq(mixed.leverage, 8, 'x2 on the base x4');
+});
+t('Serial Number banks volume from every extra print', () => {
+  const st = S.newRun('SER');
+  st.brokers = [makeBroker('frontRunner', null), makeBroker('serialNumber', null)];
+  S.computeMods(st);
+  const played = [mk('TECH', 10), mk('CRYPTO', 10, false)];
+  const go = () => scoreTrade(st, {
+    played, held: [], direction: null, correct: null, rng: new RNG('ser'),
+    commit: true, tradeIndex: 0, tradesLeft: 4, greenStreak: 0, quota: 1000,
+  });
+  eq(go().volume, 50, 'nothing banked on the first trade yet');
+  eq(st.brokers[1].counters.v, 12, 'two extra prints x 6');
+  eq(go().volume, 62, 'the banked volume lands on the next trade');
+});
 t('conviction multiplies leverage on the call', () => {
   const cs = [mk('TECH', 10), mk('CRYPTO', 10)];  // both bull -> tweezer, full conviction on LONG
   const long = scoreWith([], cs, { direction: 'LONG', correct: true });
@@ -426,6 +499,52 @@ t('sweeping consumes a sweep and refills the board', () => {
   S.sweepSelected(st);
   eq(s.discardsLeft, st.mods.discards - 1);
   eq(s.board.length, st.mods.handSize);
+});
+t('bookLocations accounts for every candle exactly once', () => {
+  const st = S.newRun('LOC');
+  // Nothing dealt yet: the whole book is still deck.
+  let w = S.bookLocations(st);
+  eq(w.dealt, false);
+  eq(w.deck.length, 52); eq(w.board.length, 0); eq(w.swept.length, 0);
+
+  const s = S.startDeadline(st, 0);
+  w = S.bookLocations(st);
+  eq(w.dealt, true);
+  eq(w.board.length, st.mods.handSize);
+  eq(w.deck.length, 52 - st.mods.handSize);
+  eq(w.swept.length, 0);
+  eq(w.deck.length + w.board.length + w.swept.length, st.book.length);
+
+  // Sweeping moves candles out of the deck's reach for the rest of the bell.
+  S.toggleSelect(st, s.board[0].uid); S.toggleSelect(st, s.board[1].uid);
+  S.sweepSelected(st);
+  w = S.bookLocations(st);
+  eq(w.swept.length, 2);
+  eq(w.board.length, st.mods.handSize);
+  eq(w.deck.length + w.board.length + w.swept.length, st.book.length);
+  const seen = new Set([...w.deck, ...w.board, ...w.swept].map((c) => c.uid));
+  eq(seen.size, st.book.length, 'no candle counted twice');
+});
+t('bookLocations does not double-count an Anchor-sealed candle', () => {
+  const st = S.newRun('ANCH');
+  const s = S.startDeadline(st, 0);
+  s.board[0].stamp = 'hold';                 // Anchor: goes back to the board
+  S.toggleSelect(st, s.board[0].uid);
+  S.playTrade(st, 'LONG');
+  const w = S.bookLocations(st);
+  eq(w.deck.length + w.board.length + w.swept.length, st.book.length);
+  ok(w.board.some((c) => c.stamp === 'hold'), 'the anchored candle is on the board');
+  ok(!w.swept.some((c) => c.stamp === 'hold'), 'and not also in the swept pile');
+});
+t('a destroyed candle leaves every pile', () => {
+  const st = S.newRun('DEST');
+  const s = S.startDeadline(st, 0);
+  const doomed = s.drawPile[0];
+  S.removeFromBook(st, doomed);
+  const w = S.bookLocations(st);
+  eq(st.book.length, 51);
+  eq(w.deck.length + w.board.length + w.swept.length, 51);
+  ok(!w.deck.some((c) => c.uid === doomed.uid), 'gone from the deck');
 });
 t('you cannot place more than five candles', () => {
   const st = S.newRun('SEL');

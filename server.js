@@ -70,7 +70,14 @@ function openBrowser(url) {
             : process.platform === 'win32' ? 'cmd'
             : 'xdg-open';
   const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
-  try { spawn(cmd, args, { stdio: 'ignore', detached: true }).unref(); } catch { /* no browser, no problem */ }
+  try {
+    const child = spawn(cmd, args, { stdio: 'ignore', detached: true });
+    // A machine with no browser opener (a bare container, a server box) makes
+    // spawn emit 'error' asynchronously, which would otherwise take the whole
+    // server down with it. The game itself is still perfectly serveable.
+    child.on('error', () => {});
+    child.unref();
+  } catch { /* no browser, no problem */ }
 }
 
 // Announce once, reading the port we actually got. Passing a callback to

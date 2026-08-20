@@ -67,7 +67,7 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ### Other commands
 
 ```bash
-npm test                 # 118 assertions, no dependencies
+npm test                 # 141 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 ```
 
@@ -93,6 +93,16 @@ A deadline gives you a cash **quota**, a handful of **trades** and some **sweeps
 5. `Volume × Leverage = P/L`. Reach the quota before you run out of trades, or the run ends.
 
 Clear it and you hit **The Floor** to spend the payout before the next bell.
+
+### The deck and the swept pile
+
+Your whole book is shuffled into a **deck** at the bell, and the board is dealt off the top of it.
+Both piles sit either side of your board and both are real places, not counters: candles fly out of
+the **DECK** on the left when the board refills, and everything you trade or sweep is thrown onto
+the **SWEPT** pile on the right, where it stays until the next bell.
+
+That is not decoration &mdash; it is the information the **REMAINING** view of the book is built on.
+Once nine of your thirteen Tech candles are on the swept pile, a Tech Cluster is no longer a plan.
 
 ---
 
@@ -232,7 +242,7 @@ candle or broker is worth more before a multiplying one. You control both.
 
 | Layer | Count | What it does |
 |---|---:|---|
-| **Brokers** | 119 | Sit on your desk and trigger left to right. The combo engine. You are never offered one you already employ &mdash; unless **Hall of Mirrors** is on the desk, which re-opens the duplicate pool. |
+| **Brokers** | 131 | Sit on your desk and trigger left to right. The combo engine. You are never offered one you already employ &mdash; unless **Hall of Mirrors** is on the desk, which re-opens the duplicate pool. |
 | **Charts** | 29 | Reshape the candles in your book — bodies, sectors, polarity, enhancements. |
 | **Contracts** | 14 | Permanently level one formation. |
 | **Rumors** | 20 | High-risk power spikes with a real cost. |
@@ -250,6 +260,34 @@ Candles stack four independent layers of their own: sector, **enhancement** (Blo
 Leveraged, Rotating, Volatile, Dividend, Hedged, Penny, **Swing**, Sealed), **edition**
 (Laminated, Holographic, Algorithmic) and **stamp** (Reissue, Hold, Payout, Filing).
 
+### The print shop
+
+Twelve brokers are built on one verb: making a candle **print more than once**. The top half hands
+out extra prints on a band of bodies; the bottom half is paid *per extra print*, so the two halves
+are worth far more together than either is alone.
+
+| Broker | Extra prints |
+|---|---|
+| **Fine Print** | every printed candle with a body of **2, 3, 4 or 5** prints again |
+| **Press Run** | every printed candle with a body of **11 or more** prints **twice** more |
+| **Hairline** | every printed **Doji** (body 1) prints **three** extra times |
+| **Last Word** | the last candle you placed prints again (the mirror of *Encore*) |
+| **Kerning** | every printed candle whose body matches another candle you placed prints again |
+| **Misprint** | every printed candle carrying an **edition** prints again |
+
+| Broker | Paid per extra print |
+|---|---|
+| **Run-Off** | +35 Volume for every extra print this trade |
+| **Ink Press** | +5 Leverage for every extra print this trade |
+| **Print Shop** | $1 for every extra print this trade |
+| **Serial Number** | permanently gains +6 Volume for every extra print — it compounds run-long |
+| **Overprint** | ×1.6 Leverage if any one candle printed **3 or more** times |
+| **Split Run** | ×2 Leverage if you printed a body of **5 or less** *and* a body of **11 or more** |
+
+They stack with the retriggers that were already there — *Understudy*, *Encore*, *The Swarm*,
+*Sigil Collector*, *Echo*, Echo Seals — rather than replacing them. Two of them on the same desk is
+a build; six is a printing press.
+
 ### Some builds that work
 
 - **The march** — *Marching Drum* drops Soldiers to two candles, *Drillmaster* multiplies them and
@@ -262,6 +300,9 @@ Leveraged, Rotating, Volatile, Dividend, Hedged, Penny, **Swing**, Sealed), **ed
   *Salvager* banking cash on every red.
 - **Echo stack** — *Echo*, *Sigil Collector* and Echo Seals on a book of three Bullion 13s.
 - **The empty desk** — *Void Pact* pays ×0.35 more Leverage for every desk slot you leave *empty*.
+- **The press** — *Fine Print* and *Press Run* on a book charted to the two extremes, then
+  *Run-Off*, *Ink Press* and *Serial Number* to get paid for every impression. *Split Run* doubles
+  it for holding both ends, and *Overprint* doubles it again.
 - **Bonfire** — Embers grow +5 Volume every print, so *Overspill* (everything prints) plus
   *Echo* compounds a book of Embers permanently, run after run.
 
@@ -281,6 +322,27 @@ Leveraged, Rotating, Volatile, Dividend, Hedged, Penny, **Swing**, Sealed), **ed
 
 ---
 
+## The book
+
+`BOOK`, from the top bar or any menu, lays your candles out the way a deck view should read: one
+row per **sector**, one column per **body 1&ndash;13**. Duplicates stack under a `×2` badge and
+anything you do not own is drawn as an empty outline, so the shape of your book is one glance
+rather than a wall of tiles.
+
+Two views share that layout:
+
+| View | Shows |
+|---|---|
+| **ALL BOOK** | every candle you own, wherever it is right now |
+| **REMAINING** | only what is **still in the deck** and can still be dealt to you |
+
+`REMAINING` is the one you plan with. The strip along the top splits your book into *in the deck*,
+*on the board* and *traded or swept*, and the empty squares in the grid are the candles already
+gone — so before you spend a sweep chasing a Four Winds of 7s you can see that three of the four
+have already been dealt.
+
+---
+
 ## Project layout
 
 ```
@@ -292,20 +354,20 @@ src/game/
   candles.js          candles: sector, body, polarity, enhancements, editions, stamps
   formations.js       formation evaluation (set-based + order-based marches) and Conviction
   scoring.js          the Volume × Leverage pipeline, step by step
-  brokers.js          118 brokers
+  brokers.js          131 brokers
   consumables.js      charts, contracts, rumors
   licenses.js         permanent run upgrades
   bosses.js           29 boss rules
   market.js           tape simulation, regimes, the signal
-  state.js            run state, deadline flow, the Floor, save/load
+  state.js            run state, deadline flow, the deck/swept piles, the Floor, save/load
 src/ui/               canvas chart, particles/audio, candle components, overlays
 test/
-  run-tests.mjs       102 tests, no dependencies
+  run-tests.mjs       141 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
 ```
 
 ```bash
-npm test              # 102 assertions across formations, conviction, scoring, flow and content
+npm test              # 141 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 ```
 

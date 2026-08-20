@@ -5,7 +5,7 @@ import { ALL_CONSUMABLES, consumableText } from '../game/consumables.js';
 import { LICENSES } from '../game/licenses.js';
 import { BOSSES } from '../game/bosses.js';
 import { REGIMES } from '../game/market.js';
-import { SECTORS } from '../game/candles.js';
+import { SECTORS, MAX_BODY } from '../game/candles.js';
 import * as S from '../game/state.js';
 import { candleEl, brokerEl, consumableEl, hideTip } from './components.js';
 import { sfx, toast } from './fx.js';
@@ -309,29 +309,141 @@ export function packScreen(game) {
 }
 
 // ---------------------------------------------------------------------------
-export function bookScreen(game, back) {
+// ---------------------------------------------------------------------------
+// THE BOOK — every candle laid out on its own sector row, one column per body,
+// the way a deck view should read: you see the shape of what you own at a
+// glance instead of scanning a wall of tiles.
+//
+// Two views share the layout:
+//   ALL BOOK    everything you own
+//   REMAINING   only what is still in the deck this deadline, so you can plan
+//               the next placement around what can actually still be dealt
+// Slots that the view does not hold are drawn as empty outlines, which is the
+// whole point: the gaps are the information.
+// ---------------------------------------------------------------------------
+const BOOK_VIEWS = {
+  all:       { key: 'all',       label: 'ALL BOOK',  blurb: 'every candle you own, wherever it is right now' },
+  remaining: { key: 'remaining', label: 'REMAINING', blurb: 'only what is still in the deck and can still be dealt to you' },
+};
+
+/** One sector row: 13 body columns, each holding the candles of that body. */
+function bookRow(game, sectorKey, candles, all) {
+  const sec = SECTORS[sectorKey];
+  const wrap = document.createElement('div');
+  wrap.className = 'bk-row';
+  wrap.style.setProperty('--rc', sec.color);
+
+  const head = document.createElement('div');
+  head.className = 'bk-rowhead';
+  head.innerHTML = `<span class="bk-glyph">${sec.glyph}</span>
+    <span class="bk-secname">${sec.name}</span>
+    <span class="bk-seccount">${candles.length}<i>/${all.length}</i></span>`;
+  wrap.appendChild(head);
+
+  const strip = document.createElement('div');
+  strip.className = 'bk-strip-row';
+  for (let body = 1; body <= MAX_BODY; body++) {
+    const here = candles.filter((c) => c.body === body);
+    const owned = all.filter((c) => c.body === body);
+    const cell = document.createElement('div');
+    cell.className = 'bk-cell';
+    if (!here.length) {
+      // Nothing of this body available in this view. Say which of the two
+      // reasons it is: never owned, or owned but no longer in the deck.
+      cell.classList.add(owned.length ? 'gone' : 'missing');
+      cell.innerHTML = `<div class="bk-ghost"><span>${body}</span></div>`;
+      cell.title = owned.length
+        ? `${owned.length} × ${body} of ${sec.name} — none left in the deck`
+        : `no ${body} of ${sec.name} in your book`;
+    } else {
+      cell.appendChild(candleEl(here[0], { reveal: true }));
+      if (here.length > 1) {
+        const dup = document.createElement('span');
+        dup.className = 'bk-dup';
+        dup.textContent = '×' + here.length;
+        cell.appendChild(dup);
+      }
+    }
+    strip.appendChild(cell);
+  }
+  wrap.appendChild(strip);
+  return wrap;
+}
+
+export function bookScreen(game, back, view = 'all') {
   const st = game.state;
-  const bulls = st.book.filter((c) => c.bull).length;
-  const enhanced = st.book.filter((c) => c.enhancement).length;
-  const avg = st.book.length ? (st.book.reduce((a, c) => a + c.body, 0) / st.book.length).toFixed(1) : '0';
-  const sorted = st.book.slice().sort((a, b) =>
-    Object.keys(SECTORS).indexOf(a.sector) - Object.keys(SECTORS).indexOf(b.sector) || b.body - a.body);
+  const where = S.bookLocations(st);
+  const v = BOOK_VIEWS[view] ? view : 'all';
+  const shown = v === 'remaining' ? where.deck : st.book;
+
+  const bulls = shown.filter((c) => c.bull).length;
+  const enhanced = shown.filter((c) => c.enhancement).length;
+  const avg = shown.length ? (shown.reduce((a, c) => a + c.body, 0) / shown.length).toFixed(1) : '0';
+  const sealed = shown.filter((c) => c.enhancement === 'obsidian');
+
+  const tabs = Object.values(BOOK_VIEWS).map((b) =>
+    `<button class="bk-tab ${b.key === v ? 'on' : ''}" data-view="${b.key}">${b.label}</button>`).join('');
+
+  const split = where.dealt
+    ? `<div class="bk-where">
+         <span class="w-deck"><b>${where.deck.length}</b> in the deck</span>
+         <span class="w-board"><b>${where.board.length}</b> on the board</span>
+         <span class="w-swept"><b>${where.swept.length}</b> traded or swept</span>
+       </div>`
+    : `<div class="bk-where"><span class="w-deck">Nothing dealt yet — the whole book is still in the deck.</span></div>`;
 
   const sheet = showOverlay(`
-    <h2>THE BOOK</h2>
-    <div class="sub">${st.book.length} candles · ${enhanced} enhanced</div>
-    <div class="stat-grid">
-      <div class="stat-box"><label style="color:var(--green)">BULL</label><b>${bulls}</b></div>
-      <div class="stat-box"><label style="color:var(--red)">BEAR</label><b>${st.book.length - bulls}</b></div>
-      <div class="stat-box"><label>AVG BODY</label><b>${avg}</b></div>
-      <div class="stat-box"><label>SECTORS</label><b style="font-size:12px">${Object.entries(SECTORS).map(([k, s]) =>
-        `<span style="color:${s.color}">${st.book.filter((c) => c.sector === k).length}${s.glyph}</span>`).join(' ')}</b></div>
+    <div class="sheet-head">
+      <div><h2>THE BOOK</h2><div class="sub" style="margin:0">${BOOK_VIEWS[v].blurb}</div></div>
+      <div class="bk-tabs">${tabs}</div>
     </div>
-    <div class="book-grid" id="book-grid"></div>
+    ${split}
+    <div class="stat-grid" style="margin-top:12px">
+      <div class="stat-box"><label>${v === 'remaining' ? 'IN DECK' : 'CANDLES'}</label><b>${shown.length}</b></div>
+      <div class="stat-box"><label style="color:var(--green)">BULL</label><b>${bulls}</b></div>
+      <div class="stat-box"><label style="color:var(--red)">BEAR</label><b>${shown.length - bulls}</b></div>
+      <div class="stat-box"><label>AVG BODY</label><b>${avg}</b></div>
+    </div>
+    <div class="book-board" id="book-board"></div>
+    <div class="bk-legend">
+      <span><i class="lg-have"></i>held</span>
+      <span><i class="lg-gone"></i>${v === 'remaining' ? 'already dealt' : 'not in your book'}</span>
+      <span>${enhanced} enhanced${sealed.length ? ` · ${sealed.length} sealed` : ''}</span>
+    </div>
     <div class="btn-row"><button class="btn" id="bk-back">BACK</button></div>`,
-    { dismissable: false, width: '940px' });
-  const grid = sheet.querySelector('#book-grid');
-  sorted.forEach((c) => grid.appendChild(candleEl(c, { reveal: true })));
+    { dismissable: false, width: '1080px' });
+
+  const board = sheet.querySelector('#book-board');
+  // A candle's body column is its body, so an Obsidian — which has no body or
+  // sector at all — cannot sit on the grid. Those get their own shelf below it.
+  const gridable = (c) => c.enhancement !== 'obsidian';
+  Object.keys(SECTORS).forEach((k) => {
+    board.appendChild(bookRow(game,
+      k,
+      shown.filter((c) => gridable(c) && c.sector === k),
+      st.book.filter((c) => gridable(c) && c.sector === k)));
+  });
+  if (sealed.length) {
+    const row = document.createElement('div');
+    row.className = 'bk-row sealed-row';
+    row.innerHTML = `<div class="bk-rowhead"><span class="bk-glyph">▪</span>
+      <span class="bk-secname">Sealed</span><span class="bk-seccount">${sealed.length}</span></div>`;
+    const strip = document.createElement('div');
+    strip.className = 'bk-strip-row loose';
+    sealed.forEach((c) => {
+      const cell = document.createElement('div');
+      cell.className = 'bk-cell';
+      cell.appendChild(candleEl(c, { reveal: true }));
+      strip.appendChild(cell);
+    });
+    row.appendChild(strip);
+    board.appendChild(row);
+  }
+
+  sheet.querySelectorAll('[data-view]').forEach((b) => b.onclick = () => {
+    sfx.select();
+    bookScreen(game, back, b.dataset.view);
+  });
   sheet.querySelector('#bk-back').onclick = () => (back ? back() : closeOverlay());
 }
 
@@ -448,6 +560,16 @@ export function helpScreen(game, fromTitle, back) {
           <li>Then call it: <b style="color:var(--green)">LONG</b> or <b style="color:var(--red)">SHORT</b>.</li>
           <li>Right → <b>GREEN</b>, full P/L. Wrong → <b>RED</b>, you keep 35%.</li>
           <li>Volume × Leverage = P/L. Hit the quota before the trades run out, or the run ends.</li>
+        </ul>
+        <h3>THE DECK AND THE SWEPT PILE</h3>
+        <ul>
+          <li>Your whole book is shuffled into the <b style="color:var(--cyan)">DECK</b> on the left of
+              your board at the bell. The board is dealt off the top of it and refills from it after
+              every trade and sweep.</li>
+          <li>Everything you trade or sweep lands on the <b>SWEPT</b> pile on the right and stays
+              there until the next bell — it does not shuffle back in.</li>
+          <li><span class="k">BOOK</span> → <b>REMAINING</b> shows exactly which candles are still in
+              the deck, so you can tell a plan from a prayer before spending a sweep on it.</li>
         </ul>
         <h3>CANDLES</h3>
         <ul>

@@ -345,12 +345,59 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
 #position-ghost.hide { opacity: 0; }
 #score-burst { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
 
-#board-area { flex-shrink: 0; }
+#board-area { flex-shrink: 0; display: flex; align-items: flex-end; justify-content: center; gap: 12px; }
 #board-row {
   display: flex; gap: 8px; justify-content: center; align-items: flex-end;
   min-height: 132px; padding-top: 16px; transition: opacity .25s, filter .25s;
 }
 #board-row.settling { opacity: .28; filter: saturate(.35) blur(1px); pointer-events: none; }
+
+/* ============================ THE PILES ============================
+   Candles are dealt from the DECK on the left and land in the SWEPT pile on
+   the right, so every card on screen has a visible place it came from and a
+   visible place it goes. The stack behind each face thickens with the count.
+   ================================================================== */
+.pile {
+  --pc: #4a6ea8;
+  position: relative; width: 62px; height: 92px; flex-shrink: 0;
+  margin-bottom: 6px; user-select: none;
+}
+.pile-face {
+  position: absolute; inset: 0; z-index: 2;
+  border-radius: 9px; border: 3px solid var(--pc);
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 4px, transparent 4px 8px),
+    linear-gradient(180deg, #1b2a46 0%, #0a1020 100%);
+  box-shadow: 0 4px 0 var(--lip), inset 0 1px 0 rgba(255,255,255,.12), 0 8px 16px rgba(0,0,0,.55);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+}
+/* the shuffled bulk of the pile, peeking out behind the top card */
+.pile-stack { position: absolute; inset: 0; z-index: 1; }
+.pile-stack i {
+  position: absolute; inset: 0; border-radius: 9px;
+  border: 3px solid var(--pc); background: linear-gradient(180deg, #16233c, #080d18);
+  opacity: .55;
+}
+.pile-count {
+  font-size: 19px; font-weight: 900; color: var(--ink); text-shadow: var(--outline);
+  font-variant-numeric: tabular-nums;
+}
+/* The label lives inside the face rather than under it — the board area is
+   flush against the action row and anything hanging below gets clipped. */
+.pile-label { font-size: 7.5px; font-weight: 700; letter-spacing: .18em; color: var(--pc); opacity: .8; }
+.pile.draw { --pc: #40d9ff; }
+.pile.swept { --pc: #6a7a95; }
+.pile.empty .pile-face { opacity: .34; border-style: dashed; }
+.pile.empty .pile-count { color: var(--ink-faint); }
+/* a kick when cards leave or land. NB `.pop` is already the floating-text FX
+   class, which is absolutely positioned and fades to nothing — hence `kick`. */
+.pile.kick .pile-face { animation: pileKick .3s cubic-bezier(.2,.9,.3,1); }
+@keyframes pileKick {
+  0% { transform: translateY(0) scale(1) }
+  35% { transform: translateY(-6px) scale(1.09); filter: brightness(1.5) }
+  100% { transform: translateY(0) scale(1) }
+}
+@media (max-width: 1200px) { .pile { width: 50px; height: 76px } .pile-count { font-size: 15px } }
 
 /* ============================ CANDLE TILE ============================ */
 .candle {
@@ -513,8 +560,22 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
   100% { transform: translateY(0) }
 }
 .candle.dim { filter: brightness(.42) saturate(.3); }
-.candle.dealing { animation: dealIn .32s cubic-bezier(.2,.9,.3,1) backwards; }
-@keyframes dealIn { from { transform: translate(70px,-160px) rotate(20deg); opacity: 0 } }
+/* Dealt straight off the deck: --dx/--dy are measured at deal time, so the
+   card really does travel from the pile to the slot it lands in. */
+.candle.dealing,
+#board-row .candle.dealing {
+  animation: dealIn .38s cubic-bezier(.18,.86,.32,1) backwards;
+  z-index: 12;
+}
+@keyframes dealIn {
+  0%   { transform: translate(var(--dx,-180px), var(--dy,0px)) rotate(-14deg) scale(.72);
+         opacity: 0; filter: brightness(1.7) }
+  22%  { opacity: 1 }
+  68%  { transform: translate(calc(var(--dx,-180px) * .12), calc(var(--dy,0px) * .12 - 12px))
+                    rotate(3deg) scale(1.05); filter: brightness(1.25) }
+  100% { transform: translate(0,0) rotate(0) scale(1); opacity: 1; filter: brightness(1) }
+}
+body.no-motion .candle.dealing { animation-duration: .14s; }
 .candle.shatter { animation: shatter .48s ease forwards; }
 @keyframes shatter { to { transform: translateY(34px) scale(.5) rotate(16deg); opacity: 0; filter: brightness(2.4) } }
 
@@ -702,14 +763,90 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
 .pack-opt.taken { opacity: .2; pointer-events: none }
 
 /* ---------- book / formations ---------- */
-.book-grid { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
-.book-grid .candle { width: 56px; height: 86px; padding: 3px; border-width: 2px; }
-.book-grid .cd-num { font-size: 12px }
-.book-grid .cd-sector { font-size: 9px }
-.book-grid .cd-foot { font-size: 5.5px }
-.book-grid .cd-real { width: 15px; margin-left: -7.5px }
-.book-grid .cd-tag { font-size: 5.5px; bottom: 12px; padding: 1px 3px }
-.book-grid .cd-stamp { width: 8px; height: 8px; top: 3px }
+/* The deck view: one row per sector, one column per body 1..13. Gaps are drawn
+   as empty outlines, because in the REMAINING view the gaps are the point. */
+.book-board { display: flex; flex-direction: column; gap: 8px; }
+.bk-row {
+  --rc: #40d9ff;
+  display: grid; grid-template-columns: 104px 1fr; align-items: center; gap: 10px;
+  padding: 7px 9px; border-radius: var(--r-sm);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 13%, transparent), rgba(0,0,0,.22) 42%);
+  border: 2px solid rgba(44,61,95,.7); border-left: 4px solid var(--rc);
+}
+.bk-rowhead { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.bk-glyph { font-size: 17px; color: var(--rc); text-shadow: 0 0 10px currentColor; }
+.bk-secname { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; color: var(--ink); }
+.bk-seccount { margin-left: auto; font-size: 13px; font-weight: 900; color: var(--rc); font-variant-numeric: tabular-nums; }
+.bk-seccount i { font-size: 9px; font-style: normal; color: var(--ink-faint); font-weight: 700; }
+
+.bk-strip-row { display: grid; grid-template-columns: repeat(13, 1fr); gap: 4px; }
+.bk-strip-row.loose { display: flex; flex-wrap: wrap; }
+.bk-cell { position: relative; display: flex; align-items: center; justify-content: center; }
+.bk-cell .candle {
+  width: 100%; max-width: 54px; height: 80px; padding: 3px; border-width: 2px; cursor: default;
+}
+.bk-cell .cd-num { font-size: 12px }
+.bk-cell .cd-sector { font-size: 9px }
+.bk-cell .cd-foot { font-size: 5.5px }
+.bk-cell .cd-real { width: 15px; margin-left: -7.5px }
+.bk-cell .cd-tag { font-size: 5.5px; bottom: 12px; padding: 1px 3px }
+.bk-cell .cd-stamp { width: 8px; height: 8px; top: 3px }
+.bk-cell .candle:hover { transform: translateY(-5px) scale(1.06); z-index: 5; }
+
+/* an empty column — either never owned, or owned but no longer in the deck */
+.bk-ghost {
+  width: 100%; max-width: 54px; height: 80px; border-radius: 8px;
+  border: 2px dashed rgba(74,96,140,.55); background: rgba(0,0,0,.25);
+  display: flex; align-items: center; justify-content: center;
+}
+.bk-ghost span { font-size: 15px; font-weight: 900; color: rgba(120,140,175,.34); text-shadow: none; }
+.bk-cell.gone .bk-ghost { border-color: rgba(255,84,104,.34); background: rgba(255,84,104,.06); }
+.bk-cell.gone .bk-ghost span { color: rgba(255,120,135,.4); }
+
+/* more than one candle sits on the same square */
+.bk-dup {
+  position: absolute; right: -2px; bottom: -3px; z-index: 6;
+  padding: 1px 4px; border-radius: 8px; font-size: 9px; font-weight: 900;
+  background: var(--gold); color: #241800; border: 2px solid #0a0f1c;
+}
+
+.bk-tabs { display: flex; gap: 6px; }
+.bk-tab {
+  padding: 8px 14px; border-radius: var(--r-sm); font-size: 10.5px; font-weight: 800; letter-spacing: .13em;
+  border: 2px solid var(--rim-2); background: linear-gradient(180deg,#1d2b48,#121c33); color: var(--ink-dim);
+  box-shadow: 0 3px 0 var(--lip);
+}
+.bk-tab:hover { color: #fff; filter: brightness(1.2); }
+.bk-tab.on {
+  background: linear-gradient(180deg,#2f66b8,#1a3f7c); border-color: var(--cyan); color: #eaf7ff;
+  box-shadow: 0 3px 0 #061a33, 0 0 16px rgba(64,217,255,.35);
+}
+
+.bk-where {
+  display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+  padding: 8px 12px; margin-top: 10px; border-radius: var(--r-sm);
+  background: var(--ink-hole); border: 2px solid var(--rim);
+  font-size: 11px; color: var(--ink-dim);
+}
+.bk-where b { font-size: 14px; font-weight: 900; }
+.bk-where .w-deck b { color: var(--cyan) }
+.bk-where .w-board b { color: var(--green) }
+.bk-where .w-swept b { color: var(--ink-faint) }
+
+.bk-legend {
+  display: flex; gap: 18px; justify-content: center; flex-wrap: wrap;
+  margin-top: 12px; font-size: 10px; color: var(--ink-faint); letter-spacing: .06em;
+}
+.bk-legend span { display: flex; align-items: center; gap: 6px; }
+.bk-legend i { width: 13px; height: 17px; border-radius: 3px; display: inline-block; }
+.bk-legend .lg-have { background: linear-gradient(180deg,#16233c,#0b1120); border: 2px solid #4a6ea8; }
+.bk-legend .lg-gone { border: 2px dashed rgba(255,84,104,.45); background: rgba(255,84,104,.06); }
+
+@media (max-width: 1120px) {
+  .bk-row { grid-template-columns: 84px 1fr; }
+  .bk-cell .candle, .bk-ghost { height: 66px; }
+  .bk-secname { font-size: 9px }
+}
 .stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 11px; margin-bottom: 16px; }
 .stat-box { background: var(--ink-hole); border: 2px solid var(--rim); border-radius: var(--r-sm); padding: 9px; text-align: center; box-shadow: inset 0 2px 6px rgba(0,0,0,.6) }
 .stat-box label { display: block; font-size: 9px; font-weight: 700; letter-spacing: .14em; color: var(--ink-faint) }
@@ -1123,18 +1260,31 @@ body.no-motion *::after { animation: none !important; }
 /* ==========================================================================
    SWEEPING — candles visibly leave the board before replacements deal in
    ========================================================================== */
-.candle.sweeping {
+.candle.sweeping,
+#board-row .candle.sweeping {
   pointer-events: none; z-index: 30;
-  animation: sweepAway .42s cubic-bezier(.45,.05,.75,.4) forwards;
+  animation: sweepAway .46s cubic-bezier(.5,.02,.72,.55) forwards;
   animation-delay: calc(var(--sw, 0) * 45ms);
 }
+/* --dx/--dy point at the SWEPT pile, measured when the sweep starts. The card
+   lifts off the desk first, then falls onto the discard. */
 @keyframes sweepAway {
-  0%   { transform: translateY(-24px) rotate(0deg); opacity: 1; filter: brightness(1) }
-  22%  { transform: translateY(-44px) rotate(-5deg) scale(1.04); filter: brightness(1.5) saturate(.7) }
-  100% { transform: translate(calc(var(--sx, 0px) * 2.2), -190px) rotate(-34deg) scale(.62);
-         opacity: 0; filter: brightness(.6) saturate(.2) blur(1.5px) }
+  0%   { transform: translate(0,0) rotate(0deg); opacity: 1; filter: brightness(1) }
+  20%  { transform: translate(calc(var(--dx,0px) * .1), calc(var(--dy,0px) * .1 - 26px))
+                    rotate(-6deg) scale(1.06); filter: brightness(1.55) saturate(.75) }
+  100% { transform: translate(var(--dx,0px), var(--dy,0px)) rotate(26deg) scale(.5);
+         opacity: 0; filter: brightness(.7) saturate(.25) blur(1px) }
 }
-body.no-motion .candle.sweeping { animation-duration: .12s; }
+body.no-motion .candle.sweeping { animation-duration: .14s; }
+
+/* Played candles are cleared to the swept pile the same way once a trade has
+   finished resolving. */
+.candle.filing {
+  pointer-events: none; z-index: 30;
+  animation: sweepAway .44s cubic-bezier(.5,.02,.72,.55) forwards;
+  animation-delay: calc(var(--sw, 0) * 38ms);
+}
+body.no-motion .candle.filing { animation-duration: .14s; }
 
 /* a broker being dragged around the desk */
 .broker.dragging { opacity: .4; filter: saturate(.5); }

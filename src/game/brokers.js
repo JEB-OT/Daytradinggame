@@ -612,6 +612,79 @@ add([
     } },
 ]);
 
+// --- THE PRINT SHOP ----------------------------------------------------------
+// A whole archetype built on one verb: printing a candle more than once. The
+// top half hands out extra prints on a band of bodies; the bottom half is paid
+// per extra print, so the two halves are worth far more together than apart —
+// and they stack with the older retriggers (Understudy, Encore, The Swarm,
+// Sigil Collector, Echo) rather than replacing them.
+//
+// ctx.extraPrints is the number of prints beyond the first across every candle
+// that printed this trade, and ctx.mostPrints is the busiest single candle.
+// Both are final by the time brokers run, because candles print first.
+// ---------------------------------------------------------------------------
+add([
+  { key: 'finePrint', name: 'Fine Print', cost: 7, rarity: 'uncommon', art: '🔍',
+    text: 'Every printed candle with a body of 2, 3, 4 or 5 prints again',
+    retriggerScored: (ctx, c) => (ctx.hasBody(c) && bodyOf(c) >= 2 && bodyOf(c) <= 5 ? 1 : 0) },
+
+  { key: 'pressRun', name: 'Press Run', cost: 9, rarity: 'rare', art: '🗞️',
+    text: 'Every printed candle with a body of 11 or more prints twice more',
+    retriggerScored: (ctx, c) => (ctx.isWide(c) ? 2 : 0) },
+
+  { key: 'hairline', name: 'Hairline', cost: 7, rarity: 'uncommon', art: '✒️',
+    text: 'Every printed Doji (body 1) prints three extra times',
+    retriggerScored: (ctx, c) => (ctx.hasBody(c) && bodyOf(c) === 1 ? 3 : 0) },
+
+  { key: 'lastWord', name: 'Last Word', cost: 6, rarity: 'uncommon', art: '🔚',
+    text: 'The last candle you placed prints again',
+    retriggerScored: (ctx, c) => (ctx.scoring[ctx.scoring.length - 1] === c ? 1 : 0) },
+
+  { key: 'kerning', name: 'Kerning', cost: 7, rarity: 'uncommon', art: '🔠',
+    text: 'Every printed candle whose body matches another candle you placed prints again',
+    retriggerScored: (ctx, c) => {
+      if (!ctx.hasBody(c)) return 0;
+      const twins = ctx.played.filter((o) => ctx.hasBody(o) && bodyOf(o) === bodyOf(c)).length;
+      return twins >= 2 ? 1 : 0;
+    } },
+
+  { key: 'misprint', name: 'Misprint', cost: 7, rarity: 'uncommon', art: '🌈',
+    text: 'Every printed candle carrying an edition prints again',
+    retriggerScored: (ctx, c) => (c.edition ? 1 : 0) },
+
+  { key: 'runOff', name: 'Run-Off', cost: 7, rarity: 'uncommon', art: '🖨️',
+    text: '+35 Volume for every extra print this trade',
+    independent: (ctx, b) => { if (ctx.extraPrints) ctx.addVolume(35 * ctx.extraPrints, b); } },
+
+  { key: 'inkPress', name: 'Ink Press', cost: 9, rarity: 'rare', art: '🗜️',
+    text: '+5 Leverage for every extra print this trade',
+    independent: (ctx, b) => { if (ctx.extraPrints) ctx.addLeverage(5 * ctx.extraPrints, b); } },
+
+  { key: 'printShop', name: 'Print Shop', cost: 8, rarity: 'uncommon', art: '🏭',
+    text: '$1 for every extra print this trade',
+    independent: (ctx, b) => { if (ctx.extraPrints) ctx.earn(ctx.extraPrints, b); } },
+
+  { key: 'overprint', name: 'Overprint', cost: 10, rarity: 'rare', art: '🔁',
+    text: 'x1.6 Leverage if any candle printed 3 or more times',
+    independent: (ctx, b) => { if (ctx.mostPrints >= 3) ctx.xLeverage(1.6, b); } },
+
+  { key: 'splitRun', name: 'Split Run', cost: 9, rarity: 'rare', art: '✂️',
+    text: 'x2 Leverage if you printed a candle with a body of 5 or less AND one with a body of 11 or more',
+    independent: (ctx, b) => {
+      const small = ctx.scoring.some((c) => ctx.hasBody(c) && !c.debuffed && bodyOf(c) <= 5);
+      const wide = ctx.scoring.some((c) => ctx.isWide(c));
+      if (small && wide) ctx.xLeverage(2, b);
+    } },
+
+  { key: 'serialNumber', name: 'Serial Number', cost: 8, rarity: 'uncommon', art: '🔢',
+    counters: { v: 0 },
+    text: (b) => `+${b.counters.v} Volume, and permanently gains +6 Volume for every extra print this trade`,
+    independent: (ctx, b) => {
+      ctx.addVolume(b.counters.v, b);
+      if (ctx.commit) b.counters.v += 6 * ctx.extraPrints;
+    } },
+]);
+
 export const BROKER_KEYS = Object.keys(BROKERS);
 
 export function brokerText(inst, state) {
