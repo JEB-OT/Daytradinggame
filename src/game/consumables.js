@@ -342,12 +342,20 @@ addRumor([
     } },
 
   { key: 'totalRecall', name: "Reshuffle", art: '🔄', select: [0, 0],
-    text: 'Permanently -1 board size, +1 desk slot, +1 Chart slot',
+    // The trade gets worse every time: -1 board, then -2, then -3...
+    text: (state) => {
+      const next = (state?.permanent?.recallUses || 0) + 1;
+      return `+1 desk slot and +1 Chart slot, at the cost of ${next} board size. ` +
+             `The board cost grows by one with every Reshuffle you use` +
+             (next > 1 ? ` (you have used ${next - 1})` : '');
+    },
     use: (api) => {
-      api.state.permanent.handSize -= 1;
+      const n = (api.state.permanent.recallUses || 0) + 1;
+      api.state.permanent.recallUses = n;
+      api.state.permanent.handSize = Math.max(1, api.state.permanent.handSize - n);
       api.state.permanent.slots += 1;
       api.state.permanent.chartSlots += 1;
-      return { ok: true, msg: 'Desk reorganised' };
+      return { ok: true, msg: `+1 desk slot, +1 Chart slot, -${n} board size` };
     } },
 
   { key: 'theSqueeze', name: "Apotheosis", art: '🌡️', select: [0, 0], cost: 6,
@@ -357,6 +365,12 @@ addRumor([
 export const RUMOR_KEYS = Object.keys(RUMORS);
 
 export const ALL_CONSUMABLES = { ...CHARTS, ...CONTRACTS, ...RUMORS };
+
+/** Consumable blurbs may depend on run state, exactly like broker text. */
+export function consumableText(d, state) {
+  if (!d) return '';
+  return typeof d.text === 'function' ? d.text(state) : d.text;
+}
 
 export function makeConsumable(key) {
   const d = ALL_CONSUMABLES[key];

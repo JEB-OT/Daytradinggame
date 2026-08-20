@@ -1118,3 +1118,30 @@ body.no-motion *::after { animation: none !important; }
   font-size: 13px; color: #ffe9ab;
 }
 .pack-lead b { font-size: 17px; font-weight: 900; color: var(--gold); }
+
+
+/* ==========================================================================
+   SWEEPING — candles visibly leave the board before replacements deal in
+   ========================================================================== */
+.candle.sweeping {
+  pointer-events: none; z-index: 30;
+  animation: sweepAway .42s cubic-bezier(.45,.05,.75,.4) forwards;
+  animation-delay: calc(var(--sw, 0) * 45ms);
+}
+@keyframes sweepAway {
+  0%   { transform: translateY(-24px) rotate(0deg); opacity: 1; filter: brightness(1) }
+  22%  { transform: translateY(-44px) rotate(-5deg) scale(1.04); filter: brightness(1.5) saturate(.7) }
+  100% { transform: translate(calc(var(--sx, 0px) * 2.2), -190px) rotate(-34deg) scale(.62);
+         opacity: 0; filter: brightness(.6) saturate(.2) blur(1.5px) }
+}
+body.no-motion .candle.sweeping { animation-duration: .12s; }
+
+/* a broker being dragged around the desk */
+.broker.dragging { opacity: .4; filter: saturate(.5); }
+.broker.drop-target {
+  outline: 3px dashed var(--cyan); outline-offset: 3px;
+  transform: translateY(-7px) scale(1.05);
+}
+.strip-cards .broker { cursor: grab; }
+.strip-cards .broker:active { cursor: grabbing; }
+.floor-bar .broker { cursor: grab; }

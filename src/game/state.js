@@ -173,6 +173,11 @@ export function computeMods(state) {
   return m;
 }
 
+/** Keys the player already employs, unless a broker says duplicates are fine. */
+export function ownedBrokerKeys(state) {
+  return state.mods.allowDuplicates ? [] : state.brokers.map((b) => b.key);
+}
+
 export function slotsUsed(state) { return state.brokers.filter((b) => b.edition !== 'offbook').length; }
 export function hasBrokerRoom(state) { return slotsUsed(state) < state.mods.slots; }
 export function hasConsumableRoom(state) { return state.consumables.length < state.mods.chartSlots; }
@@ -571,18 +576,22 @@ export function applyBonus(state, key) {
   const rng = state.rng;
   switch (key) {
     case 'freeBroker':
-      if (hasBrokerRoom(state)) state.brokers.push(makeBroker(rollBrokerKey(rng, { allowLegendary: state.mods.allowLegendary }), rng));
+      if (hasBrokerRoom(state)) {
+        state.brokers.push(makeBroker(rollBrokerKey(rng, {
+          allowLegendary: state.mods.allowLegendary, owned: ownedBrokerKeys(state),
+        }), rng));
+      }
       break;
-    case 'uncommonBroker': {
-      const pool = Object.keys(BROKERS).filter((k) => BROKERS[k].rarity === 'uncommon');
-      if (hasBrokerRoom(state)) state.brokers.push(makeBroker(rng.pick(pool), rng));
+    case 'uncommonBroker':
+      if (hasBrokerRoom(state)) {
+        state.brokers.push(makeBroker(rollBrokerKey(rng, { rarity: 'uncommon', owned: ownedBrokerKeys(state) }), rng));
+      }
       break;
-    }
-    case 'rareBroker': {
-      const pool = Object.keys(BROKERS).filter((k) => BROKERS[k].rarity === 'rare');
-      if (hasBrokerRoom(state)) state.brokers.push(makeBroker(rng.pick(pool), rng));
+    case 'rareBroker':
+      if (hasBrokerRoom(state)) {
+        state.brokers.push(makeBroker(rollBrokerKey(rng, { rarity: 'rare', owned: ownedBrokerKeys(state) }), rng));
+      }
       break;
-    }
     case 'charts':
       for (let i = 0; i < 2; i++) if (hasConsumableRoom(state)) state.consumables.push(makeConsumable(rollChart(rng)));
       break;
@@ -625,7 +634,11 @@ function rollShopItem(state, rng) {
     { item: 'rumor', weight: 1.2 * m.rumorWeight },
   ]);
   if (roll === 'broker') {
-    const key = rollBrokerKey(rng, { allowLegendary: m.allowLegendary && rng.chance(0.12) });
+    const key = rollBrokerKey(rng, {
+      allowLegendary: m.allowLegendary && rng.chance(0.12),
+      owned: ownedBrokerKeys(state),
+      exclude: state.shop?.items?.filter((i) => i.type === 'broker').map((i) => i.key) || [],
+    });
     const inst = makeBroker(key, rng);
     let cost = BROKERS[key].cost + (inst.edition ? 3 : 0);
     if (m.rareBoost && RARITY[BROKERS[key].rarity].weight <= 5) cost += 1;
@@ -718,7 +731,11 @@ export function buyPack(state, index) {
     else if (pack.family === 'contract') options.push({ type: 'contract', key: rollContract(rng, state.discoveredFormations) });
     else if (pack.family === 'rumor') options.push({ type: 'rumor', key: rollRumor(rng) });
     else if (pack.family === 'broker') {
-      const key = rollBrokerKey(rng, { allowLegendary: state.mods.allowLegendary && rng.chance(0.15), exclude: options.map((o) => o.key) });
+      const key = rollBrokerKey(rng, {
+        allowLegendary: state.mods.allowLegendary && rng.chance(0.15),
+        owned: ownedBrokerKeys(state),
+        exclude: options.map((o) => o.key),
+      });
       options.push({ type: 'broker', key, inst: makeBroker(key, rng) });
     } else {
       const candle = makeCandle(rng.pick(SECTOR_KEYS), rng.pick(BODIES), rng.chance(0.5));

@@ -50,14 +50,30 @@ class Game {
     this.applyMotion();
   }
 
-  /** One-shot nudges the first time a player meets a mechanic. */
+  /**
+   * One-shot nudges the first time a player meets a mechanic. Queued rather
+   * than fired immediately — several can come due at once on a first run, and
+   * three toasts on screen together is just noise.
+   */
   hint(key, msg) {
     if (this.coach.has(key)) return;
     const seen = SC.career().hints || {};
     if (seen[key]) return;
     this.coach.add(key);
     SC.saveCareer({ hints: { ...seen, [key]: 1 } });
-    setTimeout(() => toast(msg), 420);
+    this.hintQueue = this.hintQueue || [];
+    this.hintQueue.push(msg);
+    this.drainHints();
+  }
+
+  drainHints() {
+    if (this.hintTimer || !this.hintQueue?.length) return;
+    const msg = this.hintQueue.shift();
+    toast(msg, '', 'coach');
+    this.hintTimer = setTimeout(() => {
+      this.hintTimer = null;
+      this.drainHints();
+    }, 3200);
   }
 
   startRun(seed) {
@@ -286,16 +302,29 @@ class Game {
       const el = brokerEl(b, st, { disabled });
       el.style.setProperty('--i', st.brokers.indexOf(b));
       el.draggable = true;
-      el.addEventListener('dragstart', () => { this.dragUid = b.uid; hideTip(); });
-      el.addEventListener('dragover', (e) => e.preventDefault());
+      el.addEventListener('dragstart', (e) => {
+        this.dragUid = b.uid;
+        el.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        // Chromium will not start a drag without payload on the transfer.
+        try { e.dataTransfer.setData('text/plain', b.uid); } catch {}
+        hideTip();
+      });
+      el.addEventListener('dragend', () => { el.classList.remove('dragging'); this.dragUid = null; });
+      el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('drop-target'); });
+      el.addEventListener('dragleave', () => el.classList.remove('drop-target'));
       el.addEventListener('drop', (e) => {
         e.preventDefault();
+        el.classList.remove('drop-target');
         const from = st.brokers.findIndex((q) => q.uid === this.dragUid);
         const to = st.brokers.findIndex((q) => q.uid === b.uid);
         if (from < 0 || to < 0 || from === to) return;
         const [moved] = st.brokers.splice(from, 1);
         st.brokers.splice(to, 0, moved);
-        sfx.select(); this.render(); this.save();
+        sfx.select();
+        this.hint('brokerOrder', 'Brokers fire left to right, so putting the + ones before the × ones pays more.');
+        this.render();
+        this.save();
       });
       el.addEventListener('contextmenu', (e) => {
         e.preventDefault();
@@ -347,6 +376,7 @@ class Game {
         this.dragCandle = c.uid; this.didDrag = false;
         el.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', c.uid); } catch {}
         hideTip();
       });
       el.addEventListener('dragend', () => el.classList.remove('dragging'));
@@ -466,14 +496,42 @@ class Game {
     this.updateActions();
   }
 
-  sweep() {
+  async sweep() {
     const st = this.state, s = st.session;
     if (!s || this.busy) return;
+    if (!s.selected.length) { sfx.err(); return toast('Select candles to sweep', 'bad'); }
+    if (s.discardsLeft <= 0) { sfx.err(); return toast('No sweeps left', 'bad'); }
+
+    this.busy = true;
+    this.updateActions();
+    hideTip();
+
+    // Throw the doomed candles off the board before the replacements deal in.
+    const row = $('board-row');
+    const doomed = s.selected.slice();
+    doomed.forEach((uid, i) => {
+      const el = row.querySelector(`[data-uid="${uid}"]`);
+      if (!el) return;
+      el.style.setProperty('--sw', i);
+      el.style.setProperty('--sx', (i - (doomed.length - 1) / 2) * 34 + 'px');
+      el.classList.add('sweeping');
+      const r = el.getBoundingClientRect();
+      setTimeout(() => particles(r.left + r.width / 2, r.top + r.height * 0.4, '#6a7a95', 8, 70), i * 45);
+    });
+    sfx.sweep(doomed.length);
+    await sleep(200 + doomed.length * 45);
+
+    const before = new Set(s.board.map((c) => c.uid));
     const r = S.sweepSelected(st);
-    if (r.blocked) { sfx.err(); return toast(r.blocked, 'bad'); }
-    sfx.play();
-    if (r.created) toast(`${r.created} Chart filed`, 'good');
+    if (r.blocked) { this.busy = false; sfx.err(); return toast(r.blocked, 'bad'); }
+    const fresh = s.board.filter((c) => !before.has(c.uid)).map((c) => c.uid);
+
     this.render();
+    this.renderBoard(fresh);
+    if (fresh.length) sfx.deal(fresh.length);
+    if (r.created) toast(`${r.created} Chart filed`, 'good');
+    this.busy = false;
+    this.updateActions();
     this.save();
   }
 

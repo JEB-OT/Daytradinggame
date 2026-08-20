@@ -214,10 +214,14 @@ interest. Three licences push that ceiling up:
 
 The Floor prints all of this on a strip at the bottom, so you never have to guess.
 
-## Placement order
+## Order of operations
 
-Candles print **left to right**, and `+` does not commute with `×` — an additive candle is worth
-more before a multiplying one. You control the order three ways:
+Candles print **left to right**, and so do brokers. `+` does not commute with `×`, so an additive
+candle or broker is worth more before a multiplying one. You control both.
+
+**Brokers** — drag them along your desk, in a run or on the Floor.
+
+**Candles** — three ways:
 
 - **Click order.** The badge on each candle is its slot.
 - **Drag.** Pick a candle up and drop it on another, on the board or inside your placement.
@@ -228,7 +232,7 @@ more before a multiplying one. You control the order three ways:
 
 | Layer | Count | What it does |
 |---|---:|---|
-| **Brokers** | 118 | Sit on your desk and trigger left to right. The combo engine. |
+| **Brokers** | 119 | Sit on your desk and trigger left to right. The combo engine. You are never offered one you already employ &mdash; unless **Hall of Mirrors** is on the desk, which re-opens the duplicate pool. |
 | **Charts** | 29 | Reshape the candles in your book — bodies, sectors, polarity, enhancements. |
 | **Contracts** | 14 | Permanently level one formation. |
 | **Rumors** | 20 | High-risk power spikes with a real cost. |
@@ -237,8 +241,10 @@ more before a multiplying one. You control the order three ways:
 | **Packs** | 15 | Every tile says exactly what is inside — "Keep 2 of 5 Brokers". The expensive Mega packs let you keep **two**. |
 | **Bonuses** | 12 | Paid out for skipping a non-boss deadline. |
 
-**Broker order matters.** Additive brokers want to sit before multiplicative ones. Drag to
-reorder. Arb Bot copies whatever is to its right, so where you drop it changes everything.
+**Broker order matters, exactly like candle order.** Both fire left to right, so additive brokers
+want to sit before multiplying ones. Drag them around your desk &mdash; on the board or on the Floor
+&mdash; to change the order. Mimic copies whatever is to its right, so where you drop *it* changes
+everything.
 
 Candles stack four independent layers of their own: sector, **enhancement** (Block Tick,
 Leveraged, Rotating, Volatile, Dividend, Hedged, Penny, **Swing**, Sealed), **edition**

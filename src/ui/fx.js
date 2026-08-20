@@ -200,6 +200,21 @@ export const sfx = {
   err:    () => { voice({ freq: 150, dur: 0.14, type: 'sawtooth', gain: 0.05 }); voice({ freq: 140, dur: 0.14, type: 'square', gain: 0.03, detune: 30 }); },
   open:   () => [392, 523, 659].forEach((f, i) => voice({ freq: f, dur: 0.13, type: 'triangle', gain: 0.05, delay: i * 0.07 })),
   tick:   () => voice({ freq: 1200, dur: 0.02, type: 'square', gain: 0.02 }),
+  /** Paper being swept off the desk. */
+  sweep:  (n = 1) => {
+    noise({ from: 2600, to: 500, dur: 0.26, gain: 0.05, q: 0.8 });
+    for (let i = 0; i < Math.min(5, n); i++) {
+      noise({ from: 1800, to: 300, dur: 0.12, gain: 0.028, delay: i * 0.045 });
+      voice({ freq: 260 - i * 18, dur: 0.06, type: 'square', gain: 0.022, delay: i * 0.045 });
+    }
+  },
+  /** Fresh candles landing. */
+  deal:   (n = 1) => {
+    for (let i = 0; i < Math.min(6, n); i++) {
+      voice({ freq: 520 + i * 40, dur: 0.045, type: 'triangle', gain: 0.03, delay: i * 0.05 });
+      noise({ from: 900, to: 2200, dur: 0.05, gain: 0.02, delay: i * 0.05 });
+    }
+  },
 };
 // kept for older call sites
 sfx.chipTick = (i) => sfx.volumeStep(i);

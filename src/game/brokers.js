@@ -363,6 +363,10 @@ add([
     text: 'Copies the ability of the broker immediately to its right',
     copiesRight: true },
 
+  { key: 'hallOfMirrors', name: 'Hall of Mirrors', cost: 10, rarity: 'rare', art: '🎪',
+    text: 'Brokers you already employ can turn up on the Floor again — duplicates allowed',
+    mods: { allowDuplicates: true } },
+
   { key: 'quantIntern', name: 'Apprentice', cost: 7, rarity: 'uncommon', art: '🎓',
     text: '+3 Leverage per level of the formation you printed',
     independent: (ctx, b) => ctx.addLeverage(3 * ctx.formationLevel, b) },
@@ -641,12 +645,23 @@ export function brokerSellValue(inst, state) {
   return base + (state?.mods?.sellBonus ?? 0);
 }
 
+/**
+ * @param opts.exclude    keys already on offer in this same batch
+ * @param opts.owned      keys the player already employs — never offered twice
+ *                        unless Hall of Mirrors is on the desk
+ * @param opts.rarity     restrict to one rarity band
+ * If filtering leaves nothing at all, the restrictions are dropped rather than
+ * handing back undefined.
+ */
 export function rollBrokerKey(rng, opts = {}) {
-  const pool = BROKER_KEYS.filter((k) => {
+  const base = BROKER_KEYS.filter((k) => {
     const d = BROKERS[k];
-    if (opts.exclude?.includes(k)) return false;
-    if (d.rarity === 'legendary' && !opts.allowLegendary) return false;
+    if (opts.rarity && d.rarity !== opts.rarity) return false;
+    if (d.rarity === 'legendary' && !opts.allowLegendary && !opts.rarity) return false;
     return true;
   });
+  const filtered = base.filter((k) =>
+    !opts.exclude?.includes(k) && !opts.owned?.includes(k));
+  const pool = filtered.length ? filtered : (base.length ? base : BROKER_KEYS);
   return rng.pickWeighted(pool.map((k) => ({ item: k, weight: RARITY[BROKERS[k].rarity].weight || 1 })));
 }

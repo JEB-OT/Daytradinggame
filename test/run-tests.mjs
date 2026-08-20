@@ -1,8 +1,8 @@
 import { RNG } from '../src/engine/rng.js';
 import { makeCandle, standardBook, baseVolume, SECTOR_KEYS, polarityOf, isWide, isDoji, candleShape } from '../src/game/candles.js';
 import { evaluate, bestFromBoard, formationStats, FORMATION_KEYS, convictionOf } from '../src/game/formations.js';
-import { BROKERS, BROKER_KEYS, makeBroker, brokerText } from '../src/game/brokers.js';
-import { CHARTS, CONTRACTS, RUMORS, ALL_CONSUMABLES, makeConsumable } from '../src/game/consumables.js';
+import { BROKERS, BROKER_KEYS, makeBroker, brokerText, rollBrokerKey } from '../src/game/brokers.js';
+import { CHARTS, CONTRACTS, RUMORS, ALL_CONSUMABLES, makeConsumable, consumableText } from '../src/game/consumables.js';
 import { LICENSES, LICENSE_KEYS } from '../src/game/licenses.js';
 import { BOSSES, BOSS_KEYS } from '../src/game/bosses.js';
 import { Market } from '../src/game/market.js';
@@ -721,6 +721,105 @@ t('packs deal the right number of options', () => {
   const n = st.book.length;
   S.pickFromPack(st, 0);
   eq(st.book.length, n + 1);
+});
+t('the same broker is never offered twice', () => {
+  const st = S.newRun('NODUP');
+  st.brokers = ['sticky', 'techBro', 'bullPen', 'scalper'].map((k) => makeBroker(k, null));
+  S.computeMods(st);
+  const owned = S.ownedBrokerKeys(st);
+  eq(owned.length, 4);
+  for (let i = 0; i < 600; i++) {
+    const k = rollBrokerKey(new RNG('nd' + i), { owned });
+    ok(!owned.includes(k), 'offered a duplicate: ' + k);
+  }
+});
+t('a shop restock never stocks a broker you employ', () => {
+  const st = S.newRun('NODUP2');
+  st.cash = 100000;
+  st.brokers = ['sticky', 'tickertape', 'techBro'].map((k) => makeBroker(k, null));
+  S.computeMods(st);
+  S.openShop(st);
+  for (let i = 0; i < 120; i++) {
+    for (const it of st.shop.items) {
+      if (it.type === 'broker') ok(!st.brokers.some((b) => b.key === it.key), 'shop offered ' + it.key);
+    }
+    st.shop.rerollCost = 0;          // keep rerolling without going broke
+    ok(S.rerollShop(st).ok);
+  }
+});
+t('a shop restock never repeats within its own stock', () => {
+  const st = S.newRun('NODUP3');
+  st.cash = 100000;
+  st.permanent.slots = 5;
+  S.computeMods(st);
+  S.openShop(st);
+  for (let i = 0; i < 200; i++) {
+    const keys = st.shop.items.filter((it) => it.type === 'broker').map((it) => it.key);
+    eq(new Set(keys).size, keys.length, 'the same broker appeared twice on one Floor');
+    st.shop.rerollCost = 0;
+    S.rerollShop(st);
+  }
+});
+t('Hall of Mirrors re-opens the duplicate pool', () => {
+  const st = S.newRun('MIRROR');
+  st.brokers = [makeBroker('sticky', null), makeBroker('hallOfMirrors', null)];
+  S.computeMods(st);
+  ok(st.mods.allowDuplicates);
+  eq(S.ownedBrokerKeys(st).length, 0);
+  const owned = ['sticky', 'techBro', 'bullPen', 'scalper', 'tickertape'];
+  let dupes = 0;
+  for (let i = 0; i < 1500; i++) if (owned.includes(rollBrokerKey(new RNG('hm' + i), { owned: [] }))) dupes++;
+  ok(dupes > 40, 'expected duplicates to become reachable, saw ' + dupes);
+});
+t('bonus broker rolls respect rarity and ownership', () => {
+  const st = S.newRun('BONUS');
+  st.brokers = Object.keys(BROKERS).filter((k) => BROKERS[k].rarity === 'rare').slice(0, 5)
+    .map((k) => makeBroker(k, null));
+  st.permanent.slots = 40;
+  S.computeMods(st);
+  const before = st.brokers.map((b) => b.key);
+  S.applyBonus(st, 'rareBroker');
+  const added = st.brokers[st.brokers.length - 1];
+  eq(BROKERS[added.key].rarity, 'rare');
+  ok(!before.includes(added.key), 'bonus handed out a duplicate');
+});
+t('rolling never returns undefined even with everything owned', () => {
+  const k = rollBrokerKey(new RNG('all'), { owned: Object.keys(BROKERS) });
+  ok(k && BROKERS[k], 'got ' + k);
+});
+t('Reshuffle costs one more board slot every time', () => {
+  const st = S.newRun('RECALL');
+  const costs = [];
+  for (let i = 0; i < 3; i++) {
+    const before = st.permanent.handSize;
+    st.consumables = [makeConsumable('totalRecall')];
+    S.useConsumable(st, st.consumables[0].uid, []);
+    costs.push(before - st.permanent.handSize);
+  }
+  eq(JSON.stringify(costs), JSON.stringify([1, 2, 3]));
+  eq(st.permanent.slots, 8);
+  eq(st.permanent.chartSlots, 5);
+});
+t('Reshuffle never drops the board below one', () => {
+  const st = S.newRun('RECALL2');
+  for (let i = 0; i < 8; i++) {
+    st.consumables = [makeConsumable('totalRecall')];
+    S.useConsumable(st, st.consumables[0].uid, []);
+  }
+  ok(st.permanent.handSize >= 1, 'board size went to ' + st.permanent.handSize);
+  S.computeMods(st);
+  ok(st.mods.handSize >= 1);
+});
+t('consumable text can depend on run state', () => {
+  const st = S.newRun('CTXT');
+  const d = ALL_CONSUMABLES.totalRecall;
+  const a = consumableText(d, st);
+  st.permanent.recallUses = 3;
+  const b = consumableText(d, st);
+  ok(a !== b, 'Reshuffle blurb should reflect how often it has been used');
+  for (const [k, def] of Object.entries(ALL_CONSUMABLES)) {
+    ok(consumableText(def, st).length > 0, k + ' has no text');
+  }
 });
 t('selling a broker refunds cash and frees a slot', () => {
   const st = S.newRun('SELL');

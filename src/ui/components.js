@@ -1,6 +1,6 @@
 import { SECTORS, ENHANCEMENTS, EDITIONS, STAMPS, candleName, baseVolume, candleShape, bodyLabel, bandOf } from '../game/candles.js';
 import { BROKERS, RARITY, brokerText, brokerSellValue } from '../game/brokers.js';
-import { ALL_CONSUMABLES } from '../game/consumables.js';
+import { ALL_CONSUMABLES, consumableText } from '../game/consumables.js';
 import { LICENSES } from '../game/licenses.js';
 
 // ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ export function consumableTip(inst, state) {
     extra = '<div class="tt-foot">Click to use · right-click to sell</div>';
   }
   return `<h4>${d.name}</h4><div class="tt-rarity" style="color:${col}">${fam}</div>
-    <div class="tt-body">${d.text}</div>${extra}`;
+    <div class="tt-body">${consumableText(d, state)}</div>${extra}`;
 }
 
 export function licenseTip(key) {

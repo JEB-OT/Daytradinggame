@@ -1,7 +1,7 @@
 import { money, bignum } from '../engine/util.js';
 import { FORMATION_KEYS, FORMATIONS, formationStats } from '../game/formations.js';
 import { BROKERS, RARITY, brokerText } from '../game/brokers.js';
-import { ALL_CONSUMABLES } from '../game/consumables.js';
+import { ALL_CONSUMABLES, consumableText } from '../game/consumables.js';
 import { LICENSES } from '../game/licenses.js';
 import { BOSSES } from '../game/bosses.js';
 import { REGIMES } from '../game/market.js';
@@ -112,6 +112,7 @@ export function payoutScreen(game, payout) {
 // THE FLOOR — every purchasable is one uniform tile in a single centred grid,
 // so the layout never leaves a dead column when stock is thin.
 // ---------------------------------------------------------------------------
+let shopDragUid = null;
 export function shopScreen(game) {
   const st = game.state;
   const shop = st.shop;
@@ -121,7 +122,7 @@ export function shopScreen(game) {
     const price = S.itemPrice(st, it.cost);
     const d = it.type === 'broker' ? BROKERS[it.key] : ALL_CONSUMABLES[it.key];
     const KIND = { broker: 'BROKER · DESK SLOT', chart: 'CHART · ONE USE', contract: 'CONTRACT · ONE USE', rumor: 'RUMOR · ONE USE' };
-    const desc = it.type === 'broker' ? brokerText(it.inst, st) : d.text;
+    const desc = it.type === 'broker' ? brokerText(it.inst, st) : consumableText(d, st);
     const rar = it.type === 'broker' ? BROKERS[it.key].rarity : null;
     tiles.push(`<div class="shop-slot ${it.sold ? 'sold' : ''} ${rar ? 'rar-' + rar : 'kind-' + it.type}">
       <div class="s-kind">${KIND[it.type] || it.type.toUpperCase()}</div>
@@ -198,6 +199,28 @@ export function shopScreen(game) {
   const desk = sheet.querySelector('#shop-desk');
   st.brokers.forEach((b) => {
     const el = brokerEl(b, st);
+    el.draggable = true;
+    el.addEventListener('dragstart', (e) => {
+      shopDragUid = b.uid;
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', b.uid); } catch {}
+    });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('drop-target'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drop-target'));
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      el.classList.remove('drop-target');
+      const from = st.brokers.findIndex((q) => q.uid === shopDragUid);
+      const to = st.brokers.findIndex((q) => q.uid === b.uid);
+      if (from < 0 || to < 0 || from === to) return;
+      const [moved] = st.brokers.splice(from, 1);
+      st.brokers.splice(to, 0, moved);
+      sfx.select();
+      shopScreen(game);
+      game.render();
+    });
     el.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       const r = S.sellBroker(st, b.uid);
