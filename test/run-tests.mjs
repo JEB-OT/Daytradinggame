@@ -468,6 +468,92 @@ t('clearing a deadline pays out', () => {
   ok(p.total >= s.slot.reward);
   eq(st.cash, before + p.total);
 });
+t('interest pays $1 per $5 held and caps at $5', () => {
+  const st = S.newRun('INT0');
+  const s = S.startDeadline(st, 0);
+  s.tradesLeft = 0;
+  const at = (cash) => { st.cash = cash; return S.payoutPreview(st).interest; };
+  eq(at(0), 0); eq(at(4), 0); eq(at(5), 1); eq(at(12), 2); eq(at(25), 5); eq(at(90), 5);
+});
+t('interest licences raise the ceiling to $10, $15 and $25', () => {
+  const st = S.newRun('INT1');
+  st.cash = 500;
+  const cap = () => { S.computeMods(st); return st.mods.interestCap; };
+  eq(cap(), 5);
+  st.licenses.push('retirement'); eq(cap(), 10);
+  st.licenses.push('trustFund');  eq(cap(), 15);
+  st.licenses.push('vaultKeys');  eq(cap(), 25);
+  // and the cap is reached at cap x rate held
+  S.startDeadline(st, 0);
+  st.cash = 25 * 5;
+  eq(S.payoutPreview(st).interest, 25);
+  st.cash = 25 * 5 - 5;
+  eq(S.payoutPreview(st).interest, 24);
+});
+t('every unused trade pays $1', () => {
+  const st = S.newRun('TR');
+  const s = S.startDeadline(st, 0);
+  st.cash = 0;
+  s.tradesLeft = 3;
+  const line = S.payoutPreview(st).lines.find((l) => l.label.includes('unused'));
+  eq(line.amount, 3);
+  s.profit = s.quota;
+  const paid = S.finishDeadline(st);
+  eq(paid.lines.find((l) => l.label.includes('unused')).amount, 3);
+});
+t('packs advertise what is inside', () => {
+  for (const p of S.PACKS) {
+    const sum = S.packSummary(p);
+    ok(sum.includes(String(p.choose)) && sum.includes(String(p.size)), p.key + ': ' + sum);
+    ok(S.PACK_CONTENTS[p.family], 'family blurb for ' + p.family);
+  }
+  const multi = S.PACKS.filter((p) => p.choose > 1);
+  ok(multi.length >= 5, 'expected several keep-two packs, got ' + multi.length);
+  ok(multi.some((p) => p.family === 'broker'), 'a keep-two broker pack must exist');
+  ok(multi.every((p) => p.cost >= 9), 'keep-two packs should cost more');
+});
+t('a keep-two pack really hands over two', () => {
+  const st = S.newRun('P2');
+  st.cash = 200;
+  S.openShop(st);
+  st.shop.packs[0] = { ...S.PACKS.find((p) => p.key === 'brokerM'), sold: false };
+  const r = S.buyPack(st, 0);
+  eq(r.pack.picks, 2);
+  eq(r.pack.options.length, 5);
+  S.pickFromPack(st, 0);
+  eq(st.shop.pack.picks, 1, 'still one to take');
+  S.pickFromPack(st, 1);
+  eq(st.shop.pack, null, 'pack closes after the second pick');
+  eq(st.brokers.length, 2);
+});
+t('arrange orders Volume-feeders before Leverage-feeders', () => {
+  const st = S.newRun('ARR2');
+  const s = S.startDeadline(st, 0);
+  s.board = [
+    makeCandle('TECH', 9, true, { enhancement: 'bloodstone' }),
+    makeCandle('TECH', 3, true, { enhancement: 'bullion' }),
+    makeCandle('TECH', 7, true, { enhancement: 'cursed' }),
+  ];
+  s.board.forEach((c) => S.toggleSelect(st, c.uid));
+  S.arrangeSelection(st, 'volume');
+  eq(S.selectedCandles(st)[0].enhancement, 'bullion');
+  S.arrangeSelection(st, 'leverage');
+  ok(['bloodstone', 'cursed'].includes(S.selectedCandles(st)[0].enhancement));
+});
+t('dragging reorders the placement and the board', () => {
+  const st = S.newRun('DRAG');
+  const s = S.startDeadline(st, 0);
+  s.board.slice(0, 3).forEach((c) => S.toggleSelect(st, c.uid));
+  const third = S.selectedCandles(st)[2].uid;
+  S.movePlacement(st, third, 0);
+  eq(S.selectedCandles(st)[0].uid, third);
+  const last = s.board[s.board.length - 1].uid;
+  S.moveBoardCandle(st, last, 0);
+  eq(s.board[0].uid, last);
+  eq(s.sortMode, 'manual');
+  S.refillBoard(st);
+  eq(s.board[0].uid, last, 'a manual order survives a refill');
+});
 t('interest is capped', () => {
   const st = S.newRun('INT');
   st.cash = 500;

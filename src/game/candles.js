@@ -173,6 +173,20 @@ export function sortCandles(list, mode = 'body') {
   return copy;
 }
 
+/**
+ * Which half of the equation a candle mostly feeds. Placement order matters
+ * because "+" and "x" do not commute: everything additive wants to land before
+ * anything multiplicative.
+ */
+const LEVERAGE_SPECIALS = new Set(['bloodstone', 'glasswork', 'cursed', 'beacon', 'wishbone']);
+const VOLUME_SPECIALS = new Set(['bullion', 'ember', 'obsidian']);
+export function contributionOf(c) {
+  if (c.enhancement && LEVERAGE_SPECIALS.has(c.enhancement)) return 'leverage';
+  if (c.enhancement && VOLUME_SPECIALS.has(c.enhancement)) return 'volume';
+  if (c.edition === 'holographic' || c.edition === 'algorithmic') return 'leverage';
+  return 'volume';  // a plain candle just adds its body
+}
+
 export function describeCandle(c) {
   const bits = [];
   if (c.edition) bits.push(EDITIONS[c.edition].name);

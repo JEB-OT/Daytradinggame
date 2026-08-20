@@ -181,6 +181,38 @@ falling in one click, so the mechanic is a decision rather than a chore.
 
 ---
 
+## Money
+
+Cash is what buys the desk that beats week 5, so the payout matters as much as the quota.
+Clearing a deadline pays:
+
+| Source | Pays |
+|---|---|
+| Clearing the deadline | **$4 / $5 / $7** for the three slots |
+| Every trade you did **not** need | **$1** each |
+| Interest on what you are holding | **$1 per $5**, up to **$5** — maxed once you have $25 banked |
+
+So there is a real tension between spending on the Floor and banking enough to earn the full
+interest. Three licences push that ceiling up:
+
+| Licence | Interest cap | Maxed at |
+|---|---|---|
+| Retirement Account | $10 | $50 held |
+| Trust Fund | $15 | $75 held |
+| The Vault Keys | $25 | $125 held |
+
+The Floor prints all of this on a strip at the bottom, so you never have to guess.
+
+## Placement order
+
+Candles print **left to right**, and `+` does not commute with `×` — an additive candle is worth
+more before a multiplying one. You control the order three ways:
+
+- **Click order.** The badge on each candle is its slot.
+- **Drag.** Pick a candle up and drop it on another, on the board or inside your placement.
+- **`ARRANGE` / `A`** cycles five presets: **Rising ▲**, **Falling ▼** (the shapes the two marches
+  want), **Volume 1st**, **Leverage 1st**, and **Reverse**.
+
 ## Building a desk
 
 | Layer | Count | What it does |
@@ -191,7 +223,7 @@ falling in one click, so the mechanic is a decision rather than a chore.
 | **Rumors** | 20 | High-risk power spikes with a real cost. |
 | **Licences** | 28 | Permanent run upgrades, in 14 two-tier chains. |
 | **Bosses** | 29 | One rule each, and it's always the wrong one for your build. |
-| **Packs** | 13 | Pick 1–2 from a spread of candles, brokers or consumables. |
+| **Packs** | 15 | Every tile says exactly what is inside — "Keep 2 of 5 Brokers". The expensive Mega packs let you keep **two**. |
 | **Bonuses** | 12 | Paid out for skipping a non-boss deadline. |
 
 **Broker order matters.** Additive brokers want to sit before multiplicative ones. Drag to

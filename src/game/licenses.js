@@ -44,9 +44,14 @@ export const LICENSES = {
     text: '+18% more signal accuracy', mods: { accuracy: 0.18 } },
 
   retirement: { key: 'retirement', name: 'Retirement Account', art: '🥧', cost: 10, tier: 1, upgrade: 'trustFund',
-    text: 'Interest cap +$5', mods: { interestCap: 5 } },
-  trustFund: { key: 'trustFund', name: 'Trust Fund', art: '🎩', cost: 10, tier: 2, requires: 'retirement',
-    text: 'Interest cap +$5 again', mods: { interestCap: 5 } },
+    text: 'Interest pays up to $10 a deadline instead of $5 — maxed once you hold $50',
+    mods: { interestCap: 5 } },
+  trustFund: { key: 'trustFund', name: 'Trust Fund', art: '🎩', cost: 12, tier: 2, requires: 'retirement',
+    text: 'Interest pays up to $15 a deadline — maxed once you hold $75',
+    mods: { interestCap: 5 } },
+  vaultKeys: { key: 'vaultKeys', name: 'The Vault Keys', art: '🗝️', cost: 16, tier: 3, requires: 'trustFund',
+    text: 'Interest pays up to $25 a deadline — maxed once you hold $125',
+    mods: { interestCap: 10 } },
 
   clearingHouse: { key: 'clearingHouse', name: 'Clearing House', art: '🏤', cost: 10, tier: 1, upgrade: 'primeBroker',
     text: 'Contract Packs appear far more often', mods: { contractWeight: 2 } },

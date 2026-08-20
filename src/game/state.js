@@ -1,5 +1,5 @@
 import { RNG, randomSeedString } from '../engine/rng.js';
-import { standardBook, makeCandle, SECTOR_KEYS, BODIES, MAX_BODY, sortCandles, isWide, ROLLABLE_ENHANCEMENTS } from './candles.js';
+import { standardBook, makeCandle, SECTOR_KEYS, BODIES, MAX_BODY, sortCandles, isWide, ROLLABLE_ENHANCEMENTS, contributionOf } from './candles.js';
 import { defaultFormationLevels, FORMATION_KEYS, FORMATIONS } from './formations.js';
 import { BROKERS, makeBroker, rollBrokerKey, brokerSellValue, RARITY } from './brokers.js';
 import { CHARTS, CONTRACTS, RUMORS, ALL_CONSUMABLES, makeConsumable, rollChart, rollContract, rollRumor } from './consumables.js';
@@ -42,18 +42,35 @@ export const BONUS_KEYS = Object.keys(BONUSES);
 export const PACKS = [
   { key: 'chartS',  name: 'Chart Pack',          family: 'chart',    art: '📊', cost: 4, size: 3, choose: 1, weight: 10 },
   { key: 'chartJ',  name: 'Jumbo Chart Pack',    family: 'chart',    art: '📊', cost: 6, size: 5, choose: 1, weight: 5 },
-  { key: 'chartM',  name: 'Mega Chart Pack',     family: 'chart',    art: '📊', cost: 8, size: 5, choose: 2, weight: 2 },
+  { key: 'chartM',  name: 'Mega Chart Pack',     family: 'chart',    art: '📊', cost: 9, size: 5, choose: 2, weight: 2 },
   { key: 'ctS',     name: 'Contract Pack',       family: 'contract', art: '📜', cost: 4, size: 3, choose: 1, weight: 8 },
   { key: 'ctJ',     name: 'Jumbo Contract Pack', family: 'contract', art: '📜', cost: 6, size: 5, choose: 1, weight: 4 },
-  { key: 'ctM',     name: 'Mega Contract Pack',  family: 'contract', art: '📜', cost: 8, size: 5, choose: 2, weight: 2 },
+  { key: 'ctM',     name: 'Mega Contract Pack',  family: 'contract', art: '📜', cost: 9, size: 5, choose: 2, weight: 2 },
   { key: 'rumorS',  name: 'Rumor Pack',          family: 'rumor',    art: '🗣️', cost: 6, size: 2, choose: 1, weight: 4 },
   { key: 'rumorJ',  name: 'Jumbo Rumor Pack',    family: 'rumor',    art: '🗣️', cost: 8, size: 4, choose: 1, weight: 2 },
+  { key: 'rumorM',  name: 'Mega Rumor Pack',     family: 'rumor',    art: '🗣️', cost: 12, size: 4, choose: 2, weight: 1 },
   { key: 'candleS', name: 'Candle Pack',         family: 'candle',   art: '🕯️', cost: 4, size: 3, choose: 1, weight: 9 },
   { key: 'candleJ', name: 'Jumbo Candle Pack',   family: 'candle',   art: '🕯️', cost: 6, size: 5, choose: 1, weight: 5 },
-  { key: 'candleM', name: 'Mega Candle Pack',    family: 'candle',   art: '🕯️', cost: 8, size: 5, choose: 2, weight: 2 },
+  { key: 'candleM', name: 'Mega Candle Pack',    family: 'candle',   art: '🕯️', cost: 9, size: 5, choose: 2, weight: 2 },
   { key: 'brokerS', name: 'Buyout Pack',         family: 'broker',   art: '🧑‍💼', cost: 6, size: 2, choose: 1, weight: 7 },
-  { key: 'brokerJ', name: 'Jumbo Buyout Pack',   family: 'broker',   art: '🧑‍💼', cost: 8, size: 4, choose: 1, weight: 3 },
+  { key: 'brokerJ', name: 'Jumbo Buyout Pack',   family: 'broker',   art: '🧑‍💼', cost: 9, size: 4, choose: 1, weight: 3 },
+  { key: 'brokerM', name: 'Mega Buyout Pack',    family: 'broker',   art: '🧑‍💼', cost: 13, size: 5, choose: 2, weight: 1 },
 ];
+
+/** What a pack family is called on the tile, singular and plural. */
+export const PACK_CONTENTS = {
+  chart:    { one: 'Chart',    many: 'Charts',    blurb: 'reshape the candles in your book' },
+  contract: { one: 'Contract', many: 'Contracts', blurb: 'permanently level up a formation' },
+  rumor:    { one: 'Rumor',    many: 'Rumors',    blurb: 'high risk, high reward' },
+  candle:   { one: 'Candle',   many: 'Candles',   blurb: 'added straight to your book' },
+  broker:   { one: 'Broker',   many: 'Brokers',   blurb: 'hired onto your desk' },
+};
+
+/** "Keep 2 of 5 Brokers" — the headline on a pack tile. */
+export function packSummary(pack) {
+  const c = PACK_CONTENTS[pack.family];
+  return `Keep ${pack.choose} of ${pack.size} ${pack.size > 1 ? c.many : c.one}`;
+}
 
 // ---------------------------------------------------------------------------
 export function newRun(seedString, opts = {}) {
@@ -222,7 +239,7 @@ export function refillBoard(state) {
     fresh.push(c);
   }
   if (bossDef?.onDeal && fresh.length && !(s.bossGraceLeft > 0)) bossDef.onDeal(state, fresh, s.rng);
-  s.board = sortCandles(s.board, s.sortMode || 'body');
+  if (s.sortMode !== 'manual') s.board = sortCandles(s.board, s.sortMode || 'body');
   return fresh;
 }
 
@@ -240,16 +257,58 @@ export function toggleSelect(state, uid) {
   return s.selected;
 }
 
-/** Reorder the current placement: 'rising' | 'falling' | 'reverse'. */
+export const ARRANGE_MODES = [
+  { key: 'rising',   label: 'RISING ▲',   hint: 'smallest body first — the shape Three White Soldiers wants' },
+  { key: 'falling',  label: 'FALLING ▼',  hint: 'largest body first — the shape Three Black Crows wants' },
+  { key: 'volume',   label: 'VOLUME 1st', hint: 'candles that add Volume print before ones that multiply Leverage' },
+  { key: 'leverage', label: 'LEVER. 1st', hint: 'candles that multiply Leverage print before the Volume ones' },
+  { key: 'reverse',  label: 'REVERSE',    hint: 'flip the current placement end to end' },
+];
+
+/**
+ * Reorder the current placement. Order is not cosmetic: candles print left to
+ * right, so putting the additive ones first and the multiplying ones last is
+ * usually worth more.
+ */
 export function arrangeSelection(state, mode) {
   const s = state.session;
   const picked = selectedCandles(state);
   if (picked.length < 2) return false;
+  const byBody = (a, b) => a.body - b.body;
   let out;
   if (mode === 'reverse') out = picked.slice().reverse();
   else if (mode === 'falling') out = picked.slice().sort((a, b) => b.body - a.body);
-  else out = picked.slice().sort((a, b) => a.body - b.body);
+  else if (mode === 'volume') {
+    out = picked.slice().sort((a, b) =>
+      (contributionOf(a) === 'volume' ? 0 : 1) - (contributionOf(b) === 'volume' ? 0 : 1) || byBody(a, b));
+  } else if (mode === 'leverage') {
+    out = picked.slice().sort((a, b) =>
+      (contributionOf(a) === 'leverage' ? 0 : 1) - (contributionOf(b) === 'leverage' ? 0 : 1) || byBody(a, b));
+  } else out = picked.slice().sort(byBody);
   s.selected = out.map((c) => c.uid);
+  return true;
+}
+
+/** Drag one placed candle to a new slot in the placement. */
+export function movePlacement(state, uid, toIndex) {
+  const s = state.session;
+  const from = s.selected.indexOf(uid);
+  if (from < 0) return false;
+  const to = clamp(toIndex, 0, s.selected.length - 1);
+  if (from === to) return false;
+  s.selected.splice(to, 0, s.selected.splice(from, 1)[0]);
+  return true;
+}
+
+/** Drag a candle to a new spot on the board itself. */
+export function moveBoardCandle(state, uid, toIndex) {
+  const s = state.session;
+  const from = s.board.findIndex((c) => c.uid === uid);
+  if (from < 0) return false;
+  const to = clamp(toIndex, 0, s.board.length - 1);
+  if (from === to) return false;
+  s.board.splice(to, 0, s.board.splice(from, 1)[0]);
+  s.sortMode = 'manual';
   return true;
 }
 
@@ -382,6 +441,26 @@ export function removeFromBook(state, candle) {
 }
 
 // ---------------------------------------------------------------------------
+/**
+ * What clearing right now would pay. Same maths as finishDeadline, without
+ * committing anything, so the board can show the player what is waiting.
+ */
+export function payoutPreview(state) {
+  const s = state.session;
+  const lines = [];
+  if (!s) return { total: 0, lines };
+  let total = s.slot.reward;
+  lines.push({ label: `${s.slot.name} cleared`, amount: s.slot.reward });
+  const unused = Math.max(0, s.tradesLeft);
+  if (unused) { total += unused; lines.push({ label: `${unused} unused trade${unused > 1 ? 's' : ''} × $1`, amount: unused }); }
+  const rate = state.mods.interestRate;
+  const cap = state.mods.interestCap;
+  const interest = Math.min(cap, Math.floor(state.cash / rate));
+  if (interest > 0) total += interest;
+  lines.push({ label: `Interest — $1 per $${rate} held (max $${cap})`, amount: interest, dim: interest === 0 });
+  return { total, lines, interest, interestCap: cap, interestRate: rate };
+}
+
 export function finishDeadline(state) {
   const s = state.session;
   const slot = s.slot;
@@ -390,11 +469,12 @@ export function finishDeadline(state) {
   const lines = [{ label: `${slot.name} cleared`, amount: slot.reward }];
 
   const unused = Math.max(0, s.tradesLeft);
-  if (unused) { cash += unused; lines.push({ label: `${unused} unused trade${unused > 1 ? 's' : ''}`, amount: unused }); }
+  if (unused) { cash += unused; lines.push({ label: `${unused} unused trade${unused > 1 ? 's' : ''} × $1`, amount: unused }); }
 
   const rate = state.mods.interestRate;
-  const interest = Math.min(state.mods.interestCap, Math.floor(state.cash / rate));
-  if (interest > 0) { cash += interest; lines.push({ label: `Interest ($1 per $${rate})`, amount: interest }); }
+  const cap = state.mods.interestCap;
+  const interest = Math.min(cap, Math.floor(state.cash / rate));
+  if (interest > 0) { cash += interest; lines.push({ label: `Interest — $1 per $${rate} held (max $${cap})`, amount: interest }); }
 
   for (const b of state.brokers) {
     const d = BROKERS[b.key];

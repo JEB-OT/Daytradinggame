@@ -1,6 +1,6 @@
 import { money, bignum } from '../engine/util.js';
 import { FORMATION_KEYS, FORMATIONS, formationStats } from '../game/formations.js';
-import { BROKERS, brokerText } from '../game/brokers.js';
+import { BROKERS, RARITY, brokerText } from '../game/brokers.js';
 import { ALL_CONSUMABLES } from '../game/consumables.js';
 import { LICENSES } from '../game/licenses.js';
 import { BOSSES } from '../game/bosses.js';
@@ -120,12 +120,14 @@ export function shopScreen(game) {
   shop.items.forEach((it, i) => {
     const price = S.itemPrice(st, it.cost);
     const d = it.type === 'broker' ? BROKERS[it.key] : ALL_CONSUMABLES[it.key];
-    const kind = it.type === 'broker' ? 'BROKER' : it.type.toUpperCase();
+    const KIND = { broker: 'BROKER · DESK SLOT', chart: 'CHART · ONE USE', contract: 'CONTRACT · ONE USE', rumor: 'RUMOR · ONE USE' };
     const desc = it.type === 'broker' ? brokerText(it.inst, st) : d.text;
-    tiles.push(`<div class="shop-slot ${it.sold ? 'sold' : ''}">
-      <div class="s-kind">${kind}</div>
+    const rar = it.type === 'broker' ? BROKERS[it.key].rarity : null;
+    tiles.push(`<div class="shop-slot ${it.sold ? 'sold' : ''} ${rar ? 'rar-' + rar : 'kind-' + it.type}">
+      <div class="s-kind">${KIND[it.type] || it.type.toUpperCase()}</div>
       <div class="s-art">${d.art}</div>
       <div class="s-name">${d.name}</div>
+      ${rar ? `<div class="s-rarity" style="color:${RARITY[rar].color}">${RARITY[rar].name.toUpperCase()}</div>` : ''}
       <div class="s-desc">${desc}</div>
       <div class="s-price">$${price}</div>
       <button class="btn" data-buy="${i}" ${st.cash < price ? 'disabled' : ''}>BUY</button>
@@ -134,11 +136,13 @@ export function shopScreen(game) {
 
   shop.packs.forEach((p, i) => {
     const price = S.itemPrice(st, p.cost);
-    tiles.push(`<div class="shop-slot kind-pack ${p.sold ? 'sold' : ''}">
-      <div class="s-kind">PACK</div>
+    const c = S.PACK_CONTENTS[p.family];
+    tiles.push(`<div class="shop-slot kind-pack ${p.sold ? 'sold' : ''} ${p.choose > 1 ? 'multi' : ''}">
+      <div class="s-kind">PACK${p.choose > 1 ? ' · KEEP ' + p.choose : ''}</div>
       <div class="s-art">${p.art}</div>
       <div class="s-name">${p.name}</div>
-      <div class="s-desc">Pick ${p.choose} of ${p.size}</div>
+      <div class="s-yield">${S.packSummary(p)}</div>
+      <div class="s-desc">${c.blurb}</div>
       <div class="s-price">$${price}</div>
       <button class="btn" data-pack="${i}" ${st.cash < price ? 'disabled' : ''}>OPEN</button>
     </div>`);
@@ -148,9 +152,10 @@ export function shopScreen(game) {
     const l = LICENSES[shop.license.key];
     const price = S.itemPrice(st, l.cost);
     tiles.push(`<div class="shop-slot kind-licence">
-      <div class="s-kind">LICENCE · PERMANENT</div>
+      <div class="s-kind">LICENCE · REST OF THE RUN</div>
       <div class="s-art">${l.art}</div>
       <div class="s-name">${l.name}</div>
+      <div class="s-yield">Tier ${l.tier} &middot; one per run</div>
       <div class="s-desc">${l.text}</div>
       <div class="s-price">$${price}</div>
       <button class="btn" id="buy-lic" ${st.cash < price ? 'disabled' : ''}>BUY</button>
@@ -164,6 +169,13 @@ export function shopScreen(game) {
       <div style="font-size:22px;color:var(--gold);font-weight:700">${money(st.cash)}</div>
     </div>
     <div class="floor-grid" style="margin-top:14px">${tiles.join('')}</div>
+    <div class="floor-earn">
+      <b>HOW YOU EARN</b>
+      <span><i>$4&ndash;$7</i> for clearing a deadline</span>
+      <span><i>$1</i> for every trade you did not need</span>
+      <span><i>$1</i> per $${st.mods.interestRate} you are holding, up to <i>$${st.mods.interestCap}</i>
+        &mdash; maxed at $${st.mods.interestCap * st.mods.interestRate} banked</span>
+    </div>
     <div class="floor-bar">
       <div class="fb-group">
         <span class="fb-label">DESK</span>
@@ -241,13 +253,19 @@ export function packScreen(game) {
   const open = st.shop.pack;
   if (!open) return shopScreen(game);
 
+  const contents = S.PACK_CONTENTS[open.pack.family];
   const sheet = showOverlay(`
     <div style="text-align:center">
       <h2>${open.pack.name.toUpperCase()}</h2>
-      <div class="sub">Choose ${open.picks} more</div>
+      <div class="pack-lead">
+        <b>${open.picks}</b> more to keep &mdash; ${contents.blurb}
+      </div>
+      <div class="sub" style="margin-bottom:4px">${open.pack.choose > 1
+        ? `This pack lets you keep <b>${open.pack.choose}</b>. Anything you do not take is gone.`
+        : 'Anything you do not take is gone.'}</div>
       <div class="pack-options" id="pack-opts"></div>
-      <button class="btn ghost" id="pack-skip">SKIP</button>
-    </div>`, { dismissable: false, width: '760px' });
+      <button class="btn ghost" id="pack-skip">${open.picks < open.pack.choose ? 'DONE' : 'SKIP'}</button>
+    </div>`, { dismissable: false, width: '820px' });
 
   const wrap = sheet.querySelector('#pack-opts');
   open.options.forEach((opt, i) => {

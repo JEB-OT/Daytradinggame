@@ -27,6 +27,7 @@ class Game {
     FX.setMuted(this.muted);
     this.sortMode = 'body';
     this.arrangeMode = 'rising';
+    this.arrangeIndex = 0;
     this.reducedMotion = localStorage.getItem('margincall.motion') === '0';
     this.applyMotion();
     this.coach = new Set();
@@ -340,7 +341,33 @@ class Game {
       el.style.setProperty('--i', i);
       if (idx >= 0) el.classList.add('selected');
       if (animateNew.includes(c.uid)) { el.classList.add('dealing'); el.style.animationDelay = (i * 45) + 'ms'; }
-      el.onclick = () => this.toggleCandle(c.uid);
+      el.onclick = () => { if (this.didDrag) { this.didDrag = false; return; } this.toggleCandle(c.uid); };
+      el.draggable = true;
+      el.addEventListener('dragstart', (e) => {
+        this.dragCandle = c.uid; this.didDrag = false;
+        el.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        hideTip();
+      });
+      el.addEventListener('dragend', () => el.classList.remove('dragging'));
+      el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('drop-target'); });
+      el.addEventListener('dragleave', () => el.classList.remove('drop-target'));
+      el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        el.classList.remove('drop-target');
+        if (!this.dragCandle || this.dragCandle === c.uid) return;
+        const to = s.board.findIndex((x) => x.uid === c.uid);
+        // Reordering a placed candle changes the print order; otherwise it just
+        // tidies the board.
+        const inPlacement = s.selected.includes(this.dragCandle) && s.selected.includes(c.uid);
+        if (inPlacement) S.movePlacement(st, this.dragCandle, s.selected.indexOf(c.uid));
+        S.moveBoardCandle(st, this.dragCandle, to);
+        this.didDrag = true;
+        this.dragCandle = null;
+        sfx.select();
+        this.renderBoard();
+        this.updatePreview();
+      });
       row.appendChild(el);
     });
   }
@@ -393,8 +420,8 @@ class Game {
     $('btn-short').disabled = !canTrade;
     $('btn-sweep').disabled = !(has && s.discardsLeft > 0 && !this.busy);
     $('btn-arrange').disabled = !(s && s.selected.length > 1 && !this.busy);
-    $('btn-arrange').textContent = this.arrangeMode === 'rising' ? 'ARRANGE ▲' : 'ARRANGE ▼';
-    $('btn-sort').textContent = SORT_LABEL[this.sortMode];
+    $('btn-arrange').textContent = S.ARRANGE_MODES[this.arrangeIndex % S.ARRANGE_MODES.length].label;
+    $('btn-sort').textContent = st.session?.sortMode === 'manual' ? 'MANUAL' : SORT_LABEL[this.sortMode];
   }
 
   // ---------------------------------------------------------------- input
@@ -419,9 +446,11 @@ class Game {
   arrange() {
     const st = this.state, s = st.session;
     if (!s || this.busy || s.selected.length < 2) return;
-    S.arrangeSelection(st, this.arrangeMode);
-    this.arrangeMode = this.arrangeMode === 'rising' ? 'falling' : 'rising';
+    const mode = S.ARRANGE_MODES[this.arrangeIndex % S.ARRANGE_MODES.length];
+    S.arrangeSelection(st, mode.key);
+    this.arrangeIndex = (this.arrangeIndex + 1) % S.ARRANGE_MODES.length;
     sfx.select();
+    toast(`${mode.label} — ${mode.hint}`, '', 'arrange');
     this.renderBoard();
     this.updatePreview();
   }
@@ -493,11 +522,13 @@ class Game {
 
     $('formation-name').textContent = res.formationName;
     $('formation-level').textContent = 'lv.' + res.level;
-    for (const step of res.steps) {
-      this.setChip('sc-volume', bignum(step.volume));
-      this.setChip('sc-leverage', bignum(step.leverage));
-      $('sc-pl').textContent = '$' + bignum(Math.floor(step.volume * step.leverage));
 
+    const volChip = $('sc-volume'), levChip = $('sc-leverage'), plEl = $('sc-pl'), cashEl = $('t-cash');
+    const VOL_KINDS = ['volume', 'candleVolume', 'xvolume'];
+    const LEV_KINDS = ['leverage', 'xleverage'];
+    let curVol = 0, curLev = 0, hits = 0;
+
+    for (const step of res.steps) {
       const anchor = step.candleUid ? els.get(step.candleUid)
         : step.brokerUid ? $('broker-row').querySelector(`[data-uid="${step.brokerUid}"]`)
         : null;
@@ -506,27 +537,73 @@ class Game {
         void anchor.offsetWidth;
         anchor.classList.add(step.brokerUid ? 'trigger' : 'scoring');
       }
-      if (['volume', 'candleVolume', 'leverage', 'xleverage', 'xvolume', 'money'].includes(step.kind)) {
-        const kind = step.kind === 'candleVolume' ? 'volume' : step.kind;
-        popText(anchor || area, step.text, kind);
-        sfx.chipTick(res.steps.indexOf(step));
+
+      const isVol = VOL_KINDS.includes(step.kind);
+      const isLev = LEV_KINDS.includes(step.kind);
+      const isMult = step.kind === 'xleverage' || step.kind === 'xvolume';
+      const isCash = step.kind === 'money';
+
+      if (isVol || isLev || isCash) {
+        // A long resolution speeds up, so a big desk stays exciting not tedious.
+        const pace = Math.max(0.5, 1 - hits / 34);
+        const target = isCash ? cashEl : (isVol ? volChip : levChip);
+        const flavour = isCash ? 'money' : (isVol ? 'volume' : 'leverage');
+        FX.flyTo(anchor || area, target, step.text, isMult ? flavour + ' mult' : flavour);
+
+        await sleep(110 * pace);                       // let the throw travel
+
+        if (isCash) { FX.impact(cashEl, 1.2); sfx.coin(hits); }
+        else if (isVol) {
+          const to = step.volume;
+          FX.countUp(volChip, curVol, to, 190 * pace, (v) => bignum(v));
+          curVol = to;
+          FX.impact(volChip, isMult ? 2.4 : 1);
+          isMult ? sfx.multStep(hits, step.amount || 2) : sfx.volumeStep(hits);
+        } else {
+          const to = step.leverage;
+          FX.countUp(levChip, curLev, to, 190 * pace, (v) => bignum(v));
+          curLev = to;
+          FX.impact(levChip, isMult ? 2.6 : 1);
+          if (isMult) { sfx.multStep(hits, step.amount || 2); if ((step.amount || 1) >= 3) shake(); }
+          else sfx.leverageStep(hits);
+        }
+        plEl.textContent = '$' + bignum(Math.floor(step.volume * step.leverage));
+        hits++;
+        await sleep(70 * pace);
       } else if (step.kind === 'green') {
         FX.burst('GREEN', res.saved ? 'STOP LOSS SAVED IT' : 'YOU CALLED IT', 'green');
         sfx.green();
         const r = area.getBoundingClientRect();
         particles(r.left + r.width / 2, r.top + r.height / 2, '#43e08a', 26);
+        await sleep(520);
       } else if (step.kind === 'red') {
         FX.burst('RED', 'WRONG WAY', 'red');
         sfx.red(); shake();
+        await sleep(520);
+      } else {
+        curVol = step.volume; curLev = step.leverage;
+        this.setChip('sc-volume', bignum(curVol));
+        this.setChip('sc-leverage', bignum(curLev));
+        plEl.textContent = '$' + bignum(Math.floor(curVol * curLev));
+        if (step.kind === 'base') sfx.place();
+        await sleep(150);
       }
-      await sleep(step.kind === 'green' || step.kind === 'red' ? 520 : 128);
     }
 
-    $('sc-pl').textContent = '$' + bignum(res.pl);
+    // --- the payoff -------------------------------------------------------
+    const tier = res.pl < 500 ? 0 : res.pl < 3000 ? 1 : res.pl < 20000 ? 2 : res.pl < 200000 ? 3 : 4;
+    FX.countUp(plEl, Math.floor(curVol * curLev), res.pl, 420, (v) => '$' + bignum(v));
+    FX.impact(plEl, 2 + tier * 0.3);
     FX.burst('$' + bignum(res.pl), res.capped ? 'CAPPED BY THE CEILING' : res.formationName.toUpperCase(),
       res.correct ? 'green' : 'red');
-    if (res.correct) sfx.cash();
-    await sleep(420);
+    sfx.crescendo(tier);
+    if (tier >= 2) shake(tier >= 3);
+    {
+      const r = $('play-area').getBoundingClientRect();
+      particles(r.left + r.width / 2, r.top + r.height / 2,
+        res.correct ? '#ffd24a' : '#ff5468', 18 + tier * 10, 140 + tier * 40);
+    }
+    await sleep(620);
 
     if (res.money) toast(`${res.money > 0 ? '+' : '-'}$${Math.abs(res.money)} in fees & rebates`, res.money > 0 ? 'good' : 'bad');
     if (res.destroyedCandles?.length) {
