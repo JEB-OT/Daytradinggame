@@ -61,6 +61,8 @@ In game: `?` for the rules, `Esc` for the menu, and hover **anything** to see ex
 | `npm error Missing script: "update"` | The update script is part of the update — you are still on the old branch | See [Updating](#if-the-game-has-not-changed-or-npm-run-update-does-not-exist) |
 | `pathspec ... did not match any file(s) known to git` | Single-branch clone; git cannot see the branch yet | `git remote set-branches origin "*"` then `git fetch origin`, then retry the checkout |
 | A feature from the changelog is missing | You are running an older copy | Check the version in the title screen's bottom corner against [the table above](#checking-which-version-you-actually-have), then `npm run update` |
+| `npm start` prints an old version | The **folder** is behind — this is a git problem, not a browser one | [Start over from a clean clone](#when-nothing-else-works-start-clean) |
+| `npm start` prints the new version but the title screen shows an old one | The **browser** is behind | Hard refresh: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (macOS) |
 | Anything else | — | The game prints the real error on screen now. Send that text and it can be diagnosed |
 
 ### Want a different port?
@@ -146,6 +148,37 @@ After that `npm run update` works, and it will tell you if a branch ever moves a
 
 Once a branch has been merged into the one you are on, the updater stops mentioning it — so after
 the pull request lands, plain `npm run update` on the default branch is the whole story.
+
+### When nothing else works: start clean
+
+`npm start` prints the version and branch of the folder it is running from, every time. That line
+is the truth about your copy — if it says an old version, no amount of hard-refreshing will help,
+because the files on disk really are old.
+
+Git can end up in states that resist `git pull`: a diverged branch, a single-branch clone that
+cannot see the branch you need, a checkout left on a detached HEAD. Rather than untangle it, take
+the guaranteed route &mdash; clone a fresh copy next to the old one:
+
+```bash
+cd ..
+git clone https://github.com/JEB-OT/Daytradinggame.git margincall-fresh
+cd margincall-fresh
+npm start
+```
+
+Check the version line it prints. **Your save lives in the browser, not the folder**, so the fresh
+clone picks up exactly where you left off, and you can delete the old folder once you are happy.
+
+If you would rather repair the folder you have, this resets it to the latest build. It throws away
+any local edits you made to the game's files, so run `git stash` first if you have any:
+
+```bash
+git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+git fetch origin
+git checkout claude/roguelike-day-trading-game-vy5qsg
+git reset --hard origin/claude/roguelike-day-trading-game-vy5qsg
+npm start
+```
 
 ### Checking which version you actually have
 

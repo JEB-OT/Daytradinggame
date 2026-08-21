@@ -23,6 +23,7 @@ export const CHANGELOG = [
       'Cards name what they do — "Foiled (+50 Volume)", not "laminated"',
       'The book opens from anywhere, packs included, and doubles as the way to aim a Chart at a candle',
       'Every dollar in or out floats off the cash you are looking at',
+      'npm start prints the version and branch it is running, every time — so an old copy is visible before you play it',
     ],
   },
   {

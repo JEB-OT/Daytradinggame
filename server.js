@@ -12,9 +12,10 @@
  */
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const START_PORT = Number(process.argv[2] || process.env.PORT || 8080);
@@ -93,12 +94,44 @@ server.on('listening', () => {
   console.log('');
   console.log(`     ${url}`);
   console.log('');
+  // Print the version every single time, not just when an update is found.
+  // "Am I running the build I think I am?" has to be answerable without the
+  // update check working — offline, odd clone, stale refs, all of it. If this
+  // line and the title screen disagree, the browser is serving a cached copy;
+  // if they agree and both look old, the folder is behind. Two very different
+  // problems that used to look identical.
+  console.log(`  version  ${localBuild()}`);
+  console.log('');
   console.log('  Leave this window open while you play.');
   console.log('  Press Ctrl+C here to stop the server.');
+  console.log('');
+  console.log('  The title screen shows this same version in its bottom corner.');
+  console.log('  If it shows an older one, hard-refresh the page:');
+  console.log('     Ctrl+Shift+R  (Windows/Linux)   ·   Cmd+Shift+R  (macOS)');
   console.log('');
   if (process.env.NO_OPEN !== '1') openBrowser(url);
   if (process.env.MC_NO_UPDATE_CHECK !== '1') announceUpdate();
 });
+
+/**
+ * The version in this folder, and the branch it came from — read straight off
+ * disk so it works with no git, no network and no remote at all.
+ */
+function localBuild() {
+  let version = 'unknown (this copy predates version stamping)';
+  try {
+    const src = readFileSync(resolve(ROOT, 'src/engine/version.js'), 'utf8');
+    const v = src.match(/VERSION\s*=\s*'([^']+)'/)?.[1];
+    const n = src.match(/VERSION_NAME\s*=\s*'([^']+)'/)?.[1];
+    if (v) version = `${v}${n ? ' — ' + n : ''}`;
+  } catch { /* an unreadable version file is still a running game */ }
+  let branch = null;
+  try {
+    branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'],
+      { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch { /* not a clone, or no git — the version alone still answers it */ }
+  return branch ? `${version}   (branch: ${branch})` : version;
+}
 
 /**
  * Tell the player when they are about to play an old copy.
