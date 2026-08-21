@@ -92,6 +92,24 @@ Then `npm start`, and **hard-refresh** the page: `Ctrl+Shift+R` (Windows/Linux) 
 eat your work, and tells you which version you ended up on. Your save lives in the browser, not the
 repo, so none of this touches your run.
 
+> **Use `npm run update`, not `git pull`.** `git pull` only updates the branch you are standing on.
+> When a build lands on another branch it says `Already up to date` and changes nothing, which is
+> indistinguishable from everything being fine. `npm run update` asks the question you actually
+> meant. From **v1.3.2** `npm start` also checks on its own and prints a notice if you are behind:
+>
+> ```
+>   ┌──────────────────────────────────────────────┐
+>   │  A NEWER VERSION OF THE GAME IS AVAILABLE    │
+>   └──────────────────────────────────────────────┘
+>      v1.3.1 is on claude/day-trading-candle-mechanics-mordep,
+>      which has 2 commits this copy does not.
+>
+>      Stop the server (Ctrl+C) and run:  npm run update
+> ```
+>
+> It runs after the server is already up and never blocks it — no git, no network or no news are
+> all equally silent. `MC_NO_UPDATE_CHECK=1 npm start` turns it off.
+
 ### If the game has not changed, or `npm run update` does not exist
 
 Both symptoms have the same cause: **you are on a branch that does not have the new work.** New
@@ -135,7 +153,8 @@ the pull request lands, plain `npm run update` on the default branch is the whol
 
 | Version | What you should see |
 |---|---|
-| **v1.3.1** — The Print Shop | Everything below, plus: hovering cards is smooth, and **clicking the DECK** opens the book on what is left to draw |
+| **v1.3.2** — The Print Shop | Everything below, plus: `npm start` warns you when a newer version exists |
+| v1.3.1 — The Print Shop | Hovering cards is smooth, and **clicking the DECK** opens the book on what is left to draw |
 | v1.3.0 — The Print Shop | A **DECK** and a **SWEPT** pile either side of your board · the book laid out as fanned rows per sector with a body tally · a **REMAINING** tab · print-shop brokers · your desk visible inside packs |
 | v1.2.0 — The Desk | Sweep animation, no duplicate brokers, draggable desk |
 
@@ -468,6 +487,7 @@ that three of the four have already been dealt.
 ```
 index.html            markup shell
 scripts/update.mjs    `npm run update` — fetch, fast-forward, and find the newest branch
+scripts/version-check.mjs  "is there a newer build?", shared by the updater and `npm start`
 src/styles.css        the whole look
 src/main.js           controller: input, placement order, scoring animation, screen flow
 src/engine/           seeded RNG, formatting, event bus, the version stamp

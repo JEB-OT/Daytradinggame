@@ -10,11 +10,18 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.3.1';
+export const VERSION = 'v1.3.2';
 export const VERSION_NAME = 'The Print Shop';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.3.2',
+    name: 'The Print Shop',
+    notes: [
+      'npm start now tells you when a newer version of the game exists, instead of leaving you to find out',
+    ],
+  },
   {
     version: 'v1.3.1',
     name: 'The Print Shop',
