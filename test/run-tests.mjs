@@ -1,5 +1,5 @@
 import { RNG } from '../src/engine/rng.js';
-import { makeCandle, standardBook, baseVolume, SECTOR_KEYS, polarityOf, isWide, isDoji, candleShape } from '../src/game/candles.js';
+import { makeCandle, standardBook, baseVolume, SECTOR_KEYS, SECTORS, sortCandles, polarityOf, isWide, isDoji, candleShape } from '../src/game/candles.js';
 import { evaluate, bestFromBoard, formationStats, FORMATION_KEYS, convictionOf } from '../src/game/formations.js';
 import { BROKERS, BROKER_KEYS, makeBroker, brokerText, rollBrokerKey } from '../src/game/brokers.js';
 import { CHARTS, CONTRACTS, RUMORS, ALL_CONSUMABLES, makeConsumable, consumableText } from '../src/game/consumables.js';
@@ -706,19 +706,54 @@ t('arrange orders Volume-feeders before Leverage-feeders', () => {
   S.arrangeSelection(st, 'leverage');
   ok(['bloodstone', 'cursed'].includes(S.selectedCandles(st)[0].enhancement));
 });
-t('dragging reorders the placement and the board', () => {
+t('reordering a placement leaves every unplaced candle where it was', () => {
   const st = S.newRun('DRAG');
   const s = S.startDeadline(st, 0);
-  s.board.slice(0, 3).forEach((c) => S.toggleSelect(st, c.uid));
-  const third = S.selectedCandles(st)[2].uid;
+  s.board = [mk('TECH', 13), mk('CRYPTO', 11), mk('ENERGY', 9), mk('FINANCE', 7),
+             mk('TECH', 5), mk('CRYPTO', 3), mk('ENERGY', 2), mk('FINANCE', 1)];
+  // Place the 13, the 9 and the 5 — slots 0, 2 and 4.
+  [0, 2, 4].forEach((i) => S.toggleSelect(st, s.board[i].uid));
+  const untouched = [1, 3, 5, 6, 7].map((i) => s.board[i].uid);
+
+  const third = S.selectedCandles(st)[2].uid;        // the 5
   S.movePlacement(st, third, 0);
-  eq(S.selectedCandles(st)[0].uid, third);
-  const last = s.board[s.board.length - 1].uid;
-  S.moveBoardCandle(st, last, 0);
-  eq(s.board[0].uid, last);
-  eq(s.sortMode, 'manual');
-  S.refillBoard(st);
-  eq(s.board[0].uid, last, 'a manual order survives a refill');
+  eq(S.selectedCandles(st).map((c) => c.body).join(), '5,13,9', 'the placement reordered');
+  eq(s.board.map((c) => c.body).join(), '5,11,13,7,9,3,2,1', 'only the placed slots changed');
+  eq([1, 3, 5, 6, 7].map((i) => s.board[i].uid).join(), untouched.join(),
+     'the unplaced candles never moved');
+});
+t('rearranging does not latch the board out of its sort', () => {
+  const st = S.newRun('STICK');
+  const s = S.startDeadline(st, 0);
+  s.sortMode = 'body';
+  s.board = sortCandles(s.board, 'body');
+
+  // Rearrange a placement, then a plain board tidy — neither is a sort choice.
+  s.board.slice(0, 3).forEach((c) => S.toggleSelect(st, c.uid));
+  S.arrangeSelection(st, 'rising');
+  eq(s.sortMode, 'body', 'ARRANGE is not a sort mode');
+  S.movePlacement(st, S.selectedCandles(st)[2].uid, 0);
+  eq(s.sortMode, 'body', 'nor is dragging within the placement');
+  S.moveBoardCandle(st, s.board[s.board.length - 1].uid, 0);
+  eq(s.sortMode, 'body', 'nor is tidying the board');
+
+  // Play the hand; the redraw comes back in the sort that was chosen, so the
+  // player never has to press SORT again.
+  S.playTrade(st, 'LONG');
+  const bodies = s.board.map((c) => c.body);
+  eq(bodies.join(), bodies.slice().sort((a, b) => b - a).join(),
+     'the board redrew already sorted by body');
+});
+t('a sweep also redraws into the chosen sort', () => {
+  const st = S.newRun('STICK2');
+  const s = S.startDeadline(st, 0);
+  s.sortMode = 'sector';
+  s.board.slice(0, 2).forEach((c) => S.toggleSelect(st, c.uid));
+  S.arrangeSelection(st, 'falling');
+  S.sweepSelected(st);
+  const order = s.board.map((c) => Object.keys(SECTORS).indexOf(c.sector));
+  eq(order.join(), order.slice().sort((a, b) => a - b).join(), 'sector order restored');
+  eq(s.sortMode, 'sector');
 });
 t('interest is capped', () => {
   const st = S.newRun('INT');

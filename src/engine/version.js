@@ -10,11 +10,19 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.3.2';
+export const VERSION = 'v1.3.3';
 export const VERSION_NAME = 'The Print Shop';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.3.3',
+    name: 'The Print Shop',
+    notes: [
+      'The sort you pick sticks — rearranging a placement no longer leaves the board unsorted for the rest of the deadline',
+      'Reordering your placement moves only the candles you placed; the rest hold station',
+    ],
+  },
   {
     version: 'v1.3.2',
     name: 'The Print Shop',

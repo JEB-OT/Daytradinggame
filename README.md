@@ -153,7 +153,8 @@ the pull request lands, plain `npm run update` on the default branch is the whol
 
 | Version | What you should see |
 |---|---|
-| **v1.3.2** — The Print Shop | Everything below, plus: `npm start` warns you when a newer version exists |
+| **v1.3.3** — The Print Shop | Everything below, plus: the board sort sticks through a rearrange and a redraw |
+| v1.3.2 — The Print Shop | `npm start` warns you when a newer version exists |
 | v1.3.1 — The Print Shop | Hovering cards is smooth, and **clicking the DECK** opens the book on what is left to draw |
 | v1.3.0 — The Print Shop | A **DECK** and a **SWEPT** pile either side of your board · the book laid out as fanned rows per sector with a body tally · a **REMAINING** tab · print-shop brokers · your desk visible inside packs |
 | v1.2.0 — The Desk | Sweep animation, no duplicate brokers, draggable desk |
@@ -350,6 +351,11 @@ candle or broker is worth more before a multiplying one. You control both.
 placement is re-derived from where the cards actually sit — so once you have rearranged anything,
 the badges read `1 2 3` straight across and **what you see left to right is what prints**. Click
 order only decides the starting arrangement.
+
+**Rearranging a placement only moves the candles in it.** The placed candles drop back into the
+same slots they already occupied, in the new order, so the candles you did *not* place hold
+station. And the sort you picked with `SPACE` is a standing preference, not a one-off: every
+redraw comes back in it, so you never have to press it again mid-deadline.
 
 ## Building a desk
 

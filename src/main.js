@@ -392,10 +392,15 @@ class Game {
         e.preventDefault();
         el.classList.remove('drop-target');
         if (!this.dragCandle || this.dragCandle === c.uid) return;
-        const to = s.board.findIndex((x) => x.uid === c.uid);
-        // Moving a candle on the board moves it in the print order too — the
-        // placement is re-derived from where the cards actually sit.
-        S.moveBoardCandle(st, this.dragCandle, to);
+        // Dragging one placed candle onto another reorders the placement and
+        // leaves every unplaced candle exactly where it was — otherwise
+        // reordering three cards shunts the other five along with them.
+        // Anything else is a board tidy, which moves the card itself.
+        if (s.selected.includes(this.dragCandle) && s.selected.includes(c.uid)) {
+          S.movePlacement(st, this.dragCandle, s.selected.indexOf(c.uid));
+        } else {
+          S.moveBoardCandle(st, this.dragCandle, s.board.findIndex((x) => x.uid === c.uid));
+        }
         this.didDrag = true;
         this.dragCandle = null;
         sfx.select();
@@ -536,7 +541,7 @@ class Game {
     $('btn-sweep').disabled = !(has && s.discardsLeft > 0 && !this.busy);
     $('btn-arrange').disabled = !(s && s.selected.length > 1 && !this.busy);
     $('btn-arrange').textContent = S.ARRANGE_MODES[this.arrangeIndex % S.ARRANGE_MODES.length].label;
-    $('btn-sort').textContent = st.session?.sortMode === 'manual' ? 'MANUAL' : SORT_LABEL[this.sortMode];
+    $('btn-sort').textContent = SORT_LABEL[this.sortMode];
   }
 
   // ---------------------------------------------------------------- input
