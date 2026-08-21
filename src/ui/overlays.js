@@ -695,6 +695,8 @@ export function helpScreen(game, fromTitle, back) {
           <li><b>Moving a candle moves it in the print order.</b> Drag one, <span class="k">ARRANGE</span>,
               or re-sort the board and the badges re-read <b>1 2 3</b> straight across — what you see
               left to right is what prints.</li>
+          <li>Rearranging a placement only moves the candles <em>in</em> it, and the sort you picked
+              sticks — every redraw comes back in it.</li>
         </ul>
       </div>
       <div>

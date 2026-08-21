@@ -303,7 +303,12 @@ export function refillBoard(state) {
     fresh.push(c);
   }
   if (bossDef?.onDeal && fresh.length && !(s.bossGraceLeft > 0)) bossDef.onDeal(state, fresh, s.rng);
-  if (s.sortMode !== 'manual') s.board = sortCandles(s.board, s.sortMode || 'body');
+  // The sort you picked is a standing preference, not a one-off. Rearranging a
+  // placement used to latch the board into a manual mode it never left, so
+  // every redraw for the rest of the deadline came back unsorted and you had to
+  // press SORT again. A refill only ever happens with the placement already
+  // cleared, so re-sorting here cannot disturb an arrangement in progress.
+  s.board = sortCandles(s.board, s.sortMode || 'body');
   return fresh;
 }
 
@@ -352,6 +357,27 @@ export const ARRANGE_MODES = [
  * right, so putting the additive ones first and the multiplying ones last is
  * usually worth more.
  */
+/**
+ * Seat an ordered placement back onto the board.
+ *
+ * The placed candles drop into the same slots they already occupied, in the new
+ * order — so reordering your hand rearranges *your hand* and nothing else. The
+ * candles you did not place hold station, which is what keeps a sorted board
+ * looking sorted while you shuffle a placement around on top of it.
+ */
+export function applyPlacementOrder(state, ordered) {
+  const s = state.session;
+  if (!s || !ordered?.length) return false;
+  const inPlacement = new Set(s.selected);
+  if (ordered.length !== inPlacement.size || !ordered.every((c) => inPlacement.has(c.uid))) return false;
+  const slots = [];
+  s.board.forEach((c, i) => { if (inPlacement.has(c.uid)) slots.push(i); });
+  if (slots.length !== ordered.length) return false;
+  slots.forEach((slot, i) => { s.board[slot] = ordered[i]; });
+  s.selected = ordered.map((c) => c.uid);
+  return true;
+}
+
 export function arrangeSelection(state, mode) {
   const s = state.session;
   const picked = selectedCandles(state);
@@ -367,26 +393,27 @@ export function arrangeSelection(state, mode) {
     out = picked.slice().sort((a, b) =>
       (contributionOf(a) === 'leverage' ? 0 : 1) - (contributionOf(b) === 'leverage' ? 0 : 1) || byBody(a, b));
   } else out = picked.slice().sort(byBody);
-  // Move the cards themselves, not just the numbers on them: they drop back
-  // into the same board slots they already occupied, in the new order, so the
-  // arrangement you asked for is the arrangement you can see.
-  const slots = [];
-  s.board.forEach((c, i) => { if (picked.includes(c)) slots.push(i); });
-  slots.forEach((slot, i) => { s.board[slot] = out[i]; });
-  s.sortMode = 'manual';
-  s.selected = out.map((c) => c.uid);
-  return true;
+  // Move the cards themselves, not just the numbers on them, so the arrangement
+  // you asked for is the arrangement you can see.
+  return applyPlacementOrder(state, out);
 }
 
-/** Drag one placed candle to a new slot in the placement. */
+/**
+ * Drag one placed candle to a new slot in the placement.
+ *
+ * Only the placed candles move. Splicing it into the board instead would shove
+ * every candle to one side of it along by one, which is how reordering three
+ * cards used to scramble the other five.
+ */
 export function movePlacement(state, uid, toIndex) {
   const s = state.session;
   const from = s.selected.indexOf(uid);
   if (from < 0) return false;
   const to = clamp(toIndex, 0, s.selected.length - 1);
   if (from === to) return false;
-  s.selected.splice(to, 0, s.selected.splice(from, 1)[0]);
-  return true;
+  const order = selectedCandles(state);
+  order.splice(to, 0, order.splice(from, 1)[0]);
+  return applyPlacementOrder(state, order);
 }
 
 /** Drag a candle to a new spot on the board itself. */
@@ -397,7 +424,6 @@ export function moveBoardCandle(state, uid, toIndex) {
   const to = clamp(toIndex, 0, s.board.length - 1);
   if (from === to) return false;
   s.board.splice(to, 0, s.board.splice(from, 1)[0]);
-  s.sortMode = 'manual';
   syncPlacementToBoard(state);
   return true;
 }
