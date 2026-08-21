@@ -81,15 +81,23 @@ export function particles(x, y, color, n = 18, spread = 120) {
  * @param power 0 for scraping the quota, 1 for burying it. Scales the count,
  *              the spread, the size and how long it hangs in the air, so just
  *              clearing gives a modest handful and a blowout buries the screen.
+ * @param opts.scale  fraction of the usual count, for splitting one burst
+ *                    across several emitters.
+ * @param opts.aim    radians added to the upward fan, to throw it away from a
+ *                    screen edge rather than straight into one.
  */
 export function moneyBurst(x, y, power = 0, opts = {}) {
-  const layer = document.getElementById('fx-layer');
+  // Its own layer: the emitters are chips in the sidebar, and #fx-layer is
+  // inside the chart panel, which clips anything leaving it.
+  const layer = document.getElementById('cash-layer') || document.getElementById('fx-layer');
   if (!layer) return 0;
   const k = Math.max(0, Math.min(1, power));
   // Web Animations are not touched by the `no-motion` stylesheet rule, so the
   // reduced-motion setting has to be honoured here by hand.
   const calm = document.body.classList.contains('no-motion');
-  const n = calm ? Math.round(3 + k * 7) : Math.round(7 + k * 45);
+  const scale = opts.scale ?? 1;
+  const aim = opts.aim ?? 0;
+  const n = Math.max(1, Math.round((calm ? 3 + k * 7 : 7 + k * 45) * scale));
   const r = layer.getBoundingClientRect();
   // Notes are heavier and rarer than loose dollar signs, so the spray reads as
   // money rather than as confetti that happens to be green.
@@ -105,7 +113,7 @@ export function moneyBurst(x, y, power = 0, opts = {}) {
     el.style.fontSize = (13 + Math.random() * (10 + k * 16)) + 'px';
 
     // Fire mostly upward in a fan, then let gravity take it.
-    const ang = -Math.PI / 2 + (Math.random() - 0.5) * (1.5 + k * 1.1);
+    const ang = -Math.PI / 2 + aim + (Math.random() - 0.5) * (1.5 + k * 1.1);
     const speed = 90 + Math.random() * (110 + k * 260);
     const dx = Math.cos(ang) * speed;
     const rise = Math.sin(ang) * speed;

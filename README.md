@@ -203,8 +203,9 @@ A deadline gives you a cash **quota**, a handful of **trades** and some **sweeps
 5. `Volume × Leverage = P/L`. Reach the quota before you run out of trades, or the run ends.
 
 Clear it and you hit **The Floor** to spend the payout before the next bell — and the screen pays
-you in cash on the way out. **How much depends on how far past the quota you landed:** scrape it
-and a handful of dollar signs come up, bury it six times over and the screen fills with notes.
+you in cash on the way out, thrown by the two numbers that earned it: **Volume** and **Leverage**.
+**How much depends on how far past the quota you landed:** scrape it and a handful of dollar signs
+come up, bury it six times over and the screen fills with notes.
 
 ### The deck and the swept pile
 

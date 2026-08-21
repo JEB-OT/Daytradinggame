@@ -441,6 +441,21 @@ class Game {
     paint('swept-pile', 'swept-stack', 'swept-count', swept);
   }
 
+  /**
+   * Throw cash out of the given elements. Splitting the spray between the
+   * emitters keeps the total the same as one burst while making it obvious
+   * which numbers the money came out of.
+   */
+  cashFrom(ids, power) {
+    const live = ids.map((id) => $(id)).filter((el) => el && el.getBoundingClientRect().width);
+    if (!live.length) return;
+    live.forEach((el) => {
+      const r = el.getBoundingClientRect();
+      FX.moneyBurst(r.left + r.width / 2, r.top + r.height * 0.4, power,
+        { scale: 1 / live.length, aim: 0.34 });
+    });
+  }
+
   /** Kick a pile so it reacts to cards leaving or landing. */
   kickPile(id) {
     const el = $(id);
@@ -758,6 +773,9 @@ class Game {
     }
     await sleep(620);
 
+    // Held for the quota-met beat: render() clears the preview chips back to
+    // zero, and cash pouring out of a pair of zeroes reads like a glitch.
+    this.lastScore = { volume: res.volume, leverage: res.leverage };
     if (res.money) toast(`${res.money > 0 ? '+' : '-'}$${Math.abs(res.money)} in fees & rebates`, res.money > 0 ? 'good' : 'bad');
     if (res.destroyedCandles?.length) {
       for (const c of res.destroyedCandles) els.get(c.uid)?.classList.add('shatter');
@@ -796,9 +814,16 @@ class Game {
     // burying it by 6x buries the screen. Full power is deliberately reached
     // well short of the biggest builds, so the ceiling is a spectacle to chase
     // rather than a wall everything looks the same past.
+    if (this.lastScore) {
+      $('sc-volume').textContent = bignum(this.lastScore.volume);
+      $('sc-leverage').textContent = bignum(this.lastScore.leverage);
+    }
     const over = s?.quota > 0 ? s.profit / s.quota : 1;
     const power = Math.max(0, Math.min(1, (over - 1) / 5));
-    FX.moneyBurst(area.left + area.width / 2, area.top + area.height * 0.56, power);
+    // Thrown by the two numbers that earned it — Volume and Leverage — rather
+    // than from nowhere in particular. Each chip gets half the spray, aimed up
+    // and to the right so it crosses the table instead of the sidebar edge.
+    this.cashFrom(['sc-volume', 'sc-leverage'], power);
     for (let i = 0; i < Math.round(2 + power * 6); i++) setTimeout(() => sfx.coin(i), 120 + i * 90);
     FX.burst('QUOTA MET', 'CLOSE THE BOOKS', 'gold');
     await sleep(900);

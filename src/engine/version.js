@@ -20,7 +20,7 @@ export const CHANGELOG = [
     name: 'Payday',
     notes: [
       'The tape prints live when you call it — the candle opens flat, wanders inside its own range, then settles on its close',
-      'Beat the quota and the money comes out: dollar signs and banknotes, a handful for a squeaker and a screenful for a blowout',
+      'Beat the quota and the money comes out of the Volume and Leverage chips: a handful for a squeaker, a screenful for a blowout',
     ],
   },
   {
