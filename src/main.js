@@ -21,6 +21,8 @@ const SORT_LABEL = { body: 'BODY', sector: 'SECTOR', polarity: 'BULL/BEAR' };
 class Game {
   constructor() {
     this.state = null;
+    /** Last cash total rendered — the delta animation reads off the change. */
+    this.lastCash = null;
     this.chart = new ChartView($('chart'));
     this.busy = false;
     this.muted = localStorage.getItem('margincall.muted') === '1';
@@ -41,11 +43,19 @@ class Game {
 
   toHome() { this.state = null; SC.homeScreen(this); }
   openCompendium(back) { SC.compendiumScreen(this, back); }
-  /** The book, on a given tab, returning to the board when closed. */
+  /**
+   * The book, on a given tab. It comes back to whatever it interrupted: the
+   * board when nothing else is open, the Floor or the pack you were in
+   * otherwise — opening the book must never cost you a pack.
+   */
   openBook(view = 'all') {
-    if (!this.state || this.busy || OV.overlayOpen()) return;
+    if (!this.state || this.busy) return;
+    // Capture the way back before opening: showing the book clears it.
+    const resume = OV.currentResume();
+    if (OV.overlayOpen() && !resume) return;
+    const back = resume || (() => OV.closeOverlay());
     sfx.open();
-    OV.bookScreen(this, () => OV.closeOverlay(), view);
+    OV.bookScreen(this, back, view);
   }
   openGlossary(back) { SC.glossaryScreen(this, back); }
 
@@ -84,6 +94,7 @@ class Game {
 
   startRun(seed) {
     this.state = S.newRun(seed);
+    this.lastCash = null;             // no delta for the money you start with
     this.clearSave();
     this.save();
     OV.closeOverlay();
@@ -94,6 +105,7 @@ class Game {
   continueRun() {
     try {
       this.state = S.deserialize(localStorage.getItem(S.SAVE_KEY));
+      this.lastCash = null;           // nor for the balance a save comes back with
       OV.closeOverlay();
       this.render();
       // A run saved on the Floor picks up right there rather than losing the visit.
@@ -204,6 +216,11 @@ class Game {
       cashEl.textContent = cashTxt;
       cashEl.classList.remove('bump'); void cashEl.offsetWidth; cashEl.classList.add('bump');
     }
+    // Every dollar in or out gets said. Doing it here rather than at each call
+    // site means buying, selling, payouts and a rumor charging you all animate
+    // without any of them having to remember to.
+    if (this.lastCash != null && st.cash !== this.lastCash) FX.cashDelta(st.cash - this.lastCash);
+    this.lastCash = st.cash;
     $('t-slots').textContent = `${S.slotsUsed(st)}/${st.mods.slots}`;
 
     this.renderDeadlineCard();
@@ -642,6 +659,13 @@ class Game {
   useConsumable(inst) {
     const st = this.state;
     const selected = st.session ? [...st.session.selected] : [];
+    // Nothing picked on the board? Then aim it at the book instead of failing
+    // on click — the same picker the Floor and packs use.
+    if (!selected.length && OV.wantsCandles(inst.key)) {
+      sfx.open();
+      return OV.bookScreen(this, () => OV.closeOverlay(), 'all',
+        { inst, onDone: () => { OV.closeOverlay(); this.render(); this.save(); } });
+    }
     const r = S.useConsumable(st, inst.uid, selected);
     if (r.ok) { sfx.buy(); toast(r.msg, 'good'); this.render(); this.save(); }
     else { sfx.err(); toast(r.msg, 'bad'); }
@@ -945,7 +969,7 @@ class Game {
     $('btn-sort').onclick = () => this.sortBoard();
     $('btn-help').onclick = () => OV.helpScreen(this);
     $('btn-menu').onclick = () => (this.state ? OV.menuScreen(this) : this.toHome());
-    $('btn-book').onclick = () => this.state && OV.bookScreen(this, () => OV.closeOverlay());
+    $('btn-book').onclick = () => this.openBook('all');
     $('btn-formations').onclick = () => this.state && OV.formationScreen(this, () => OV.closeOverlay());
 
     window.addEventListener('keydown', (e) => {
@@ -958,6 +982,9 @@ class Game {
         return;
       }
       if (k === 'm') { this.toggleMute(); toast(this.muted ? 'Muted' : 'Unmuted'); return; }
+      // The book reads the same from the board, the Floor and a pack, so its
+      // key works from all three rather than only when nothing is open.
+      if (k === 'b' && st) { this.openBook('all'); return; }
       if (k === '?') { OV.helpScreen(this); return; }
       if (OV.overlayOpen() || !s || this.busy) return;
       if (k === 'l') { e.preventDefault(); this.play('LONG'); }

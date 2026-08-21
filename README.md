@@ -153,7 +153,8 @@ the pull request lands, plain `npm run update` on the default branch is the whol
 
 | Version | What you should see |
 |---|---|
-| **v1.4.0** — Payday | Everything below, plus: the tape prints live when you call it, and beating the quota throws cash |
+| **v1.5.0** — The Fine Print | Everything below, plus: rumors state their cost in red, the book opens from anywhere and aims your Charts, and cash gains and spends animate |
+| v1.4.0 — Payday | The tape prints live when you call it, and beating the quota throws cash |
 | v1.3.3 — The Print Shop | The board sort sticks through a rearrange and a redraw |
 | v1.3.2 — The Print Shop | `npm start` warns you when a newer version exists |
 | v1.3.1 — The Print Shop | Hovering cards is smooth, and **clicking the DECK** opens the book on what is left to draw |
@@ -403,7 +404,34 @@ says so above the options.
 
 Candles stack four independent layers of their own: sector, **enhancement** (Block Tick,
 Leveraged, Rotating, Volatile, Dividend, Hedged, Penny, **Swing**, Sealed), **edition**
-(Laminated, Holographic, Algorithmic) and **stamp** (Reissue, Hold, Payout, Filing).
+(Foiled +50 Volume, Prismatic +10 Leverage, Runed ×1.5 Leverage, Spectral) and **seal**
+(Echo, Anchor, Coin, Rune). Cards call them by those names too &mdash; a rumor reads
+"Make a random broker Foiled (+50 Volume)", never "laminated". Hover any candle to see which
+layers it is carrying and what each one is worth.
+
+### The book is always one click away
+
+**BOOK** sits in the Floor's button row, on the strip inside a pack, in the topbar during a
+deadline, and on the `B` key from all three. Opening it never costs you the pack you were
+part-way through &mdash; it comes back to exactly where you were. Clicking the **DECK** pile
+opens it straight onto REMAINING, which is the question you were actually asking.
+
+### Aiming a Chart
+
+A Chart that wants candles &mdash; "Curse 1 selected candle", "Turn the second selected candle
+into a copy of the first" &mdash; used to need a board to point at, which meant it was dead
+weight on the Floor and inside the pack that sold it to you. Click one now with nothing
+selected and the book opens as a picker: every candle you own, laid out flat, tagged with
+whether it is still in the deck, on the board, or already traded. Pick, press **USE**, and you
+land back where you were. During a deadline, selecting on the board still works exactly as
+before &mdash; the picker is only for when you have not.
+
+### Rumors say what they cost
+
+Rumors are the high-roll layer, and the strong ones now charge for it: cash, burnt candles,
+a permanent board slot. Whatever a rumor takes is printed **in red on the card**, on the shop
+tile and in the tooltip, before you buy it. Five of them act on your board rather than your
+book &mdash; those say so in red as well, and cannot be used on the Floor.
 
 ### The print shop
 

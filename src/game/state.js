@@ -1,5 +1,5 @@
 import { RNG, randomSeedString } from '../engine/rng.js';
-import { standardBook, makeCandle, SECTOR_KEYS, BODIES, MAX_BODY, sortCandles, isWide, ROLLABLE_ENHANCEMENTS, contributionOf } from './candles.js';
+import { standardBook, makeCandle, SECTOR_KEYS, BODIES, MAX_BODY, sortCandles, isWide, ROLLABLE_ENHANCEMENTS, contributionOf, EDITIONS } from './candles.js';
 import { defaultFormationLevels, FORMATION_KEYS, FORMATIONS } from './formations.js';
 import { BROKERS, makeBroker, rollBrokerKey, brokerSellValue, RARITY } from './brokers.js';
 import { CHARTS, CONTRACTS, RUMORS, ALL_CONSUMABLES, makeConsumable, rollChart, rollContract, rollRumor } from './consumables.js';
@@ -964,7 +964,7 @@ export function consumableApi(state, selected) {
       const target = rng.pick(pool);
       target.edition = edition;
       computeMods(state);
-      return { ok: true, msg: `${BROKERS[target.key].name} is now ${edition}`, spared: target };
+      return { ok: true, msg: `${BROKERS[target.key].name} is now ${EDITIONS[edition].name} (${EDITIONS[edition].desc})`, spared: target };
     },
   };
 }
@@ -974,7 +974,11 @@ export function useConsumable(state, uid, selectedUids = []) {
   if (idx < 0) return { ok: false, msg: 'Not found' };
   const inst = state.consumables[idx];
   const d = ALL_CONSUMABLES[inst.key];
-  const pool = state.session ? state.session.board : state.book;
+  // Selection comes off the board during a deadline and out of the book on the
+  // Floor or inside a pack — the book picker is how a Chart that wants candles
+  // gets used when there is no board. Board candles are book candles, so the
+  // union resolves either kind of uid without one shadowing the other.
+  const pool = state.session ? [...state.session.board, ...state.book] : state.book;
   const selected = selectedUids.map((u) => pool.find((c) => c.uid === u)).filter(Boolean);
   const result = d.use(consumableApi(state, selected));
   if (result.ok) {

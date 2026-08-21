@@ -1,6 +1,6 @@
 import { SECTORS, ENHANCEMENTS, EDITIONS, STAMPS, candleName, baseVolume, candleShape, bodyLabel, bandOf } from '../game/candles.js';
 import { BROKERS, RARITY, brokerText, brokerSellValue } from '../game/brokers.js';
-import { ALL_CONSUMABLES, consumableText } from '../game/consumables.js';
+import { ALL_CONSUMABLES, consumableText, consumableDownside } from '../game/consumables.js';
 import { LICENSES } from '../game/licenses.js';
 
 // ---------------------------------------------------------------------------
@@ -136,7 +136,11 @@ export function consumableTip(inst, state) {
   const fam = { chart: 'CHART', contract: 'CONTRACT', rumor: 'RUMOR' }[d.family];
   const col = { chart: 'var(--violet)', contract: 'var(--cyan)', rumor: 'var(--magenta)' }[d.family];
   let extra;
-  if (d.family === 'contract' && state) {
+  // A board-only card in the shop is not broken, it is just out of season —
+  // say so where you are looking rather than only when the click fails.
+  if (d.needsBoard && state && !state.session) {
+    extra = '<div class="tt-foot" style="color:var(--red)">Acts on your board — only usable during a deadline</div>';
+  } else if (d.family === 'contract' && state) {
     const lv = state.formations[d.formation]?.level ?? 1;
     extra = `<div class="tt-foot">Currently level ${lv} → ${lv + 1}</div>`;
   } else if (d.select && d.select[1] > 0) {
@@ -144,8 +148,10 @@ export function consumableTip(inst, state) {
   } else {
     extra = '<div class="tt-foot">Click to use · right-click to sell</div>';
   }
+  const down = consumableDownside(d, state);
   return `<h4>${d.name}</h4><div class="tt-rarity" style="color:${col}">${fam}</div>
-    <div class="tt-body">${consumableText(d, state)}</div>${extra}`;
+    <div class="tt-body">${consumableText(d, state)}</div>
+    ${down ? `<div class="tt-down">${down}</div>` : ''}${extra}`;
 }
 
 export function licenseTip(key) {
