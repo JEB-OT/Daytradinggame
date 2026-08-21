@@ -23,12 +23,56 @@ export class ChartView {
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
   }
 
-  setMarket(m) { this.market = m; this.t = 0; }
+  setMarket(m) { this.market = m; this.t = 0; this.forming = null; }
   pulse(up) { this.flash = 1; this.flashUp = up; }
+
+  /**
+   * Print the freshest candle live instead of having it appear finished.
+   *
+   * It opens flat, wanders through a few waypoints inside its own high/low, and
+   * settles on its close — so the tick you called against visibly happens. The
+   * waypoints are bounded by the candle's real range and the last one IS its
+   * real close, so the shape it lands on is the honest one; nothing here can
+   * change the result, and it deliberately uses Math.random rather than the
+   * run's seeded RNG so a replayed seed still plays out identically.
+   *
+   * Roughly one call in four goes straight to the close with no wandering,
+   * which keeps the flourish from becoming a tic.
+   *
+   * @returns {number} how long the print takes, in ms, for the caller to await.
+   */
+  printCandle(candle) {
+    if (!candle) return 0;
+    const legs = Math.random() < 0.26 ? 0 : 1 + Math.floor(Math.random() * 3);
+    const pts = [candle.open];
+    const range = candle.high - candle.low;
+    for (let i = 0; i < legs; i++) pts.push(candle.low + Math.random() * range);
+    pts.push(candle.close);
+    const dur = 0.34 + legs * 0.16;
+    this.forming = { candle, pts, t: 0, dur, hi: candle.open, lo: candle.open };
+    return Math.round(dur * 1000);
+  }
+
+  /** Where the forming candle is trading this frame. */
+  livePrice(f) {
+    const p = Math.min(1, f.t / f.dur);
+    const n = f.pts.length - 1;
+    const seg = Math.min(n - 1, Math.floor(p * n));
+    const local = Math.min(1, p * n - seg);
+    const e = local * local * (3 - 2 * local);     // ease each leg, not the whole run
+    return f.pts[seg] + (f.pts[seg + 1] - f.pts[seg]) * e;
+  }
 
   loop() {
     this.t += 1 / 60;
     if (this.flash > 0) this.flash = Math.max(0, this.flash - 0.02);
+    if (this.forming) {
+      this.forming.t += 1 / 60;
+      const live = this.livePrice(this.forming);
+      this.forming.hi = Math.max(this.forming.hi, live);
+      this.forming.lo = Math.min(this.forming.lo, live);
+      if (this.forming.t >= this.forming.dur) this.forming = null;
+    }
     this.draw();
     requestAnimationFrame(this.loop);
   }
@@ -81,35 +125,51 @@ export class ChartView {
     ctx.fillStyle = g; ctx.fill();
 
     // candles
+    const f = this.forming;
     view.forEach((c, i) => {
       const x = pad.l + i * cw + cw / 2;
       const bw = Math.max(2, cw * 0.62);
-      const col = c.up ? '#43e08a' : '#ff5c5c';
       const isLast = i === view.length - 1;
+
+      // A candle still printing is drawn from where it is trading right now.
+      // The wick reaches for its real extremes as the print runs, so it lands
+      // exactly on the finished shape with nothing to snap into place.
+      let { open, close, high, low, up } = c;
+      if (f && f.candle === c) {
+        const p = Math.min(1, f.t / f.dur);
+        close = this.livePrice(f);
+        high = Math.max(f.hi, close, c.high * p + Math.max(open, close) * (1 - p));
+        low = Math.min(f.lo, close, c.low * p + Math.min(open, close) * (1 - p));
+        up = close >= open;
+      }
+
+      const col = up ? '#43e08a' : '#ff5c5c';
       ctx.globalAlpha = isLast ? 1 : 0.42 + 0.5 * (i / view.length);
       ctx.strokeStyle = col; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x, yOf(c.high)); ctx.lineTo(x, yOf(c.low)); ctx.stroke();
-      const yo = yOf(c.open), yc = yOf(c.close);
+      ctx.beginPath(); ctx.moveTo(x, yOf(high)); ctx.lineTo(x, yOf(low)); ctx.stroke();
+      const yo = yOf(open), yc = yOf(close);
       const top = Math.min(yo, yc), bh = Math.max(1.5, Math.abs(yc - yo));
       ctx.fillStyle = col;
       ctx.fillRect(x - bw / 2, top, bw, bh);
       if (isLast) {
-        ctx.shadowColor = col; ctx.shadowBlur = 14;
+        ctx.shadowColor = col; ctx.shadowBlur = f && f.candle === c ? 22 : 14;
         ctx.fillRect(x - bw / 2, top, bw, bh);
         ctx.shadowBlur = 0;
       }
     });
     ctx.globalAlpha = 1;
 
-    // last-price rail
+    // last-price rail — it ticks along with a candle that is still printing
     const last = view[view.length - 1];
-    const ly = yOf(last.close);
+    const livePx = f && f.candle === last ? this.livePrice(f) : last.close;
+    const liveUp = f && f.candle === last ? livePx >= last.open : last.up;
+    const ly = yOf(livePx);
     ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = last.up ? 'rgba(67,224,138,.55)' : 'rgba(255,92,92,.55)';
+    ctx.strokeStyle = liveUp ? 'rgba(67,224,138,.55)' : 'rgba(255,92,92,.55)';
     ctx.beginPath(); ctx.moveTo(0, ly); ctx.lineTo(w - pad.r + 8, ly); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = last.up ? '#43e08a' : '#ff5c5c';
-    const label = '$' + last.close.toFixed(2);
+    ctx.fillStyle = liveUp ? '#43e08a' : '#ff5c5c';
+    const label = '$' + livePx.toFixed(2);
     ctx.font = '600 11px ui-monospace, monospace';
     const tw = ctx.measureText(label).width + 12;
     ctx.fillRect(w - pad.r + 10, ly - 9, tw, 18);

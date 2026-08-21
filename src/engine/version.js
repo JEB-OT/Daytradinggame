@@ -10,11 +10,19 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.3.3';
-export const VERSION_NAME = 'The Print Shop';
+export const VERSION = 'v1.4.0';
+export const VERSION_NAME = 'Payday';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.4.0',
+    name: 'Payday',
+    notes: [
+      'The tape prints live when you call it — the candle opens flat, wanders inside its own range, then settles on its close',
+      'Beat the quota and the money comes out of the Volume and Leverage chips: a handful for a squeaker, a screenful for a blowout',
+    ],
+  },
   {
     version: 'v1.3.3',
     name: 'The Print Shop',

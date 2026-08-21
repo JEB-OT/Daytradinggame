@@ -153,7 +153,8 @@ the pull request lands, plain `npm run update` on the default branch is the whol
 
 | Version | What you should see |
 |---|---|
-| **v1.3.3** — The Print Shop | Everything below, plus: the board sort sticks through a rearrange and a redraw |
+| **v1.4.0** — Payday | Everything below, plus: the tape prints live when you call it, and beating the quota throws cash |
+| v1.3.3 — The Print Shop | The board sort sticks through a rearrange and a redraw |
 | v1.3.2 — The Print Shop | `npm start` warns you when a newer version exists |
 | v1.3.1 — The Print Shop | Hovering cards is smooth, and **clicking the DECK** opens the book on what is left to draw |
 | v1.3.0 — The Print Shop | A **DECK** and a **SWEPT** pile either side of your board · the book laid out as fanned rows per sector with a body tally · a **REMAINING** tab · print-shop brokers · your desk visible inside packs |
@@ -194,11 +195,17 @@ A deadline gives you a cash **quota**, a handful of **trades** and some **sweeps
 1. Place **1–5 candles** from your board. **The order you place them is the order they print** —
    a numbered badge appears on each one.
 2. What they print is a **formation**, which sets base **Volume** and **Leverage**.
-3. Call the tape: **LONG** or **SHORT**.
+3. Call the tape: **LONG** or **SHORT**. The tick you called against **prints live** — the candle
+   opens flat, wanders inside its own high and low, and settles on its close. About one in four
+   goes straight there, so the wander stays a flourish rather than a tic. It is pure theatre: the
+   shape it lands on was decided before the animation started.
 4. Right call → **GREEN**, full P/L. Wrong call → **RED**, you keep 35%.
 5. `Volume × Leverage = P/L`. Reach the quota before you run out of trades, or the run ends.
 
-Clear it and you hit **The Floor** to spend the payout before the next bell.
+Clear it and you hit **The Floor** to spend the payout before the next bell — and the screen pays
+you in cash on the way out, thrown by the two numbers that earned it: **Volume** and **Leverage**.
+**How much depends on how far past the quota you landed:** scrape it and a handful of dollar signs
+come up, bury it six times over and the screen fills with notes.
 
 ### The deck and the swept pile
 

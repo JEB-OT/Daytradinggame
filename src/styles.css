@@ -648,6 +648,23 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 .burst small { display: block; font-size: 13px; letter-spacing: .2em; opacity: .9; margin-top: 3px }
 .particle { position: absolute; width: 5px; height: 5px; border-radius: 1px; pointer-events: none; }
 
+/* Cash is thrown from the Volume and Leverage chips, which sit in the left
+   sidebar — well outside #fx-layer, whose parent #chart-wrap clips its
+   overflow. So it gets its own viewport-level layer with nothing to clip it,
+   sitting above the board but below the overlays and toasts. */
+#cash-layer {
+  position: fixed; inset: 0; pointer-events: none; overflow: visible; z-index: 6000;
+}
+
+/* cash thrown out of a number that beat its quota */
+.cashbit {
+  position: absolute; pointer-events: none; z-index: 30;
+  font-weight: 900; line-height: 1; will-change: transform, opacity;
+  color: var(--green);
+  text-shadow: 0 2px 0 #06301c, 0 0 14px rgba(69,224,141,.9), 0 0 30px rgba(69,224,141,.5);
+}
+.cashbit.note { text-shadow: 0 2px 6px rgba(0,0,0,.7); filter: drop-shadow(0 0 10px rgba(69,224,141,.55)); }
+
 #toast-stack {
   position: fixed; left: 50%; top: 72px; transform: translateX(-50%);
   display: flex; flex-direction: column; gap: 7px; z-index: 8000; align-items: center;
