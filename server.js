@@ -97,7 +97,43 @@ server.on('listening', () => {
   console.log('  Press Ctrl+C here to stop the server.');
   console.log('');
   if (process.env.NO_OPEN !== '1') openBrowser(url);
+  if (process.env.MC_NO_UPDATE_CHECK !== '1') announceUpdate();
 });
+
+/**
+ * Tell the player when they are about to play an old copy.
+ *
+ * `git pull` answers "am I behind my own branch?", which is not the same
+ * question as "is there a newer version of this game?" — when a build lands on
+ * another branch, pull reports `Already up to date` and the game quietly stays
+ * as it was. That is impossible to distinguish from everything being fine, so
+ * the game says so itself at the one moment the player is guaranteed to look.
+ *
+ * Runs after the server is already listening and never blocks it: no git, no
+ * network, no news — all identical, and all silent. MC_NO_UPDATE_CHECK=1 opts
+ * out entirely.
+ */
+async function announceUpdate() {
+  let news = null;
+  try {
+    const vc = await import('./scripts/version-check.mjs');
+    news = await vc.checkInBackground();
+    if (!news) return;
+    const target = news.suggestion;
+    console.log('  ┌──────────────────────────────────────────────┐');
+    console.log('  │  A NEWER VERSION OF THE GAME IS AVAILABLE    │');
+    console.log('  └──────────────────────────────────────────────┘');
+    if (target) {
+      console.log(`     ${target.version ? target.version + ' is' : 'It is'} on ${target.branch},`);
+      console.log(`     which has ${target.ahead} commit${target.ahead === 1 ? '' : 's'} this copy does not.`);
+    } else {
+      console.log(`     Your branch is ${news.behind} commit${news.behind === 1 ? '' : 's'} behind.`);
+    }
+    console.log('');
+    console.log('     Stop the server (Ctrl+C) and run:  npm run update');
+    console.log('');
+  } catch { /* a version check is never worth interrupting a game for */ }
+}
 
 function listen(port, triesLeft) {
   server.once('error', (err) => {

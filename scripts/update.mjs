@@ -16,22 +16,10 @@
  *
  * Uses nothing but git and Node's standard library, like the rest of the repo.
  */
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-
-/**
- * Branches that may carry a newer build than the default branch, best first.
- * When a feature branch is merged its entry can come out — the script skips
- * any branch that is already contained in the one you are on.
- */
-const RELEASE_BRANCHES = [
-  'claude/day-trading-candle-mechanics-mordep',
-  'claude/roguelike-day-trading-game-vy5qsg',
-];
+// The logic for "where is the newest build?" lives in version-check.mjs,
+// because `npm start` needs exactly the same answer and two copies of a rule
+// this fiddly would drift.
+import { git, tryGit, isRepo, localVersion, newsFor, widenRefspec } from './version-check.mjs';
 
 const C = {
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
@@ -42,23 +30,6 @@ const C = {
   red: (s) => `\x1b[31m${s}\x1b[0m`,
 };
 
-function git(args, opts = {}) {
-  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...opts }).trim();
-}
-/** Run git and hand back null instead of throwing — for questions, not actions. */
-function tryGit(args) {
-  try { return git(args); } catch { return null; }
-}
-
-function localVersion() {
-  try {
-    const src = readFileSync(resolve(ROOT, 'src/engine/version.js'), 'utf8');
-    const v = src.match(/VERSION\s*=\s*'([^']+)'/)?.[1];
-    const n = src.match(/VERSION_NAME\s*=\s*'([^']+)'/)?.[1];
-    return v ? `${v}${n ? ' — ' + n : ''}` : 'unknown';
-  } catch { return 'unknown (this copy predates version stamping)'; }
-}
-
 function line() { console.log(C.dim('─'.repeat(58))); }
 
 // ---------------------------------------------------------------------------
@@ -66,7 +37,7 @@ console.log('');
 console.log(C.bold('  MARGIN CALL — update'));
 line();
 
-if (!tryGit(['rev-parse', '--git-dir'])) {
+if (!isRepo()) {
   console.log(C.red('  This folder is not a git clone.'));
   console.log('  You probably downloaded a ZIP. To get updates, clone it instead:');
   console.log(C.cyan('    git clone https://github.com/JEB-OT/Daytradinggame.git'));
@@ -92,11 +63,7 @@ if (dirty) {
 
 console.log(C.dim('  fetching…'));
 try {
-  // A shallow/single-branch clone only tracks the branch it was made from, so a
-  // plain fetch never even learns the other branches exist and `git checkout`
-  // fails with "pathspec did not match". Widen the refspec first — a no-op on a
-  // normal clone, and the difference between working and not on a narrow one.
-  tryGit(['remote', 'set-branches', 'origin', '*']);
+  widenRefspec();
   git(['fetch', '--all', '--prune'], { stdio: ['ignore', 'pipe', 'inherit'] });
 } catch {
   line();
@@ -128,14 +95,7 @@ if (tryGit(['rev-parse', '--abbrev-ref', '@{upstream}'])) {
 }
 
 // --- is a release branch ahead of where you are? ---------------------------
-let suggestion = null;
-for (const rb of RELEASE_BRANCHES) {
-  const ref = `origin/${rb}`;
-  if (!tryGit(['rev-parse', '--verify', ref])) continue;
-  if (rb === branch) break;                       // already on it
-  const ahead = Number(tryGit(['rev-list', '--count', `HEAD..${ref}`]) || 0);
-  if (ahead > 0) { suggestion = { branch: rb, ahead }; break; }
-}
+const { suggestion } = newsFor(branch);
 
 line();
 const after = localVersion();
