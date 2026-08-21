@@ -2,7 +2,7 @@ import { showOverlay, closeOverlay, helpScreen, runInfoScreen, bookScreen, forma
 import { candleEl, brokerEl, consumableEl } from './components.js';
 import { makeCandle, SECTORS, SECTOR_KEYS, ENHANCEMENTS, ENHANCEMENT_KEYS, EDITIONS, STAMPS, BANDS, bandOf } from '../game/candles.js';
 import { BROKERS, BROKER_KEYS, RARITY, brokerText, makeBroker } from '../game/brokers.js';
-import { ALL_CONSUMABLES, CHARTS, CONTRACTS, RUMORS, consumableText } from '../game/consumables.js';
+import { ALL_CONSUMABLES, CHARTS, CONTRACTS, RUMORS, consumableText, consumableDownside } from '../game/consumables.js';
 import { FORMATIONS, FORMATION_KEYS, formationStats } from '../game/formations.js';
 import { BOSSES, BOSS_KEYS } from '../game/bosses.js';
 import { LICENSES, LICENSE_KEYS } from '../game/licenses.js';
@@ -414,10 +414,13 @@ export function compendiumScreen(game, back, tab = 'candles', query = '') {
     const mk = (obj, label, cls) => {
       const list = Object.values(obj).filter((d) => hit(d.name, consumableText(d, game.state)));
       if (!list.length) return '';
-      return `<h3>${label} · ${list.length}</h3><div class="comp-list">${list.map((d) =>
-        `<div class="cl ${cls}"><span class="cl-art">${d.art}</span>
-          <span class="cl-body"><b>${d.name}</b><small>${consumableText(d, game.state)}</small></span>
-          <span class="cl-cost">$${d.cost}</span></div>`).join('')}</div>`;
+      return `<h3>${label} · ${list.length}</h3><div class="comp-list">${list.map((d) => {
+        const down = consumableDownside(d, game.state);
+        return `<div class="cl ${cls}"><span class="cl-art">${d.art}</span>
+          <span class="cl-body"><b>${d.name}</b><small>${consumableText(d, game.state)}</small>${
+            down ? `<small class="cl-down">${down}</small>` : ''}</span>
+          <span class="cl-cost">$${d.cost}</span></div>`;
+      }).join('')}</div>`;
     };
     body.innerHTML = mk(CHARTS, 'CHARTS', 'k-chart') + mk(CONTRACTS, 'CONTRACTS', 'k-contract') + mk(RUMORS, 'RUMORS', 'k-rumor')
       || '<div class="comp-note">Nothing matches that.</div>';

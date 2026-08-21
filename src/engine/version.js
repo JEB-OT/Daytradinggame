@@ -10,11 +10,21 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.4.0';
-export const VERSION_NAME = 'Payday';
+export const VERSION = 'v1.5.0';
+export const VERSION_NAME = 'The Fine Print';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.5.0',
+    name: 'The Fine Print',
+    notes: [
+      'The rumors that were free money now print what they cost you, in red, on the card',
+      'Cards name what they do — "Foiled (+50 Volume)", not "laminated"',
+      'The book opens from anywhere, packs included, and doubles as the way to aim a Chart at a candle',
+      'Every dollar in or out floats off the cash you are looking at',
+    ],
+  },
   {
     version: 'v1.4.0',
     name: 'Payday',

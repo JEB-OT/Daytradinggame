@@ -41,6 +41,35 @@ export function popText(anchor, text, kind = 'info') {
   setTimeout(() => el.remove(), 1000);
 }
 
+/**
+ * Every dollar in and out, said out loud: +$4 when you are paid, -$4 when you
+ * spend. It reads off whichever cash readout you are actually looking at — the
+ * Floor's, or the topbar's when nothing is open — and floats above the
+ * overlays, because most spending happens inside one.
+ *
+ * Fired from `render()` off a change in state.cash, so it covers every source
+ * (buying, selling, payouts, a rumor charging you) without each one having to
+ * remember to animate.
+ */
+export function cashDelta(n) {
+  if (!n) return;
+  const layer = document.getElementById('delta-layer');
+  const el = document.querySelector('#overlay-root [data-cash-readout]')
+    || document.getElementById('t-cash');
+  if (!layer || !el) return;
+  const q = el.getBoundingClientRect();
+  if (!q.width) return;                       // nothing on screen to point at
+  const d = document.createElement('div');
+  d.className = 'cash-delta ' + (n > 0 ? 'up' : 'down');
+  d.textContent = (n > 0 ? '+$' : '-$') + bignum(Math.abs(n));
+  d.style.left = (q.left + q.width / 2) + 'px';
+  // Two payments landing together must not print on top of each other.
+  d.style.top = (q.top + q.height / 2 + layer.childElementCount * 20) + 'px';
+  layer.appendChild(d);
+  setTimeout(() => d.remove(), 1100);
+  el.classList.remove('cash-hit'); void el.offsetWidth; el.classList.add('cash-hit');
+}
+
 export function burst(text, sub, kind) {
   const layer = document.getElementById('score-burst');
   if (!layer) return;

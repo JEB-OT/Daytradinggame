@@ -2,7 +2,7 @@ import { RNG } from '../src/engine/rng.js';
 import { makeCandle, standardBook, baseVolume, SECTOR_KEYS, SECTORS, sortCandles, polarityOf, isWide, isDoji, candleShape } from '../src/game/candles.js';
 import { evaluate, bestFromBoard, formationStats, FORMATION_KEYS, convictionOf } from '../src/game/formations.js';
 import { BROKERS, BROKER_KEYS, makeBroker, brokerText, rollBrokerKey } from '../src/game/brokers.js';
-import { CHARTS, CONTRACTS, RUMORS, ALL_CONSUMABLES, makeConsumable, consumableText } from '../src/game/consumables.js';
+import { CHARTS, CONTRACTS, RUMORS, ALL_CONSUMABLES, makeConsumable, consumableText, consumableDownside, needsBoard } from '../src/game/consumables.js';
 import { LICENSES, LICENSE_KEYS } from '../src/game/licenses.js';
 import { BOSSES, BOSS_KEYS } from '../src/game/bosses.js';
 import { Market } from '../src/game/market.js';
@@ -1124,13 +1124,26 @@ t('Reshuffle never drops the board below one', () => {
 t('consumable text can depend on run state', () => {
   const st = S.newRun('CTXT');
   const d = ALL_CONSUMABLES.totalRecall;
-  const a = consumableText(d, st);
+  // Reshuffle's price is the escalating half, so it lives in the downside.
+  const a = consumableDownside(d, st);
   st.permanent.recallUses = 3;
-  const b = consumableText(d, st);
-  ok(a !== b, 'Reshuffle blurb should reflect how often it has been used');
+  const b = consumableDownside(d, st);
+  ok(a !== b, 'Reshuffle downside should reflect how often it has been used');
   for (const [k, def] of Object.entries(ALL_CONSUMABLES)) {
     ok(consumableText(def, st).length > 0, k + ' has no text');
   }
+});
+t('every stated downside renders as text', () => {
+  const st = S.newRun('DOWN');
+  let stated = 0;
+  for (const [k, def] of Object.entries(ALL_CONSUMABLES)) {
+    const down = consumableDownside(def, st);
+    if (!def.downside) { ok(down === '', k + ' invented a downside'); continue; }
+    stated++;
+    ok(typeof down === 'string' && down.length > 0, k + ' has an empty downside');
+    ok(!down.includes('undefined'), k + ' downside leaked an undefined');
+  }
+  ok(stated >= 10, 'expected the rebalanced rumors to state their cost, got ' + stated);
 });
 t('selling a broker refunds cash and frees a slot', () => {
   const st = S.newRun('SELL');
@@ -1197,6 +1210,70 @@ t('running out of trades below quota busts the run', () => {
   let last;
   while (s.tradesLeft > 0) { S.toggleSelect(st, s.board[0].uid); last = S.playTrade(st, 'LONG'); }
   ok(last.busted);
+});
+
+// ---------------------------------------------------------------------------
+// Every card, used from both places you can be holding one. A Chart that only
+// works mid-deadline is a Chart you cannot use in the pack that sold it to
+// you, so the rule is: unless the card says it needs a board, it works with a
+// selection out of the book, on the Floor, with no session at all.
+// ---------------------------------------------------------------------------
+function armed(withSession, key) {
+  const st = S.newRun('AUDIT' + key);
+  st.cash = 40;
+  if (withSession) S.startDeadline(st, 0);
+  else S.openShop(st);
+  st.brokers = [makeBroker('sticky', null), makeBroker('tickertape', null)];
+  S.computeMods(st);
+  const inst = makeConsumable(key);
+  st.consumables = [inst];
+  S.computeMods(st);
+  const d = ALL_CONSUMABLES[key];
+  let uids = [];
+  if (d.select && d.select[1] > 0) {
+    const pool = withSession ? st.session.board : st.book;
+    uids = pool.slice(0, Math.max(d.select[0], 1)).map((c) => c.uid);
+    if (withSession) st.session.selected = uids;
+  }
+  return { st, inst, uids };
+}
+
+t('every consumable works mid-deadline', () => {
+  for (const key of Object.keys(ALL_CONSUMABLES)) {
+    const { st, inst, uids } = armed(true, key);
+    const r = S.useConsumable(st, inst.uid, uids);
+    ok(r.ok, key + ' failed on a live board: ' + r.msg);
+    ok(!st.consumables.some((c) => c.uid === inst.uid), key + ' was not spent');
+  }
+});
+
+t('every consumable that does not need a board works on the Floor', () => {
+  for (const key of Object.keys(ALL_CONSUMABLES)) {
+    const { st, inst, uids } = armed(false, key);
+    ok(!st.session, 'the Floor should have no session');
+    const r = S.useConsumable(st, inst.uid, uids);
+    if (needsBoard(key)) {
+      ok(!r.ok, key + ' claims to need a board but ran without one');
+      ok(/deadline/.test(r.msg), key + ' blocked without saying why: ' + r.msg);
+    } else {
+      ok(r.ok, key + ' failed on the Floor: ' + r.msg);
+      ok(!st.consumables.some((c) => c.uid === inst.uid), key + ' was not spent on the Floor');
+    }
+  }
+});
+
+t('a selecting card can be aimed at a candle that is still in the deck', () => {
+  const st = S.newRun('DECKPICK');
+  const s = S.startDeadline(st, 0);
+  const target = s.drawPile.find((c) => !s.board.includes(c));
+  ok(target, 'expected candles left in the draw pile');
+  const inst = makeConsumable('nakedShort');   // Blood Pact — stamps one candle
+  st.consumables = [inst];
+  S.computeMods(st);
+  // Nothing selected on the board: the uid comes straight out of the book.
+  const r = S.useConsumable(st, inst.uid, [target.uid]);
+  ok(r.ok, 'aiming into the deck was refused: ' + r.msg);
+  eq(st.book.find((c) => c.uid === target.uid).stamp, 'reissue');
 });
 
 console.log('');

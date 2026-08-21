@@ -1,7 +1,7 @@
 import { money, bignum } from '../engine/util.js';
 import { FORMATION_KEYS, FORMATIONS, formationStats } from '../game/formations.js';
 import { BROKERS, RARITY, brokerText } from '../game/brokers.js';
-import { ALL_CONSUMABLES, consumableText } from '../game/consumables.js';
+import { ALL_CONSUMABLES, consumableText, consumableDownside } from '../game/consumables.js';
 import { LICENSES } from '../game/licenses.js';
 import { BOSSES } from '../game/bosses.js';
 import { REGIMES } from '../game/market.js';
@@ -17,7 +17,22 @@ export function closeOverlay() { root().innerHTML = ''; hideTip(); }
 export function overlayOpen() { return root().children.length > 0; }
 export function overlayDismissable() { return root().firstElementChild?.dataset.dismissable === '1'; }
 
+/**
+ * The screen the BOOK button should come back to.
+ *
+ * `showOverlay` empties the overlay root, so opening the book from a pack used
+ * to destroy the pack. Screens you can be interrupted mid-way through register
+ * a way back instead; every new overlay clears it, and the ones that want it
+ * re-register themselves on the way in.
+ */
+let resume = null;
+export function setResume(fn) { resume = fn; }
+/** The way back, captured now — `showOverlay` clears the live one. */
+export function currentResume() { return resume; }
+export function hasResume() { return !!resume; }
+
 export function showOverlay(inner, opts = {}) {
+  resume = null;
   const ov = document.createElement('div');
   ov.className = 'overlay';
   ov.dataset.dismissable = opts.dismissable === false ? '0' : '1';
@@ -132,7 +147,13 @@ let shopDragUid = null;
  * desk, so a full desk or a full Chart shelf meant the pick you had just paid
  * for was unreachable with no way to sell anything and make room.
  */
-function floorBarHtml(st, title) {
+/**
+ * @param book  add a way into the book on the strip itself. The Floor has one
+ *              in its button row already; a pack has no row of its own, and the
+ *              topbar is buried under the overlay, so the strip is the only
+ *              place a BOOK button can live while a pack is open.
+ */
+function floorBarHtml(st, title, book = false) {
   return `<div class="floor-bar${title ? ' titled' : ''}">
       ${title ? `<div class="fb-title">${title}</div>` : ''}
       <div class="fb-group">
@@ -143,7 +164,11 @@ function floorBarHtml(st, title) {
         <span class="fb-label">CHARTS <i>${st.consumables.length}/${st.mods.chartSlots}</i></span>
         <div class="fb-items" id="shop-cons"></div>
       </div>
-      <span class="fb-hint">right-click to sell &middot; click a chart to use it &middot; drag to reorder</span>
+      <div class="fb-group fb-tools">
+        ${book ? `<span class="fb-cash" data-cash-readout>${money(st.cash)}</span>` : ''}
+        ${book ? '<button class="btn tiny" id="fb-book">BOOK</button>' : ''}
+        <span class="fb-hint">right-click to sell &middot; click a chart to use it &middot; drag to reorder</span>
+      </div>
     </div>`;
 }
 
@@ -194,9 +219,13 @@ function wireFloorBar(game, sheet, rerender) {
   st.consumables.forEach((c) => {
     const el = consumableEl(c, st);
     el.onclick = () => {
+      // A Chart that wants candles has nothing to point at out here, so the
+      // book opens as a picker instead of the card failing on click. That is
+      // what makes every selecting card usable on the Floor and in a pack.
+      if (wantsCandles(c.key)) return bookScreen(game, rerender, 'all', { inst: c, onDone: rerender });
       const r = S.useConsumable(st, c.uid, []);
       if (r.ok) { sfx.buy(); toast(r.msg, 'good'); rerender(); game.render(); }
-      else toast(r.msg || 'Needs candles selected — use it during a deadline', 'bad');
+      else { sfx.err(); toast(r.msg || 'Nothing for it to work on right now', 'bad'); }
     };
     el.addEventListener('contextmenu', (e) => {
       e.preventDefault(); S.sellConsumable(st, c.uid); sfx.cash(); rerender(); game.render();
@@ -206,6 +235,15 @@ function wireFloorBar(game, sheet, rerender) {
   for (let i = st.consumables.length; i < st.mods.chartSlots; i++) {
     const e = document.createElement('div'); e.className = 'slot-empty'; cons.appendChild(e);
   }
+
+  const bookBtn = sheet.querySelector('#fb-book');
+  if (bookBtn) bookBtn.onclick = () => { sfx.open(); bookScreen(game, rerender); };
+}
+
+/** Does this card need candles pointed out to it before it can do anything? */
+export function wantsCandles(key) {
+  const d = ALL_CONSUMABLES[key];
+  return !!(d && d.select && d.select[1] > 0);
 }
 
 export function shopScreen(game) {
@@ -218,6 +256,7 @@ export function shopScreen(game) {
     const d = it.type === 'broker' ? BROKERS[it.key] : ALL_CONSUMABLES[it.key];
     const KIND = { broker: 'BROKER · DESK SLOT', chart: 'CHART · ONE USE', contract: 'CONTRACT · ONE USE', rumor: 'RUMOR · ONE USE' };
     const desc = it.type === 'broker' ? brokerText(it.inst, st) : consumableText(d, st);
+    const down = it.type === 'broker' ? '' : consumableDownside(d, st);
     const rar = it.type === 'broker' ? BROKERS[it.key].rarity : null;
     // Only reachable by hiring a duplicate under Hall of Mirrors and then
     // selling the Hall — but if it happens, say so instead of failing on click.
@@ -228,6 +267,7 @@ export function shopScreen(game) {
       <div class="s-name">${d.name}</div>
       ${rar ? `<div class="s-rarity" style="color:${RARITY[rar].color}">${RARITY[rar].name.toUpperCase()}</div>` : ''}
       <div class="s-desc">${desc}</div>
+      ${down ? `<div class="s-down">${down}</div>` : ''}
       <div class="s-price">$${price}</div>
       <button class="btn" data-buy="${i}" ${st.cash < price || employed ? 'disabled' : ''}>${employed ? 'EMPLOYED' : 'BUY'}</button>
     </div>`);
@@ -265,7 +305,7 @@ export function shopScreen(game) {
   const sheet = showOverlay(`
     <div class="sheet-head">
       <div><h2>THE FLOOR</h2><div class="sub" style="margin:0">Week ${st.week} · spend it before the bell</div></div>
-      <div style="font-size:22px;color:var(--gold);font-weight:700">${money(st.cash)}</div>
+      <div data-cash-readout style="font-size:22px;color:var(--gold);font-weight:700">${money(st.cash)}</div>
     </div>
     <div class="floor-grid" style="margin-top:14px">${tiles.join('')}</div>
     <div class="floor-earn">
@@ -284,6 +324,7 @@ export function shopScreen(game) {
       <button class="btn primary" id="shop-next">NEXT DEADLINE →</button>
     </div>`, { dismissable: false, width: '1020px' });
 
+  setResume(() => shopScreen(game));
   wireFloorBar(game, sheet, () => shopScreen(game));
 
   sheet.querySelectorAll('[data-buy]').forEach((b) => b.onclick = () => {
@@ -292,7 +333,8 @@ export function shopScreen(game) {
   });
   sheet.querySelectorAll('[data-pack]').forEach((b) => b.onclick = () => {
     const r = S.buyPack(st, +b.dataset.pack);
-    if (r.ok) { sfx.open(); packScreen(game); } else { sfx.err(); toast(r.blocked, 'bad'); }
+    // game.render() so the cash you just spent animates off the topbar too.
+    if (r.ok) { sfx.open(); packScreen(game); game.render(); } else { sfx.err(); toast(r.blocked, 'bad'); }
   });
   sheet.querySelector('#buy-lic')?.addEventListener('click', () => {
     const r = S.buyLicense(st);
@@ -338,7 +380,7 @@ export function packScreen(game) {
       <div class="pack-options" id="pack-opts"></div>
       <button class="btn ghost" id="pack-skip">${open.picks < open.pack.choose ? 'DONE' : 'SKIP'}</button>
     </div>
-    ${floorBarHtml(st, 'YOUR DESK &amp; CHARTS &mdash; sell or use them right here, without losing the pack')}`,
+    ${floorBarHtml(st, 'YOUR DESK &amp; CHARTS &mdash; sell or use them right here, without losing the pack', true)}`,
     { dismissable: false, width: '900px' });
 
   const wrap = sheet.querySelector('#pack-opts');
@@ -360,6 +402,7 @@ export function packScreen(game) {
     };
     wrap.appendChild(el);
   });
+  setResume(() => packScreen(game));
   wireFloorBar(game, sheet, () => packScreen(game));
   sheet.querySelector('#pack-skip').onclick = () => { S.closePack(st); shopScreen(game); };
 }
@@ -473,11 +516,109 @@ function baseCards(shown) {
   </div>`;
 }
 
-export function bookScreen(game, back, view = 'all') {
+/**
+ * Aiming mode. Every candle you own laid out flat and clickable, with a live
+ * count against what the card asks for, so a Chart that wants candles can be
+ * used anywhere: on the Floor, inside a pack, or mid-deadline at a candle that
+ * is still in the deck rather than on your board.
+ */
+function pickScreen(game, back, pick, where) {
+  const st = game.state;
+  const d = ALL_CONSUMABLES[pick.inst.key];
+  const [lo, hi] = d.select;
+  const chosen = new Set();
+
+  // Where each candle is right now. You are allowed to aim at any of them —
+  // the tag is there so you know whether the one you enhance can still be
+  // dealt to you this deadline.
+  const at = new Map();
+  for (const c of where.deck) at.set(c.uid, 'deck');
+  for (const c of where.board) at.set(c.uid, 'board');
+  for (const c of where.swept) at.set(c.uid, 'swept');
+  const WHERE = { deck: 'in the deck', board: 'on the board', swept: 'traded' };
+
+  const order = Object.keys(SECTORS);
+  const list = st.book.slice().sort((a, b) =>
+    order.indexOf(a.sector) - order.indexOf(b.sector) || b.body - a.body);
+
+  const asks = lo === hi ? `${lo} candle${lo === 1 ? '' : 's'}` : `${lo}–${hi} candles`;
+  const down = consumableDownside(d, st);
+
+  const sheet = showOverlay(`
+    <div class="sheet-head">
+      <div><h2>CHOOSE ${asks.toUpperCase()}</h2>
+        <div class="sub" style="margin:0">from anywhere in your book — the deck, the board, or already traded</div></div>
+      <div class="pick-card">
+        <span class="pk-art">${d.art}</span>
+        <span class="pk-body"><b>${d.name}</b>
+          <small>${consumableText(d, st)}</small>
+          ${down ? `<small class="pk-down">${down}</small>` : ''}</span>
+      </div>
+    </div>
+    <div class="pick-grid" id="pick-grid"></div>
+    <div class="btn-row">
+      <span class="pick-count" id="pick-count"></span>
+      <button class="btn primary" id="pick-use" disabled>USE</button>
+      <button class="btn ghost" id="pick-cancel">CANCEL</button>
+    </div>`, { dismissable: false, width: '1180px' });
+
+  const grid = sheet.querySelector('#pick-grid');
+  const count = sheet.querySelector('#pick-count');
+  const useBtn = sheet.querySelector('#pick-use');
+  const refresh = () => {
+    count.textContent = `${chosen.size} of ${asks} chosen`;
+    useBtn.disabled = chosen.size < lo || chosen.size > hi;
+  };
+
+  list.forEach((c) => {
+    const cell = document.createElement('div');
+    cell.className = 'pk-cell at-' + (at.get(c.uid) || 'deck');
+    const el = candleEl(c, { reveal: true });
+    cell.appendChild(el);
+    if (where.dealt) {
+      const tag = document.createElement('span');
+      tag.className = 'pk-where';
+      tag.textContent = WHERE[at.get(c.uid)] || '';
+      cell.appendChild(tag);
+    }
+    cell.onclick = () => {
+      if (chosen.has(c.uid)) { chosen.delete(c.uid); cell.classList.remove('picked'); }
+      else if (chosen.size >= hi) { sfx.err(); return toast(`That card only takes ${asks}`, 'bad'); }
+      else { chosen.add(c.uid); cell.classList.add('picked'); }
+      sfx.select();
+      refresh();
+    };
+    grid.appendChild(cell);
+  });
+  refresh();
+
+  useBtn.onclick = () => {
+    const r = S.useConsumable(st, pick.inst.uid, [...chosen]);
+    if (!r.ok) { sfx.err(); return toast(r.msg, 'bad'); }
+    sfx.buy();
+    toast(r.msg, 'good');
+    game.render();
+    if (pick.onDone) pick.onDone(); else back ? back() : closeOverlay();
+  };
+  sheet.querySelector('#pick-cancel').onclick = () => (back ? back() : closeOverlay());
+  return sheet;
+}
+
+/**
+ * The book, and — when `pick` is set — the way you point a Chart at a candle
+ * without a board to click.
+ *
+ * `pick` is `{ inst, onDone }`: the consumable being aimed, and what to redraw
+ * once it has been used. In pick mode the fanned grid is replaced by a flat
+ * one-card-per-candle grid, because the fan collapses duplicates into a single
+ * cell with a ×N badge and you cannot aim at a card you cannot see.
+ */
+export function bookScreen(game, back, view = 'all', pick = null) {
   const st = game.state;
   const where = S.bookLocations(st);
   const v = BOOK_VIEWS[view] ? view : 'all';
-  const shown = v === 'remaining' ? where.deck : st.book;
+  const shown = v === 'remaining' && !pick ? where.deck : st.book;
+  if (pick) return pickScreen(game, back, pick, where);
 
   const bulls = shown.filter((c) => c.bull).length;
   const enhanced = shown.filter((c) => c.enhancement).length;

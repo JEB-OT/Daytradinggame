@@ -1,10 +1,20 @@
-import { SECTOR_KEYS, SECTORS, makeCandle, BODIES, MAX_BODY, MIN_BODY, STAMPS } from './candles.js';
+import { SECTOR_KEYS, SECTORS, makeCandle, candleName, BODIES, MAX_BODY, MIN_BODY, STAMPS, EDITIONS } from './candles.js';
 import { FORMATION_KEYS, FORMATIONS } from './formations.js';
 
 // ---------------------------------------------------------------------------
 //   CHARTS    reshape the candles in your book
 //   CONTRACTS permanently level a formation
 //   RUMORS    high upside, real cost
+//
+// Card text names things the way the player sees them named. An edition is
+// "Foiled" on the candle, so a card that applies one says Foiled, not
+// `laminated` — the internal key leaking into the blurb is why some effects
+// looked like they did nothing at all. EDITIONS/STAMPS are the single source
+// of those names; never hand-write them.
+//
+// `downside` is the cost of a rumor, rendered in red wherever the card is. If
+// a rumor takes something from you, it says so there — and the code below
+// actually does it.
 //
 // use(api) where api = {
 //   state, rng, selected[],
@@ -131,7 +141,7 @@ addChart([
     } },
 
   { key: 'filing', name: "The Sigil", art: '📮', family: 'chart', cost: 4, select: [1, 1],
-    text: 'Add a random stamp to 1 selected candle',
+    text: `Add a random seal to 1 selected candle — ${Object.values(STAMPS).map((x) => x.name).join(', ')}`,
     use: (api) => {
       const err = need(api, 1, 1); if (err) return { ok: false, msg: err };
       const stamp = api.rng.pick(Object.keys(STAMPS));
@@ -156,12 +166,15 @@ addChart([
     } },
 
   { key: 'roadshow', name: "Gilding", art: '✨', family: 'chart', cost: 4, select: [0, 0],
-    text: 'Laminate a random candle in your book',
+    text: `Make a random candle in your book ${EDITIONS.laminated.name} (${EDITIONS.laminated.desc})`,
     use: (api) => {
       const pool = api.state.book.filter((c) => !c.edition);
-      if (!pool.length) return { ok: false, msg: 'Nothing to laminate' };
-      api.rng.pick(pool).edition = 'laminated';
-      return { ok: true, msg: 'Laminated' };
+      if (!pool.length) return { ok: false, msg: 'Every candle already has an edition' };
+      // Name the candle it landed on. "Laminated" told you nothing about
+      // whether the card had done anything, or to which of fifty-two cards.
+      const hit = api.rng.pick(pool);
+      hit.edition = 'laminated';
+      return { ok: true, msg: `${candleName(hit)} is now ${EDITIONS.laminated.name}` };
     } },
 
   { key: 'ipo', name: "First Light", art: '🌅', family: 'chart', cost: 4, select: [0, 0],
@@ -211,9 +224,27 @@ export const CONTRACT_KEYS = Object.keys(CONTRACTS);
 export const RUMORS = {};
 function addRumor(list) { for (const r of list) RUMORS[r.key] = { family: 'rumor', cost: 4, ...r }; }
 
+/**
+ * A handful of rumors act on the board rather than the book, so there is
+ * nothing for them to do on the Floor or inside a pack. They say so on the
+ * card and block with one message rather than five different ones.
+ */
+const NO_BOARD = 'Needs a board — use it during a deadline';
+
+/** Burn n random candles, never taking the book below a playable five. */
+function burnRandom(api, n) {
+  let burnt = 0;
+  for (let i = 0; i < n && api.state.book.length > 5; i++) {
+    api.destroyCandle(api.rng.pick(api.state.book));
+    burnt++;
+  }
+  return burnt;
+}
+
 addRumor([
   { key: 'nakedShort', name: "Blood Pact", art: '🗡️', select: [1, 1],
-    text: 'Add a Reissue Stamp to 1 selected candle, then burn a random one',
+    text: `Add an ${STAMPS.reissue.name} to 1 selected candle — ${STAMPS.reissue.desc}`,
+    downside: 'Burns a random candle out of your book',
     use: (api) => {
       const e = need(api, 1, 1); if (e) return { ok: false, msg: e };
       api.selected[0].stamp = 'reissue';
@@ -223,31 +254,32 @@ addRumor([
     } },
 
   { key: 'blockTrade', name: "Anchor Rite", art: '🧱', select: [1, 1],
-    text: 'Add a Hold Stamp to 1 selected candle',
+    text: `Add an ${STAMPS.hold.name} to 1 selected candle — ${STAMPS.hold.desc}`,
     use: (api) => { const e = need(api, 1, 1); if (e) return { ok: false, msg: e }; api.selected[0].stamp = 'hold'; return { ok: true, msg: 'Held' }; } },
 
   { key: 'kickback', name: "Bribe", art: '🤑', select: [1, 1],
-    text: 'Add a Payout Stamp to 1 selected candle',
+    text: `Add a ${STAMPS.payout.name} to 1 selected candle — ${STAMPS.payout.desc}`,
     use: (api) => { const e = need(api, 1, 1); if (e) return { ok: false, msg: e }; api.selected[0].stamp = 'payout'; return { ok: true, msg: 'Stamped' }; } },
 
   { key: 'paperTrail', name: "Rune Scrawl", art: '📜', select: [1, 1],
-    text: 'Add a Filing Stamp to 1 selected candle',
+    text: `Add a ${STAMPS.filing.name} to 1 selected candle — ${STAMPS.filing.desc}`,
     use: (api) => { const e = need(api, 1, 1); if (e) return { ok: false, msg: e }; api.selected[0].stamp = 'filing'; return { ok: true, msg: 'Filed' }; } },
 
   { key: 'gilding', name: "Foil Press", art: '✨', select: [0, 0],
-    text: 'Laminate a random broker (+50 Volume)',
+    text: `Make a random broker ${EDITIONS.laminated.name} (${EDITIONS.laminated.desc})`,
     use: (api) => api.editionRandomBroker('laminated') },
 
   { key: 'nakedCall', name: "Prism", art: '🌈', select: [0, 0],
-    text: 'Make a random broker Holographic (+10 Leverage)',
+    text: `Make a random broker ${EDITIONS.holographic.name} (${EDITIONS.holographic.desc})`,
     use: (api) => api.editionRandomBroker('holographic') },
 
   { key: 'quantModel', name: "Runecarver", art: '🔷', select: [0, 0],
-    text: 'Make a random broker Algorithmic (x1.5 Leverage)',
+    text: `Make a random broker ${EDITIONS.algorithmic.name} (${EDITIONS.algorithmic.desc})`,
     use: (api) => api.editionRandomBroker('algorithmic') },
 
   { key: 'offBookDeal', name: "Faustian Deal", art: '🕶️', select: [0, 0],
-    text: 'Make a random broker Off-Book (+1 slot), then fire another at random',
+    text: `Make a random broker ${EDITIONS.offbook.name} — ${EDITIONS.offbook.desc}, so it frees the slot it sits in`,
+    downside: 'Fires another broker at random',
     use: (api) => {
       const r = api.editionRandomBroker('offbook');
       if (!r.ok) return r;
@@ -257,73 +289,94 @@ addRumor([
 
   { key: 'hostileTakeover', name: "Doppelgänger", art: '⚔️', select: [0, 0],
     text: 'Clone a random broker on your desk (needs a slot)',
-    use: (api) => api.copyBroker() },
+    downside: 'Costs $6',
+    use: (api) => {
+      if (api.state.cash < 6) return { ok: false, msg: 'Needs $6' };
+      const r = api.copyBroker();
+      if (r.ok) api.state.cash -= 6;
+      return r;
+    } },
 
-  { key: 'restructure', name: "Upheaval", art: '🏗️', select: [0, 0],
+  { key: 'restructure', name: "Upheaval", art: '🏗️', select: [0, 0], needsBoard: true,
     text: 'Rotate every candle on your board into one random sector',
+    downside: 'Permanent — those candles keep the new sector for the rest of the run',
     use: (api) => {
       const board = api.state.session?.board || [];
-      if (!board.length) return { ok: false, msg: 'No board to restructure' };
+      if (!board.length) return { ok: false, msg: NO_BOARD };
       const s = api.rng.pick(SECTOR_KEYS);
       for (const c of board) c.sector = s;
       return { ok: true, msg: `Board rotated to ${SECTORS[s].name}` };
     } },
 
-  { key: 'squeezePlay', name: "Ascension", art: '🕊️', select: [0, 0],
+  { key: 'squeezePlay', name: "Ascension", art: '🕊️', select: [0, 0], needsBoard: true,
     text: 'Turn every candle on your board BULL and step their bodies into a rising ladder',
+    downside: 'Costs $5, and the new bodies are permanent',
     use: (api) => {
       const board = api.state.session?.board || [];
-      if (!board.length) return { ok: false, msg: 'No board' };
+      if (!board.length) return { ok: false, msg: NO_BOARD };
       board.forEach((c, i) => { c.bull = true; c.body = Math.min(MAX_BODY, 2 + i); });
-      return { ok: true, msg: 'Ladder printed' };
+      api.state.cash = Math.max(0, api.state.cash - 5);
+      return { ok: true, msg: 'Ladder printed — $5' };
     } },
 
-  { key: 'capitulation', name: "Descent", art: '🩸', select: [0, 0],
+  { key: 'capitulation', name: "Descent", art: '🩸', select: [0, 0], needsBoard: true,
     text: 'Turn every candle on your board BEAR and step their bodies into a falling ladder',
+    downside: 'Costs $5, and the new bodies are permanent',
     use: (api) => {
       const board = api.state.session?.board || [];
-      if (!board.length) return { ok: false, msg: 'No board' };
+      if (!board.length) return { ok: false, msg: NO_BOARD };
       board.forEach((c, i) => { c.bull = false; c.body = Math.max(MIN_BODY, MAX_BODY - i); });
-      return { ok: true, msg: 'Crows released' };
+      api.state.cash = Math.max(0, api.state.cash - 5);
+      return { ok: true, msg: 'Crows released — $5' };
     } },
 
-  { key: 'insiderWhisper', name: "Hive Mind", art: '🤐', select: [0, 0],
+  { key: 'insiderWhisper', name: "Hive Mind", art: '🤐', select: [0, 0], needsBoard: true,
     text: 'Turn every candle on your board into a copy of a random one of them',
+    downside: 'Costs half your cash, and your book keeps the copies for the rest of the run',
     use: (api) => {
       const board = api.state.session?.board || [];
-      if (board.length < 2) return { ok: false, msg: 'Need a board' };
+      if (board.length < 2) return { ok: false, msg: NO_BOARD };
       const src = api.rng.pick(board);
       for (const c of board) if (c !== src) Object.assign(c, { sector: src.sector, body: src.body, bull: src.bull, enhancement: src.enhancement, edition: src.edition });
-      return { ok: true, msg: 'Everyone got the same tip' };
+      const paid = api.state.cash - Math.floor(api.state.cash / 2);
+      api.state.cash = Math.floor(api.state.cash / 2);
+      return { ok: true, msg: `Everyone got the same tip — $${paid}` };
     } },
 
   { key: 'shellGame', name: "Shell Game", art: '🥥', select: [0, 0],
-    text: 'Permanently +2 board size, then burn 2 random candles',
+    text: 'Permanently +2 board size',
+    downside: 'Permanently -1 trade per deadline, and burns 2 random candles',
     use: (api) => {
       api.state.permanent.handSize += 2;
-      for (let i = 0; i < 2; i++) if (api.state.book.length > 5) api.destroyCandle(api.rng.pick(api.state.book));
-      return { ok: true, msg: '+2 board size' };
+      api.state.permanent.trades = Math.max(1, api.state.permanent.trades - 1);
+      burnRandom(api, 2);
+      return { ok: true, msg: '+2 board size, -1 trade' };
     } },
 
-  { key: 'blackout', name: "Eclipse", art: '🌑', select: [0, 0],
+  { key: 'blackout', name: "Eclipse", art: '🌑', select: [0, 0], needsBoard: true,
     text: 'Seal every candle on your board (+50 Volume each, no body or polarity)',
+    downside: 'Burns 2 random candles, and the sealed ones stay sealed for the rest of the run',
     use: (api) => {
       const board = api.state.session?.board || [];
-      if (!board.length) return { ok: false, msg: 'No board' };
+      if (!board.length) return { ok: false, msg: NO_BOARD };
       for (const c of board) c.enhancement = 'obsidian';
-      return { ok: true, msg: 'Board went dark' };
+      const burnt = burnRandom(api, 2);
+      return { ok: true, msg: `Board went dark${burnt ? ` — ${burnt} burnt` : ''}` };
     } },
 
   { key: 'dilution', name: "Spawn", art: '💧', select: [0, 0],
     text: 'Add 4 random candles sharing one random body size to your book',
+    downside: 'Burns 2 random candles, so the book only grows by two',
     use: (api) => {
       const body = api.rng.pick(BODIES);
       for (let i = 0; i < 4; i++) api.addCandle(makeCandle(api.rng.pick(SECTOR_KEYS), body, api.rng.chance(0.5)));
+      burnRandom(api, 2);
       return { ok: true, msg: 'Book diluted' };
     } },
 
   { key: 'chapter11', name: "Sacrifice", art: '🔻', select: [0, 0],
-    text: 'Lose all cash, then level up your most-printed formation by 3',
+    text: 'Level up your most-printed formation by 3',
+    downside: 'Costs every dollar you are holding',
     use: (api) => {
       const lost = api.state.cash;
       api.state.cash = 0;
@@ -334,7 +387,8 @@ addRumor([
     } },
 
   { key: 'frontOffice', name: "Expansion", art: '🏢', select: [0, 0],
-    text: 'Permanently +1 desk slot, then lose half your cash',
+    text: 'Permanently +1 desk slot',
+    downside: 'Costs half your cash',
     use: (api) => {
       api.state.permanent.slots += 1;
       api.state.cash = Math.floor(api.state.cash / 2);
@@ -343,11 +397,11 @@ addRumor([
 
   { key: 'totalRecall', name: "Reshuffle", art: '🔄', select: [0, 0],
     // The trade gets worse every time: -1 board, then -2, then -3...
-    text: (state) => {
+    text: '+1 desk slot and +1 Chart slot',
+    downside: (state) => {
       const next = (state?.permanent?.recallUses || 0) + 1;
-      return `+1 desk slot and +1 Chart slot, at the cost of ${next} board size. ` +
-             `The board cost grows by one with every Reshuffle you use` +
-             (next > 1 ? ` (you have used ${next - 1})` : '');
+      return `Permanently -${next} board size. The cost grows by one every time you use it` +
+             (next > 1 ? ` (used ${next - 1} so far)` : '');
     },
     use: (api) => {
       const n = (api.state.permanent.recallUses || 0) + 1;
@@ -358,9 +412,14 @@ addRumor([
       return { ok: true, msg: `+1 desk slot, +1 Chart slot, -${n} board size` };
     } },
 
-  { key: 'theSqueeze', name: "Apotheosis", art: '🌡️', select: [0, 0], cost: 6,
+  { key: 'theSqueeze', name: "Apotheosis", art: '🌡️', select: [0, 0], cost: 8,
     text: 'Level up every formation by 1',
-    use: (api) => { for (const k of FORMATION_KEYS) api.levelFormation(k, 1); return { ok: true, msg: 'Everything levelled' }; } },
+    downside: 'Burns 3 random candles out of your book',
+    use: (api) => {
+      for (const k of FORMATION_KEYS) api.levelFormation(k, 1);
+      const burnt = burnRandom(api, 3);
+      return { ok: true, msg: `Everything levelled${burnt ? ` — ${burnt} burnt` : ''}` };
+    } },
 ]);
 export const RUMOR_KEYS = Object.keys(RUMORS);
 
@@ -371,6 +430,19 @@ export function consumableText(d, state) {
   if (!d) return '';
   return typeof d.text === 'function' ? d.text(state) : d.text;
 }
+
+/**
+ * The cost the card actually charges you, rendered in red wherever the blurb
+ * is. Like `text`, it may be a function of run state — Reshuffle's board cost
+ * escalates every time you take it.
+ */
+export function consumableDownside(d, state) {
+  if (!d || !d.downside) return '';
+  return typeof d.downside === 'function' ? d.downside(state) : d.downside;
+}
+
+/** Does this card need a live board, so it cannot be used on the Floor? */
+export function needsBoard(key) { return !!ALL_CONSUMABLES[key]?.needsBoard; }
 
 export function makeConsumable(key) {
   const d = ALL_CONSUMABLES[key];
