@@ -1,6 +1,6 @@
 {
   "name": "margin-call",
-  "version": "1.3.3",
+  "version": "1.4.0",
   "private": true,
   "description": "MARGIN CALL — a 2D roguelike day-trading deckbuilder. Hit the daily quota or get liquidated.",
   "type": "module",

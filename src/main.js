@@ -661,7 +661,13 @@ class Game {
       els.set(c.uid, el);
     });
     sfx.play();
+    // The tick you called against starts printing straight away, so the tape is
+    // visibly deciding while the position is being revealed rather than the
+    // answer simply appearing.
+    const printMs = this.chart.printCandle(res.tape.candle);
+    sfx.tick();
     await sleep(220);
+    if (printMs > 220) await sleep(printMs - 220);
 
     this.chart.pulse(res.tape.up);
     this.renderMarket();
@@ -783,8 +789,17 @@ class Game {
 
   async clearDeadline() {
     sfx.clear();
+    const s = this.state.session;
     const area = $('play-area').getBoundingClientRect();
     particles(area.left + area.width / 2, area.top + area.height / 2, '#ffd94a', 40, 220);
+    // Scaled by the overshoot: scraping the quota gets a handful of dollars,
+    // burying it by 6x buries the screen. Full power is deliberately reached
+    // well short of the biggest builds, so the ceiling is a spectacle to chase
+    // rather than a wall everything looks the same past.
+    const over = s?.quota > 0 ? s.profit / s.quota : 1;
+    const power = Math.max(0, Math.min(1, (over - 1) / 5));
+    FX.moneyBurst(area.left + area.width / 2, area.top + area.height * 0.56, power);
+    for (let i = 0; i < Math.round(2 + power * 6); i++) setTimeout(() => sfx.coin(i), 120 + i * 90);
     FX.burst('QUOTA MET', 'CLOSE THE BOOKS', 'gold');
     await sleep(900);
     const payout = S.finishDeadline(this.state);
