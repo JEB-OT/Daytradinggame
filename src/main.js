@@ -41,6 +41,12 @@ class Game {
 
   toHome() { this.state = null; SC.homeScreen(this); }
   openCompendium(back) { SC.compendiumScreen(this, back); }
+  /** The book, on a given tab, returning to the board when closed. */
+  openBook(view = 'all') {
+    if (!this.state || this.busy || OV.overlayOpen()) return;
+    sfx.open();
+    OV.bookScreen(this, () => OV.closeOverlay(), view);
+  }
   openGlossary(back) { SC.glossaryScreen(this, back); }
 
   applyMotion() { document.body.classList.toggle('no-motion', this.reducedMotion); }
@@ -852,7 +858,7 @@ class Game {
         <div class="tt-rarity" style="color:var(--cyan)">${n} CANDLE${n === 1 ? '' : 'S'} LEFT TO DEAL</div>
         <div class="tt-body">Your whole book is shuffled in here at the bell, and the board is topped up off the
         top of it. Once it runs dry the board only shrinks.</div>
-        <div class="tt-foot">BOOK → REMAINING shows exactly which ones are still in here</div>`;
+        <div class="tt-foot">Click to see exactly which candles are still in here</div>`;
     });
     tip('swept-pile', () => {
       const s = st()?.session;
@@ -860,7 +866,8 @@ class Game {
       return `<h4>The swept pile</h4>
         <div class="tt-rarity" style="color:var(--ink-dim)">${n} CANDLE${n === 1 ? '' : 'S'} SPENT</div>
         <div class="tt-body">Everything you have traded or swept this deadline lands here. It does not shuffle
-        back in — what is gone is gone until the next bell.</div>`;
+        back in — what is gone is gone until the next bell.</div>
+        <div class="tt-foot">Click to open your book</div>`;
     });
     tip('r-trades', () => `<h4>Trades</h4><div class="tt-body">One placement plus one call each. Unused trades pay
       <em>$1</em> apiece when you clear the deadline.</div>`);
@@ -883,6 +890,11 @@ class Game {
     this.bindExplainers();
     $('btn-long').onclick = () => this.play('LONG');
     $('btn-short').onclick = () => this.play('SHORT');
+    // The deck is where the question "what can I still draw?" occurs to you, so
+    // it is where the answer should be — clicking it opens the book already on
+    // REMAINING rather than making you find the tab.
+    $('draw-pile').onclick = () => this.openBook('remaining');
+    $('swept-pile').onclick = () => this.openBook('all');
     $('btn-sweep').onclick = () => this.sweep();
     $('btn-arrange').onclick = () => this.arrange();
     $('btn-sort').onclick = () => this.sortBoard();

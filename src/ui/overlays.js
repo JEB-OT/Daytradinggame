@@ -680,8 +680,9 @@ export function helpScreen(game, fromTitle, back) {
               every trade and sweep.</li>
           <li>Everything you trade or sweep lands on the <b>SWEPT</b> pile on the right and stays
               there until the next bell — it does not shuffle back in.</li>
-          <li><span class="k">BOOK</span> → <b>REMAINING</b> shows exactly which candles are still in
-              the deck, so you can tell a plan from a prayer before spending a sweep on it.</li>
+          <li><b>Click the DECK</b> — or <span class="k">BOOK</span> → <b>REMAINING</b> — to see exactly
+              which candles are still in it, so you can tell a plan from a prayer before spending a
+              sweep on it.</li>
         </ul>
         <h3>CANDLES</h3>
         <ul>

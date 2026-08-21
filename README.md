@@ -135,7 +135,8 @@ the pull request lands, plain `npm run update` on the default branch is the whol
 
 | Version | What you should see |
 |---|---|
-| **v1.3.0** — The Print Shop | A **DECK** and a **SWEPT** pile either side of your board · the book laid out as fanned rows per sector with a body tally · a **REMAINING** tab · print-shop brokers · your desk visible inside packs |
+| **v1.3.1** — The Print Shop | Everything below, plus: hovering cards is smooth, and **clicking the DECK** opens the book on what is left to draw |
+| v1.3.0 — The Print Shop | A **DECK** and a **SWEPT** pile either side of your board · the book laid out as fanned rows per sector with a body tally · a **REMAINING** tab · print-shop brokers · your desk visible inside packs |
 | v1.2.0 — The Desk | Sweep animation, no duplicate brokers, draggable desk |
 
 If the number on your title screen is older than the newest row here, you are running an old copy.
@@ -185,6 +186,9 @@ Your whole book is shuffled into a **deck** at the bell, and the board is dealt 
 Both piles sit either side of your board and both are real places, not counters: candles fly out of
 the **DECK** on the left when the board refills, and everything you trade or sweep is thrown onto
 the **SWEPT** pile on the right, where it stays until the next bell.
+
+**Click the DECK** and the book opens on what is still in it — the deck is where the question
+occurs to you, so it is where the answer lives. Clicking **SWEPT** opens the whole book.
 
 That is not decoration &mdash; it is the information the **REMAINING** view of the book is built on.
 Once nine of your thirteen Tech candles are on the swept pile, a Tech Cluster is no longer a plan.

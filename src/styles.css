@@ -232,9 +232,10 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   padding: 5px 4px 8px; text-align: center;
   box-shadow: 0 4px 0 var(--lip), 0 8px 16px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.12);
+  transform-origin: 50% 100%;
   transition: transform .15s cubic-bezier(.2,.9,.3,1), box-shadow .15s;
 }
-.broker:hover { transform: translateY(-9px) rotate(-2deg) scale(1.07); z-index: 6; box-shadow: 0 12px 0 var(--lip), 0 18px 30px rgba(0,0,0,.65); }
+.broker:hover { transform: scale(1.1); z-index: 6; box-shadow: 0 12px 0 var(--lip), 0 18px 30px rgba(0,0,0,.65); }
 .broker:active { cursor: grabbing; }
 .bk-glow { position: absolute; inset: -40%; pointer-events: none; opacity: 0; transition: opacity .2s; }
 .broker:hover .bk-glow { opacity: 1; }
@@ -282,9 +283,10 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
   background: linear-gradient(170deg,#3a2464,#1e1338); border: 2px solid #7150c4;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 4px;
   box-shadow: 0 4px 0 var(--lip), 0 8px 16px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.14);
+  transform-origin: 50% 100%;
   transition: transform .15s cubic-bezier(.2,.9,.3,1);
 }
-.consumable:hover { transform: translateY(-8px) rotate(2deg) scale(1.07); z-index: 6; }
+.consumable:hover { transform: scale(1.1); z-index: 6; }
 .cs-glow { position: absolute; inset: -30%; background: radial-gradient(circle, rgba(169,139,255,.3), transparent 60%); }
 .consumable.family-contract { background: linear-gradient(170deg,#153a5c,#0e1e35); border-color: #3f7fb8; }
 .consumable.family-contract .cs-glow { background: radial-gradient(circle, rgba(64,217,255,.28), transparent 60%); }
@@ -360,8 +362,13 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
 .pile {
   --pc: #4a6ea8;
   position: relative; width: 62px; height: 92px; flex-shrink: 0;
-  margin-bottom: 6px; user-select: none;
+  margin-bottom: 6px; user-select: none; cursor: pointer;
+  transform-origin: 50% 100%;
+  transition: transform .15s cubic-bezier(.2,.9,.3,1);
 }
+.pile:hover { transform: scale(1.07); }
+.pile:hover .pile-face { filter: brightness(1.25); border-color: #fff; }
+.pile:active { transform: scale(1.02); }
 .pile-face {
   position: absolute; inset: 0; z-index: 2;
   border-radius: 9px; border: 3px solid var(--pc);
@@ -408,11 +415,19 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
   border: 3px solid #33456b;
   box-shadow: 0 5px 0 var(--lip), 0 10px 18px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.1);
   display: flex; flex-direction: column; gap: 4px;
+  /* Anchored to its own bottom edge so a hover can only ever grow the box, never
+     slide it. A hover that TRANSLATES the card walks it out from under the
+     cursor, hover ends, the card drops back, hover starts again — a flicker loop
+     that reads as jitter whenever the mouse crosses a row of cards. Scaling from
+     the bottom cannot do that: every edge moves outwards. */
+  transform-origin: 50% 100%;
   transition: transform .16s cubic-bezier(.2,.9,.3,1), box-shadow .16s, filter .16s;
 }
-.candle:hover { transform: translateY(-12px) rotate(-1.5deg); z-index: 20; box-shadow: 0 16px 0 var(--lip), 0 22px 32px rgba(0,0,0,.7); }
+.candle:hover { transform: scale(1.08); z-index: 20; box-shadow: 0 16px 0 var(--lip), 0 22px 32px rgba(0,0,0,.7); }
 .candle.selected {
-  transform: translateY(-24px) rotate(0deg);
+  /* `translate`, not `transform` — see the idle animations at the bottom of the
+     file. The two compose instead of overwriting each other. */
+  translate: 0 -24px;
   border-color: var(--cream);
   box-shadow: 0 18px 0 var(--lip), 0 0 26px color-mix(in srgb, var(--sc) 55%, transparent), 0 22px 34px rgba(0,0,0,.65);
 }
@@ -744,7 +759,8 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
   display: flex; flex-direction: column; transition: transform .16s, box-shadow .16s;
 }
 .dl-choice.current { border-color: var(--green); box-shadow: 0 5px 0 var(--lip), 0 0 32px rgba(69,224,141,.28), 0 10px 22px rgba(0,0,0,.5); }
-.dl-choice.current:hover { transform: translateY(-4px); }
+.dl-choice.current { transform-origin: 50% 100%; }
+.dl-choice.current:hover { transform: scale(1.02); }
 .dl-choice.boss { border-color: rgba(255,84,104,.5); }
 .dl-choice.boss.current { border-color: var(--red); box-shadow: 0 5px 0 var(--lip), 0 0 34px rgba(255,84,104,.35), 0 10px 22px rgba(0,0,0,.5); }
 .dl-choice.done { opacity: .3; }
@@ -780,7 +796,8 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   box-shadow: 0 5px 0 var(--lip), 0 10px 20px rgba(0,0,0,.5); transition: transform .16s, box-shadow .16s;
 }
-.shop-slot:hover { transform: translateY(-5px); box-shadow: 0 10px 0 var(--lip), 0 18px 30px rgba(0,0,0,.6); }
+.shop-slot { transform-origin: 50% 100%; }
+.shop-slot:hover { transform: scale(1.03); box-shadow: 0 10px 0 var(--lip), 0 18px 30px rgba(0,0,0,.6); }
 .shop-slot.sold { opacity: .22; pointer-events: none; }
 .shop-slot.kind-pack { border-color: #7150c4; background: linear-gradient(180deg,#2b1f4d,#150e28); }
 .shop-slot.kind-licence { border-color: var(--gold); background: linear-gradient(180deg,#3a2d10,#1a1408); box-shadow: 0 5px 0 var(--lip), 0 0 26px rgba(255,210,74,.25), 0 10px 20px rgba(0,0,0,.5); }
@@ -818,7 +835,8 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 
 .pack-options { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; margin: 22px 0; }
 .pack-opt { transition: .16s; cursor: pointer; }
-.pack-opt:hover { transform: translateY(-10px) }
+.pack-opt { transform-origin: 50% 100%; }
+.pack-opt:hover { transform: scale(1.09) }
 .pack-opt.taken { opacity: .2; pointer-events: none }
 
 /* ---------- book / formations ---------- */
@@ -910,7 +928,11 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
   position: relative; flex: 0 0 auto; z-index: calc(1 + var(--n, 0));
   transition: transform .14s;
 }
-.bk-cell:hover { z-index: 40; transform: translateY(-9px) scale(1.07); }
+.bk-cell { transform-origin: 50% 100%; }
+.bk-cell:hover { z-index: 40; transform: scale(1.13); }
+/* the tile inside a book cell must not answer hover as well — two nested
+   transforms on one pointer is motion the eye reads as a stutter */
+.bk-cell .candle:hover { transform: none; box-shadow: 0 3px 0 var(--lip), -4px 0 9px rgba(0,0,0,.55); }
 .bk-cell .candle {
   width: 62px; height: 90px; padding: 3px; border-width: 2px; cursor: default;
   box-shadow: 0 3px 0 var(--lip), -4px 0 9px rgba(0,0,0,.55);
@@ -1088,7 +1110,8 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
   box-shadow: 0 4px 0 var(--lip), 0 8px 16px rgba(0,0,0,.4);
   transition: transform .12s, filter .14s, border-color .14s;
 }
-.home-card:hover { filter: brightness(1.2); border-color: var(--rim-hi); transform: translateY(-3px); }
+.home-card { transform-origin: 50% 100%; }
+.home-card:hover { filter: brightness(1.2); border-color: var(--rim-hi); transform: scale(1.02); }
 .home-card:active { transform: translateY(3px); box-shadow: 0 0 0 var(--lip); }
 .home-card.flag { border-color: var(--gold); box-shadow: 0 4px 0 var(--lip), 0 0 20px rgba(255,210,74,.25); }
 .hc-art { font-size: 26px; flex: 0 0 auto; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
@@ -1254,19 +1277,25 @@ body::before {
 
 /* brokers breathe on a stagger so a desk never looks like a static row */
 .broker { animation: brokerIdle 4.4s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -.42s); }
-@keyframes brokerIdle { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
-.broker:hover { animation: none; }
+@keyframes brokerIdle { 0%,100% { translate: 0 0 } 50% { translate: 0 -3px } }
 .consumable { animation: brokerIdle 5.2s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -.6s); }
-.consumable:hover { animation: none; }
 
-/* the board has a slow swell; the selected candles bob a little harder */
+/* The board has a slow swell; the selected candles bob a little harder.
+   Both drive the independent `translate`/`rotate` properties rather than
+   `transform`, which matters for three reasons:
+     - they compose with the hover `transform: scale()` instead of overriding it,
+       so a hovered card still breathes and a selected card still answers hover;
+     - hover no longer has to switch the animation off, and killing an animation
+       snaps its value with no transition — that snap, on every card the mouse
+       passed, was the other half of the jitter;
+     - it retires a specificity tie that `.selected` won on source order alone,
+       which is why selected cards used to ignore hover entirely. */
 #board-row .candle { animation: candleIdle 5.6s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -.31s); }
-@keyframes candleIdle { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
-#board-row .candle:hover { animation: none; }
+@keyframes candleIdle { 0%,100% { translate: 0 0 } 50% { translate: 0 -3px } }
 #board-row .candle.selected { animation: candleBob 2.1s ease-in-out infinite; }
 @keyframes candleBob {
-  0%,100% { transform: translateY(-24px) rotate(0deg) }
-  50% { transform: translateY(-29px) rotate(.8deg) }
+  0%,100% { translate: 0 -24px; rotate: 0deg }
+  50% { translate: 0 -29px; rotate: .8deg }
 }
 .candle .cd-real { animation: bodyGlow 3.6s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -.27s); }
 @keyframes bodyGlow { 0%,100% { filter: brightness(1) } 50% { filter: brightness(1.16) } }

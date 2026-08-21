@@ -10,11 +10,20 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.3.0';
+export const VERSION = 'v1.3.1';
 export const VERSION_NAME = 'The Print Shop';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.3.1',
+    name: 'The Print Shop',
+    notes: [
+      'Hovering cards no longer jitters — a hover can only grow a card now, never slide it out from under the cursor',
+      'A card you have placed answers hover again instead of ignoring it',
+      'Click the DECK to see what is still left to draw; click SWEPT for the whole book',
+    ],
+  },
   {
     version: 'v1.3.0',
     name: 'The Print Shop',
