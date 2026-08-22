@@ -10,11 +10,33 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.5.0';
-export const VERSION_NAME = 'The Fine Print';
+export const VERSION = 'v1.7.0';
+export const VERSION_NAME = 'The Long Game';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.7.0',
+    name: 'The Long Game',
+    notes: [
+      'Every act past the first is far steeper than the last — endless mode gets harder now, not just longer',
+      'One boss per rule for the whole of weeks 1-8; from week 9 they repeat freely, in any order',
+      'The REROLL button keeps its width, so the buttons beside it stop moving under your cursor',
+      'Rumors come out of Rumor Packs only — and Insider Line, a new Rare broker, puts them back on the Floor',
+      'The two pack licences finally stock the packs their cards name',
+    ],
+  },
+  {
+    version: 'v1.6.0',
+    name: 'Every Copy',
+    notes: [
+      'The book shows every copy of a candle on its own card — no more ×3 badge hiding which versions you own',
+      "A rumor's edition is sealed onto the broker it lands on: nothing can replace it, and it lasts until you sell",
+      'Eight more brokers that multiply on every print, from Ember and Cursed candles to stamps, editions and Dojis',
+      'The Fool is rare and Stone Grip uncommon — the clown was always the better of the two',
+      'Shapeshifter and Hairline are rare',
+    ],
+  },
   {
     version: 'v1.5.0',
     name: 'The Fine Print',

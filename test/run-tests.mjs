@@ -10,6 +10,8 @@ import { scoreTrade } from '../src/game/scoring.js';
 import * as S from '../src/game/state.js';
 import { VERSION, CHANGELOG } from '../src/engine/version.js';
 import { notesFor, versionsInChangelog } from '../scripts/release-notes.mjs';
+import { bookRowCells, lapFor, LAP_MIN, LAP_MAX } from '../src/ui/overlays.js';
+import { MAX_BODY as BODY_SIZES } from '../src/game/candles.js';
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -1276,6 +1278,291 @@ t('a selecting card can be aimed at a candle that is still in the deck', () => {
   const r = S.useConsumable(st, inst.uid, [target.uid]);
   ok(r.ok, 'aiming into the deck was refused: ' + r.msg);
   eq(st.book.find((c) => c.uid === target.uid).stamp, 'reissue');
+});
+
+// ------------------------------------------------------------- the act curve
+t('act 1 is untouched — the eight weeks the game is balanced around', () => {
+  eq(S.weekBase(1), 180);
+  eq(S.weekBase(8), 65000);
+  for (let w = 1; w <= 8; w++) eq(S.actOf(w), 1, 'week ' + w);
+});
+
+t('every act after the first is steeper than the one before it', () => {
+  for (let act = 2; act < 8; act++) {
+    ok(S.actGrowth(act + 1) > S.actGrowth(act), `act ${act + 1} is not steeper than act ${act}`);
+  }
+});
+
+t('the act-on-act step is a substantial one, not a rounding error', () => {
+  const step = S.actGrowth(3) - S.actGrowth(2);
+  ok(step >= 1, `each act only gains x${step.toFixed(2)} per week on the last`);
+  // an act of eight weeks at the steeper rate has to leave the old curve well
+  // behind, or "it gets harder" is a claim the numbers do not back
+  ok(S.actGrowth(4) / S.actGrowth(2) >= 1.8, 'act 4 is not far enough past act 2');
+});
+
+t('the quota curve keeps climbing and never flattens or overflows', () => {
+  let prev = 0;
+  for (let w = 1; w <= 60; w++) {
+    const q = S.weekBase(w);
+    ok(Number.isFinite(q), 'week ' + w + ' overflowed');
+    ok(q > prev, `week ${w} is not harder than week ${w - 1}`);
+    prev = q;
+  }
+});
+
+// ------------------------------------------------------------------- bosses
+t('the first eight weeks never show the same boss twice', () => {
+  for (const seed of ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8']) {
+    const st = S.newRun(seed);
+    const met = [];
+    for (let w = 1; w <= 8; w++) { st.week = w; st.upcoming = S.buildWeek(st); met.push(st.upcoming[2].boss); }
+    eq(new Set(met).size, 8, `${seed} drew ${met.length - new Set(met).size} repeat(s): ${met.join(', ')}`);
+  }
+});
+
+t('a boss you skipped past still counts as met', () => {
+  // The old rule only remembered a boss you *cleared*, so a skipped or unreached
+  // boss week left no trace and could come round again.
+  const st = S.newRun('SKIPPED');
+  st.week = 1; st.upcoming = S.buildWeek(st);
+  const first = st.upcoming[2].boss;
+  ok(st.seenBosses.includes(first), 'meeting a boss did not record it');
+  eq(st.stats.bossesCleared, 0, 'nothing was cleared, so nothing should say it was');
+  for (let w = 2; w <= 8; w++) { st.week = w; st.upcoming = S.buildWeek(st); ok(st.upcoming[2].boss !== first); }
+});
+
+t('from week 9 a boss may come round again, in any order', () => {
+  let repeated = 0;
+  for (let i = 0; i < 60; i++) {
+    const st = S.newRun('R' + i);
+    const act1 = [];
+    for (let w = 1; w <= 8; w++) { st.week = w; st.upcoming = S.buildWeek(st); act1.push(st.upcoming[2].boss); }
+    for (let w = 9; w <= 16; w++) {
+      st.week = w; st.upcoming = S.buildWeek(st);
+      if (act1.includes(st.upcoming[2].boss)) repeated++;
+    }
+  }
+  ok(repeated > 0, 'no boss ever came back after week 8, so the rule never lifts');
+});
+
+// -------------------------------------------------------- rumors are pack-only
+t('rumors never turn up on the Floor shelf on their own', () => {
+  for (let i = 0; i < 120; i++) {
+    const st = S.newRun('NORUMOR' + i);
+    st.week = 1 + (i % 8); st.deadlineIndex = i % 3;
+    S.openShop(st);
+    ok(!st.shop.items.some((it) => it.type === 'rumor'), 'a rumor reached the shelf with no broker for it');
+  }
+});
+
+t('Rumor Packs are still stocked without the broker', () => {
+  let packs = 0;
+  for (let i = 0; i < 200; i++) {
+    const st = S.newRun('PACKS' + i);
+    st.week = 1 + (i % 8); st.deadlineIndex = i % 3;
+    S.openShop(st);
+    packs += st.shop.packs.filter((p) => p.family === 'rumor').length;
+  }
+  ok(packs > 0, 'rumors became unreachable entirely');
+});
+
+t('Insider Line puts rumors back on the shelf', () => {
+  let withBroker = 0;
+  for (let i = 0; i < 200; i++) {
+    const st = S.newRun('WIRE' + i);
+    st.brokers = [makeBroker('wireTap', null)];
+    S.computeMods(st);
+    ok(st.mods.shopRumors, 'the broker did not set the mod');
+    st.week = 1 + (i % 8); st.deadlineIndex = i % 3;
+    S.openShop(st);
+    withBroker += st.shop.items.filter((it) => it.type === 'rumor').length;
+  }
+  ok(withBroker > 0, 'the broker did not open the shelf to rumors');
+  eq(BROKERS.wireTap.rarity, 'rare');
+});
+
+t('the pack licenses stock the packs they name', () => {
+  const rate = (licenses, family) => {
+    let hit = 0, all = 0;
+    for (let i = 0; i < 240; i++) {
+      const st = S.newRun('LIC' + i);
+      st.licenses = licenses; S.computeMods(st);
+      st.week = 1 + (i % 8); st.deadlineIndex = i % 3;
+      S.openShop(st);
+      for (const p of st.shop.packs) { all++; if (p.family === family) hit++; }
+    }
+    return hit / all;
+  };
+  ok(rate(['clearingHouse'], 'contract') > rate([], 'contract'), 'Clearing House did not stock more Contract Packs');
+  ok(rate(['clearingHouse', 'primeBroker'], 'rumor') > rate([], 'rumor'), 'Prime Broker did not stock more Rumor Packs');
+});
+
+// --------------------------------------------------- print-shop multipliers
+// These land inside printCandle, so they multiply once per print rather than
+// once per trade — which is what makes them worth pairing with anything that
+// makes a candle print again.
+
+t('a print multiplier lands once for every matching print', () => {
+  const cases = [
+    ['emberDesk',  1.6,  1, () => [mk('TECH', 10, true, { enhancement: 'ember' }), mk('CRYPTO', 10, false)]],
+    ['beaconDesk', 1.6,  1, () => [mk('TECH', 10, true, { enhancement: 'beacon' }), mk('CRYPTO', 10, false)]],
+    ['cursedDesk', 2.2,  1, () => [mk('TECH', 10, true, { enhancement: 'cursed' }), mk('CRYPTO', 10, false)]],
+    ['wishDesk',   1.8,  1, () => [mk('TECH', 10, true, { enhancement: 'wishbone' }), mk('CRYPTO', 10, false)]],
+    ['stampPress', 1.35, 1, () => [mk('TECH', 10, true, { stamp: 'hold' }), mk('CRYPTO', 10, false)]],
+    ['colophon',   1.3,  1, () => [mk('TECH', 10, true, { edition: 'laminated' }), mk('CRYPTO', 10, false)]],
+    ['stillPoint', 1.3,  2, () => [mk('TECH', 1), mk('CRYPTO', 1, false)]],
+    ['longShadow', 1.7,  2, () => [mk('TECH', 13), mk('CRYPTO', 13, false)]],
+  ];
+  for (const [key, mult, hits, make] of cases) {
+    // Fresh candles each time: Ember writes its growth back onto the card.
+    const off = scoreWith([], make()).leverage;
+    const on = scoreWith([key], make()).leverage;
+    const want = off * mult ** hits;
+    ok(Math.abs(on - want) < 1e-6, `${key}: got x${(on / off).toFixed(3)}, wanted x${(mult ** hits).toFixed(3)}`);
+  }
+});
+
+t('a print multiplier ignores a candle it does not match', () => {
+  const plain = () => [mk('TECH', 10), mk('CRYPTO', 10, false)];
+  for (const key of ['emberDesk', 'beaconDesk', 'cursedDesk', 'wishDesk', 'stampPress', 'colophon', 'stillPoint', 'longShadow']) {
+    eq(scoreWith([key], plain()).leverage, scoreWith([], plain()).leverage, key);
+  }
+});
+
+t('a print multiplier compounds with an extra print', () => {
+  const make = () => [mk('TECH', 1), mk('CRYPTO', 1, false)];
+  // Hairline gives every Doji three extra prints, so each of the two dojis
+  // prints four times and Still Point multiplies on each of them.
+  const off = scoreWith(['hairline'], make()).leverage;
+  const on = scoreWith(['hairline', 'stillPoint'], make()).leverage;
+  ok(Math.abs(on - off * 1.3 ** 8) < 1e-6, `got x${(on / off).toFixed(2)}, wanted x${(1.3 ** 8).toFixed(2)}`);
+});
+
+t('a debuffed candle earns no print multiplier', () => {
+  const make = (debuffed) => [mk('TECH', 13, true, { debuffed }), mk('CRYPTO', 13, false)];
+  const on = scoreWith(['longShadow'], make(true)).leverage;
+  const off = scoreWith([], make(true)).leverage;
+  eq(on, off * 1.7, 'only the candle that was not blanked should have multiplied');
+});
+
+// ------------------------------------------------------------ broker rarity
+t('of the two RED-trade brokers, the better one is the rarer', () => {
+  const rank = { common: 0, uncommon: 1, rare: 2, legendary: 3 };
+  const red = BROKER_KEYS.filter((k) => BROKERS[k].redMult != null)
+    .sort((a, b) => BROKERS[b].redMult - BROKERS[a].redMult);
+  ok(red.length >= 2, 'expected at least two RED-trade brokers');
+  ok(rank[BROKERS[red[0]].rarity] > rank[BROKERS[red[1]].rarity],
+    `${BROKERS[red[0]].name} keeps more of a RED trade than ${BROKERS[red[1]].name} but is not the rarer of the two`);
+});
+
+t('Shapeshifter and Hairline are rare', () => {
+  eq(BROKERS.algoDesk.rarity, 'rare');
+  eq(BROKERS.hairline.rarity, 'rare');
+});
+
+// ------------------------------------------------------- sealed broker editions
+t('a rumor seals the edition it puts on a broker', () => {
+  const st = S.newRun('SEAL');
+  st.brokers = [makeBroker('sticky', null)];
+  st.consumables = [makeConsumable('gilding')];
+  const r = S.useConsumable(st, st.consumables[0].uid, []);
+  ok(r.ok, r.msg);
+  eq(st.brokers[0].edition, 'laminated');
+  ok(st.brokers[0].editionSealed, 'the edition was not sealed');
+});
+
+t('nothing replaces an edition a rumor sealed', () => {
+  const st = S.newRun('SEAL2');
+  st.brokers = [makeBroker('sticky', null)];
+  st.consumables = [makeConsumable('gilding')];
+  S.useConsumable(st, st.consumables[0].uid, []);
+
+  for (const key of ['nakedCall', 'quantModel', 'gilding', 'offBookDeal']) {
+    st.consumables = [makeConsumable(key)];
+    const r = S.useConsumable(st, st.consumables[0].uid, []);
+    ok(!r.ok, `${key} was allowed to work on a sealed broker`);
+    eq(st.brokers[0].edition, 'laminated', `${key} replaced a sealed edition`);
+    eq(st.consumables.length, 1, `${key} was spent for nothing`);
+  }
+  // and the deadline bonus that hands out editions cannot reach it either
+  ok(typeof S.applyBonus === 'function', 'applyBonus is not exported any more');
+  for (let i = 0; i < 20; i++) S.applyBonus(st, 'edition');
+  eq(st.brokers[0].edition, 'laminated', 'the deadline bonus overwrote a sealed edition');
+});
+
+t('a sealed broker does not stop a rumor finding an unsealed one', () => {
+  const st = S.newRun('SEAL3');
+  st.brokers = [makeBroker('sticky', null), makeBroker('tickertape', null)];
+  st.consumables = [makeConsumable('gilding')];
+  ok(S.useConsumable(st, st.consumables[0].uid, []).ok);
+  const sealed = st.brokers.find((b) => b.editionSealed);
+
+  st.consumables = [makeConsumable('nakedCall')];
+  const r = S.useConsumable(st, st.consumables[0].uid, []);
+  ok(r.ok, r.msg);
+  eq(sealed.edition, 'laminated', 'the sealed broker was hit anyway');
+  eq(st.brokers.find((b) => b !== sealed).edition, 'holographic');
+});
+
+t('a sealed edition survives a save and load', () => {
+  const st = S.newRun('SEAL4');
+  st.brokers = [makeBroker('sticky', null)];
+  st.consumables = [makeConsumable('gilding')];
+  S.useConsumable(st, st.consumables[0].uid, []);
+  const back = S.deserialize(S.serialize(st));
+  eq(back.brokers[0].edition, 'laminated');
+  ok(back.brokers[0].editionSealed, 'the seal did not survive the save');
+});
+
+// ---------------------------------------------------------------- the book
+// Copies used to collapse into one square with a ×N badge, which hid the very
+// thing the badge was pointing at: two body-7s are rarely the same card once
+// one of them is Foiled, stamped or enhanced.
+
+t('every copy of a body size gets its own card', () => {
+  const book = [
+    mk('TECH', 7),
+    mk('TECH', 7, true, { enhancement: 'bullion' }),
+    mk('TECH', 7, true, { edition: 'laminated', stamp: 'hold' }),
+    mk('TECH', 3),
+  ];
+  const cells = bookRowCells(book, book);
+  const sevens = cells.filter((c) => c.body === 7);
+  eq(sevens.length, 3, 'the three body-7s did not each get a card');
+  eq(sevens.filter((c) => c.candle).length, 3);
+  eq(new Set(sevens.map((c) => c.candle.uid)).size, 3, 'the same candle was drawn twice');
+  // one card per candle, plus a ghost for each body size held of nothing
+  eq(cells.length, book.length + BODY_SIZES - 2);
+});
+
+t('a body size you hold nothing of is still a square', () => {
+  const book = [mk('TECH', 7)];
+  const cells = bookRowCells(book, book);
+  const empty = cells.filter((c) => !c.candle);
+  eq(empty.length, BODY_SIZES - 1);
+  ok(empty.every((c) => c.body !== 7));
+});
+
+t('the plainest copy is laid down first, the most decorated last', () => {
+  const fancy = mk('TECH', 7, true, { enhancement: 'bullion', edition: 'laminated', stamp: 'hold' });
+  const plain = mk('TECH', 7);
+  const cells = bookRowCells([fancy, plain], [fancy, plain]).filter((c) => c.body === 7);
+  eq(cells[0].candle.uid, plain.uid);
+  eq(cells[cells.length - 1].candle.uid, fancy.uid);
+  ok(cells[0].opensBody, 'the first copy does not open the body group');
+  ok(!cells[1].opensBody);
+});
+
+t('the fan tightens as a row gets longer, and stops before cards vanish', () => {
+  eq(lapFor(1), LAP_MIN);
+  eq(lapFor(13), LAP_MIN, 'a plain 13-card row should keep the original overlap');
+  ok(lapFor(20) > lapFor(13), 'a longer row did not tighten');
+  ok(lapFor(200) <= LAP_MAX, 'the overlap ran past its own limit');
+  for (let n = 1; n <= 200; n++) {
+    const l = lapFor(n);
+    ok(l >= LAP_MIN && l <= LAP_MAX, `lapFor(${n}) = ${l}`);
+  }
 });
 
 // ---------------------------------------------------------------- releasing

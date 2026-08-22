@@ -22,11 +22,14 @@ const BASE_QUOTA = [180, 450, 1100, 2600, 6000, 13500, 30000, 65000];
 // that could clear week 12 could clear week 40.
 //
 // Instead the per-week growth steps up at every act boundary, so weeks 9, 17,
-// 25, 33... each start a steeper stretch than the one before.
+// 25, 33... each start a steeper stretch than the one before, and the step
+// itself is big enough to be felt: an act that was merely longer than the last
+// one is now decisively harder than it. Act 1 is untouched, so the eight weeks
+// the game is actually balanced around play exactly as they did.
 // ---------------------------------------------------------------------------
 export const ACT_LENGTH = 8;
-const ACT_BASE_GROWTH = 2.4;   // act 2 (weeks 9-16)
-const ACT_GROWTH_STEP = 0.55;  // added for every act after that
+const ACT_BASE_GROWTH = 3.0;   // act 2 (weeks 9-16)
+const ACT_GROWTH_STEP = 1.35;  // added for every act after that
 
 /** Which eight-week act a week belongs to. Weeks 1-8 are act 1. */
 export function actOf(week) { return Math.floor((Math.max(1, week) - 1) / ACT_LENGTH) + 1; }
@@ -139,7 +142,13 @@ export function newRun(seedString, opts = {}) {
 
 export function buildWeek(state) {
   const rng = state.rng;
-  const boss = pickBoss(rng, state.seenBosses);
+  // A boss you have already met cannot come round again inside the first act.
+  // It used to be recorded only when you *cleared* it, so a boss week you
+  // skipped past left no trace and could be drawn all over again. Meeting one
+  // is what counts now. From week 9 the rule lifts completely: any boss, in any
+  // order, as often as the roll says.
+  const boss = pickBoss(rng, actOf(state.week) > 1 ? [] : state.seenBosses);
+  if (!state.seenBosses.includes(boss)) state.seenBosses.push(boss);
   return DEADLINE_SLOTS.map((slot) => ({
     ...slot,
     boss: slot.boss ? boss : null,
@@ -159,7 +168,7 @@ const MOD_DEFAULTS = () => ({
   fourCard: false, shortcut: false, smeared: false, allScore: false, marchOfThree: false,
   formationLevelBonus: 0, luckyBoost: 1, redMult: 0.35, alwaysGreen: false, saveRed: false,
   convictionBonus: 0, convictionThreshold: 0.6, noConviction: false,
-  contractWeight: 1, rumorWeight: 1, rareBoost: 0, allowLegendary: false,
+  contractWeight: 1, rumorWeight: 1, shopRumors: false, rareBoost: 0, allowLegendary: false,
   disableFirstBroker: false, disableEnhancements: false, flatFormationLevels: false,
   zeroCandleVolume: false, faceDownWide: false, setDiscards: null,
 });
@@ -766,7 +775,10 @@ function rollShopItem(state, rng) {
     { item: 'broker', weight: 20 },
     { item: 'chart', weight: 8 },
     { item: 'contract', weight: 4 * m.contractWeight },
-    { item: 'rumor', weight: 1.2 * m.rumorWeight },
+    // Rumors are pack-only. They are the swingiest thing on the Floor and
+    // buying one off the shelf skipped the pack that is meant to be how you
+    // get them; only a broker that reopens the shelf puts them back in here.
+    { item: 'rumor', weight: m.shopRumors ? 1.2 * m.rumorWeight : 0 },
   ]);
   if (roll === 'broker') {
     const key = rollBrokerKey(rng, {
@@ -798,7 +810,12 @@ export function openShop(state) {
   state.shop = { rng, free, items: [], packs: [], license: null, rerollCost: 5, rerolls: 0, freeRerolls, pack: null };
   const n = 2 + state.mods.shopSlots;
   for (let i = 0; i < n; i++) state.shop.items.push(rollShopItem(state, rng));
-  const packPool = PACKS.map((p) => ({ item: p, weight: p.weight }));
+  // "Contract Packs appear far more often" and "Rumor Packs appear far more
+  // often too" are what the two licenses say, and now what they do — the
+  // weights used to move the shelf roll instead, which is neither card's
+  // promise and which rumors have now left entirely.
+  const fam = { contract: state.mods.contractWeight, rumor: state.mods.rumorWeight };
+  const packPool = PACKS.map((p) => ({ item: p, weight: p.weight * (fam[p.family] ?? 1) }));
   for (let i = 0; i < 2; i++) state.shop.packs.push({ ...rng.pickWeighted(packPool), sold: false });
   const licPool = availableLicenses(state);
   if (licPool.length && (state.deadlineIndex === 2 || rng.chance(0.4))) {
@@ -958,13 +975,34 @@ export function consumableApi(state, selected) {
       state.brokers.splice(state.brokers.indexOf(victim), 1);
       return victim;
     },
+    /**
+     * Put an edition on a broker, and seal it there.
+     *
+     * These used to be able to land on a broker a rumor had already decorated,
+     * quietly replacing what you spent a card on — the Foiled broker you were
+     * building around turning Prismatic, with no way to refuse it. An edition
+     * a rumor grants is now sealed: nothing overwrites it for the rest of the
+     * run, and selling the broker is the only way to be rid of it. Editions a
+     * broker simply turned up with are not sealed, so there is still something
+     * for a later rumor to land on.
+     */
     editionRandomBroker: (edition) => {
-      const pool = state.brokers.filter((b) => b.edition !== edition);
-      if (!pool.length) return { ok: false, msg: 'No eligible broker' };
+      const pool = state.brokers.filter((b) => b.edition !== edition && !b.editionSealed);
+      if (!pool.length) {
+        const msg = !state.brokers.length ? 'No brokers on your desk'
+          : state.brokers.some((b) => b.editionSealed) ? 'Every broker already carries a sealed edition'
+          : 'No eligible broker';
+        return { ok: false, msg };
+      }
       const target = rng.pick(pool);
       target.edition = edition;
+      target.editionSealed = true;
       computeMods(state);
-      return { ok: true, msg: `${BROKERS[target.key].name} is now ${EDITIONS[edition].name} (${EDITIONS[edition].desc})`, spared: target };
+      return {
+        ok: true,
+        msg: `${BROKERS[target.key].name} is now ${EDITIONS[edition].name} (${EDITIONS[edition].desc}) — sealed for the run`,
+        spared: target,
+      };
     },
   };
 }
