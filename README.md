@@ -75,6 +75,7 @@ npm start -- 3000        # or:  PORT=3000 npm start
 
 ```bash
 npm run update           # pull the latest version of the game
+npm run release          # tag and publish this version (maintainers)
 npm test                 # 152 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 ```
@@ -196,6 +197,45 @@ npm start
 
 If the number on your title screen is older than the newest row here, you are running an old copy.
 If it matches but you still cannot see a feature, hard-refresh the page.
+
+[CHANGELOG.md](CHANGELOG.md) has the same list with the detail.
+
+---
+
+## Getting a specific version
+
+Every released version has a git tag, so you are not stuck with whatever happens to be on a
+branch today.
+
+| What you want | What to do |
+|---|---|
+| The newest version | `npm run update` — see [Updating](#updating-to-the-latest-version) |
+| One exact version, as a download | Take the source zip from [**Releases**](https://github.com/JEB-OT/Daytradinggame/releases) |
+| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.5.0` |
+
+Checking out a tag leaves you on a *detached HEAD*. That is normal, and the game runs fine like
+that — it just means you are standing on a fixed point rather than a branch that moves. Get back
+to the moving branch with `git checkout -`.
+
+> Your save is in the browser, not the repo, so moving between versions keeps it.
+
+### Publishing a version (maintainers)
+
+Bumping `VERSION` and merging the pull request is only half of shipping. Until a tag points at
+the commit, GitHub has no v1.5.0 — nothing under Releases, no source download, and nothing for
+`git checkout v1.5.0` to find. The code is up there and the version is still ungettable, which
+looks exactly like the update never landed.
+
+```bash
+npm run release                 # tag this commit as the version in version.js, and push it
+npm run release -- --dry-run    # say what that would do, and change nothing
+npm run release -- --backfill   # tag every past version that never got one
+```
+
+Pushing the tag runs [`.github/workflows/release.yml`](.github/workflows/release.yml), which
+creates the GitHub release and takes its notes straight from `CHANGELOG.md`. If your git
+credentials cannot write tags to the repo — a `403` on the push says so — run that same workflow
+from the repo's **Actions** tab instead: it creates the missing tags itself.
 
 ---
 
@@ -560,8 +600,12 @@ that three of the four have already been dealt.
 
 ```
 index.html            markup shell
+CHANGELOG.md          what shipped in each version; the source for the release notes
+.github/workflows/release.yml  a pushed tag becomes a GitHub release
 scripts/update.mjs    `npm run update` — fetch, fast-forward, and find the newest branch
 scripts/version-check.mjs  "is there a newer build?", shared by the updater and `npm start`
+scripts/release.mjs   `npm run release` — tag a version and push it so it can be downloaded
+scripts/release-notes.mjs  pulls one version's section out of CHANGELOG.md
 src/styles.css        the whole look
 src/main.js           controller: input, placement order, scoring animation, screen flow
 src/engine/           seeded RNG, formatting, event bus, the version stamp
