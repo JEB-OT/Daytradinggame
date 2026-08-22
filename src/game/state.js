@@ -14,28 +14,57 @@ export const SAVE_KEY = 'margincall.save.v2';
 const BASE_QUOTA = [180, 450, 1100, 2600, 6000, 13500, 30000, 65000];
 
 // ---------------------------------------------------------------------------
-// The quota curve, in ACTS of eight weeks.
+// The quota curve.
 //
 // Act 1 is the hand-tuned table above: it grows about x2.5 a week and eases off
-// to x2.17 by week 8. Past that the curve used to flatten to a constant x2.4
-// forever, so endless mode stopped getting harder and only got longer — a desk
-// that could clear week 12 could clear week 40.
+// to x2.17 by week 8. What happens after that is the whole problem.
 //
-// Instead the per-week growth steps up at every act boundary, so weeks 9, 17,
-// 25, 33... each start a steeper stretch than the one before, and the step
-// itself is big enough to be felt: an act that was merely longer than the last
-// one is now decisively harder than it. Act 1 is untouched, so the eight weeks
-// the game is actually balanced around play exactly as they did.
+// A desk does not get stronger by a fixed factor each week. Every multiplicative
+// broker it picks up multiplies everything already on the desk, and every extra
+// print applies all of them again — so a build that is working compounds on its
+// own compounding. Against that, a quota that grows by a fixed factor a week is
+// not difficulty, it is a countdown: it only decides how many weeks pass before
+// the player is scoring e50 against a quota of e8, which is what happened.
+//
+// So the quota compounds the same way. The per-week multiplier is not fixed and
+// does not merely step up at act boundaries — it accelerates, and the
+// acceleration itself accelerates, which is the shape a runaway desk actually
+// has. Weeks 9 and 10 are close to where they always were, and by the mid teens
+// the curve is climbing faster than any build can.
+//
+// ENDLESS_ACCEL is the dial. Raising it bends the whole curve up sharply:
+//
+//     ACCEL   week 12    week 15    week 18    unwinnable from
+//      2.20    3.3e11     1.1e38     4.6e83        week ~24
+//      2.54    3.8e12     1.4e45     4.7e99        week ~22
+//      3.00    6.5e13     8.6e52     2.3e116       week ~21
+//
+// "Unwinnable" is where the quota passes what a double can hold. Both the quota
+// and the player's own P/L are doubles, so somewhere past there the run ends
+// whatever the curve says — endless mode stops when the numbers do.
+//
+// Act 1 is untouched, so the eight weeks the game is balanced around are exactly
+// as they were.
 // ---------------------------------------------------------------------------
 export const ACT_LENGTH = 8;
-const ACT_BASE_GROWTH = 3.0;   // act 2 (weeks 9-16)
-const ACT_GROWTH_STEP = 1.35;  // added for every act after that
+const ENDLESS_BASE = 3.0;     // week 9 still opens at x3, as it always has
+const ENDLESS_ACCEL = 2.54;   // and every week after that is steeper than the last
 
 /** Which eight-week act a week belongs to. Weeks 1-8 are act 1. */
 export function actOf(week) { return Math.floor((Math.max(1, week) - 1) / ACT_LENGTH) + 1; }
 
-/** The per-week quota multiplier inside an act. Act 1 is the table, not a curve. */
-export function actGrowth(act) { return ACT_BASE_GROWTH + ACT_GROWTH_STEP * Math.max(0, act - 2); }
+/**
+ * What this week's quota is multiplied by against last week's.
+ *
+ * 1 inside act 1, where the table is the answer. Past it the exponent grows
+ * with the square of the weeks elapsed, which is what makes the curve outrun a
+ * desk rather than merely chase it.
+ */
+export function weekGrowth(week) {
+  const n = week - ACT_LENGTH;                        // 1 at week 9, 2 at week 10...
+  if (n <= 0) return 1;
+  return ENDLESS_BASE * ENDLESS_ACCEL ** ((n - 1) ** 2);
+}
 
 const weekBaseCache = new Map();
 export function weekBase(week) {
@@ -43,7 +72,7 @@ export function weekBase(week) {
   if (weekBaseCache.has(week)) return weekBaseCache.get(week);
   let v = BASE_QUOTA[BASE_QUOTA.length - 1];
   for (let w = BASE_QUOTA.length + 1; w <= week; w++) {
-    v *= actGrowth(actOf(w));
+    v *= weekGrowth(w);
     // Clamping at MAX_SAFE_INTEGER would flatten the curve into a wall around
     // week 31, which is the opposite of the point. A quota is only ever
     // compared and formatted, never counted, so past 2^53 it stays a float and
@@ -959,6 +988,26 @@ export function consumableApi(state, selected) {
     createContract: (n) => { let k = 0; for (let i = 0; i < n; i++) if (hasConsumableRoom(state)) { state.consumables.push(makeConsumable(rollContract(rng, state.discoveredFormations))); k++; } return k; },
     createRumor: (n) => { let k = 0; for (let i = 0; i < n; i++) if (hasConsumableRoom(state)) { state.consumables.push(makeConsumable(rollRumor(rng))); k++; } return k; },
     levelFormation: (key, n) => { state.formations[key].level += n; },
+    /**
+     * Sign one legendary, free and clear.
+     *
+     * The card that calls this has no downside at all, so everything that could
+     * go wrong has to refuse rather than half-happen: no desk slot, or every
+     * legendary already on the desk, and nothing is spent — useConsumable only
+     * eats the card on `ok`.
+     */
+    hireLegendary: () => {
+      if (!hasBrokerRoom(state)) return { ok: false, msg: 'No desk slots left' };
+      const key = rollBrokerKey(rng, {
+        rarity: 'legendary', owned: ownedBrokerKeys(state), exclude: brokersOnOffer(state),
+      });
+      // rollBrokerKey falls back to the whole pool when everything is owned, so
+      // the one-of-each rule is checked here rather than assumed.
+      if (!key || alreadyEmployed(state, key)) return { ok: false, msg: 'You already employ every legendary' };
+      state.brokers.push(makeBroker(key, rng));
+      computeMods(state);
+      return { ok: true, msg: `${BROKERS[key].name} signs on` };
+    },
     copyBroker: () => {
       if (!state.brokers.length) return { ok: false, msg: 'No brokers to clone' };
       if (!hasBrokerRoom(state)) return { ok: false, msg: 'No desk slots left' };

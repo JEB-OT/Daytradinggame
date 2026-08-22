@@ -193,6 +193,22 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
 
 .tape-panel { min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .tape-title { font-size: 8.5px; letter-spacing: .2em; color: var(--ink-faint); margin-bottom: 7px; }
+/* the line that gives the panel its job: what is still owed, and what one more
+   trade has to be worth to cover it */
+.tape-call {
+  /* stacked, not side by side: at week 15 both halves are exponent notation and
+     a single row wraps mid-figure */
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  margin-bottom: 7px; padding: 5px 7px; border-radius: 6px;
+  background: var(--ink-hole); border: 2px solid var(--rim);
+}
+.tape-call b { font-size: 11px; font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
+.tape-call span { font-size: 8.5px; letter-spacing: .06em; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.tape-call.clear { border-color: rgba(69,224,141,.55); background: linear-gradient(90deg, rgba(69,224,141,.12), var(--ink-hole)); }
+.tape-call.clear b { color: var(--green); }
+.tape-call.short { border-color: rgba(255,84,104,.55); background: linear-gradient(90deg, rgba(255,84,104,.12), var(--ink-hole)); }
+.tape-call.short b { color: var(--red); }
+
 .tape-list { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
 .tape-row {
   display: grid; grid-template-columns: 15px 1fr auto; gap: 6px; align-items: center;
@@ -201,6 +217,7 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
 }
 .tape-row .t-pat { color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tape-row .t-pl { font-variant-numeric: tabular-nums; font-weight: 900; }
+.tape-row .t-conv { font-style: normal; font-weight: 900; font-size: 9px; }
 .tape-row.green { border-color: rgba(69,224,141,.5); background: linear-gradient(90deg, rgba(69,224,141,.1), var(--ink-hole)); }
 .tape-row.green .t-pl, .tape-row.green .t-dir { color: var(--green); }
 .tape-row.red { border-color: rgba(255,84,104,.5); background: linear-gradient(90deg, rgba(255,84,104,.1), var(--ink-hole)); }

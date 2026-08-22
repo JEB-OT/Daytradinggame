@@ -2,8 +2,13 @@ export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 export function money(n) {
   const neg = n < 0;
-  const v = Math.abs(Math.round(n));
-  return (neg ? '-$' : '$') + v.toLocaleString('en-US');
+  const v = Math.abs(n);
+  // Past a trillion the comma form is a fifty-character wall of digits that
+  // breaks whatever panel it lands in, and quotas reach that in the mid teens
+  // now. Hand those to bignum — the format the rest of the game already reads
+  // P/L in — and keep the exact figure for every amount anyone counts.
+  if (!isFinite(v) || v >= 1e12) return (neg ? '-' : '') + '$' + bignum(v);
+  return (neg ? '-$' : '$') + Math.round(v).toLocaleString('en-US');
 }
 
 // Big numbers show up fast in a mult-stacking game; keep them readable.

@@ -287,6 +287,12 @@ addRumor([
       return { ok: true, msg: 'Kept off the books' };
     } },
 
+  // The one card in the game with nothing on the other side of it. It is priced
+  // like a rumor and reads like a rumor, and you will almost never see one.
+  { key: 'goldenChute', name: "Golden Parachute", art: '🪂', cost: 8, select: [0, 0],
+    text: 'Sign a random Legendary broker. No cost, no catch (needs a desk slot)',
+    use: (api) => api.hireLegendary() },
+
   { key: 'hostileTakeover', name: "Doppelgänger", art: '⚔️', select: [0, 0],
     text: 'Clone a random broker on your desk (needs a slot)',
     downside: 'Costs $6',
@@ -421,6 +427,18 @@ addRumor([
       return { ok: true, msg: `Everything levelled${burnt ? ` — ${burnt} burnt` : ''}` };
     } },
 ]);
+/**
+ * How often Golden Parachute is meant to turn up: 3 rolls in a thousand.
+ *
+ * Solved into a weight against however many ordinary rumors there are, so the
+ * number above stays the number that is true.
+ */
+const MYTHIC_SHARE = 0.003;
+{
+  const ordinary = Object.keys(RUMORS).filter((k) => k !== 'goldenChute').length;
+  RUMORS.goldenChute.weight = (MYTHIC_SHARE * ordinary) / (1 - MYTHIC_SHARE);
+}
+
 export const RUMOR_KEYS = Object.keys(RUMORS);
 
 export const ALL_CONSUMABLES = { ...CHARTS, ...CONTRACTS, ...RUMORS };
@@ -458,4 +476,13 @@ export function rollContract(rng, discovered = []) {
   const pool = CONTRACT_KEYS.filter((k) => !CONTRACTS[k].secret || discovered.includes(CONTRACTS[k].formation));
   return rng.pick(pool.length ? pool : CONTRACT_KEYS.slice(0, 11));
 }
-export function rollRumor(rng) { return rng.pick(RUMOR_KEYS); }
+/**
+ * Rumors are drawn evenly, bar the ones that carry a `weight`.
+ *
+ * Golden Parachute is the only one that does, and it is set as a *share* of the
+ * roll rather than a raw weight — see MYTHIC_SHARE — so adding an ordinary
+ * rumor later cannot quietly make the rare one rarer or commoner than intended.
+ */
+export function rollRumor(rng) {
+  return rng.pickWeighted(RUMOR_KEYS.map((k) => ({ item: k, weight: RUMORS[k].weight ?? 1 })));
+}

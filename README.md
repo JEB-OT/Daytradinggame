@@ -76,7 +76,7 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ```bash
 npm run update           # pull the latest version of the game
 npm run release          # tag and publish this version (maintainers)
-npm test                 # 188 assertions, no dependencies
+npm test                 # 194 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 ```
 
@@ -187,7 +187,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.7.0** — The Long Game | Everything below, plus: acts past the first are far steeper, one boss per rule for weeks 1-8, a REROLL button that stays put, and rumors confined to Rumor Packs |
+| **v1.8.0** — Compound Interest | Everything below, plus: the quota compounds past act 1 (week 15 asks e44, not e8), Today's Tape says whether you will make it, and Golden Parachute signs a Legendary for nothing |
+| v1.7.0 — The Long Game | Everything below, plus: acts past the first are far steeper, one boss per rule for weeks 1-8, a REROLL button that stays put, and rumors confined to Rumor Packs |
 | v1.6.0 — Every Copy | Everything below, plus: the book gives every copy of a candle its own card, a rumor's edition is sealed onto its broker, and eight more brokers multiply on every print |
 | v1.5.0 — The Fine Print | Everything below, plus: rumors state their cost in red, the book opens from anywhere and aims your Charts, and cash gains and spends animate |
 | v1.4.0 — Payday | The tape prints live when you call it, and beating the quota throws cash |
@@ -213,7 +214,7 @@ branch today.
 |---|---|
 | The newest version | `npm run update` — see [Updating](#updating-to-the-latest-version) |
 | One exact version, as a download | Take the source zip from [**Releases**](https://github.com/JEB-OT/Daytradinggame/releases) |
-| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.7.0` |
+| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.8.0` |
 
 Checking out a tag leaves you on a *detached HEAD*. That is normal, and the game runs fine like
 that — it just means you are standing on a fixed point rather than a branch that moves. Get back
@@ -224,8 +225,8 @@ to the moving branch with `git checkout -`.
 ### Publishing a version (maintainers)
 
 Bumping `VERSION` and merging the pull request is only half of shipping. Until a tag points at
-the commit, GitHub has no v1.7.0 — nothing under Releases, no source download, and nothing for
-`git checkout v1.7.0` to find. The code is up there and the version is still ungettable, which
+the commit, GitHub has no v1.8.0 — nothing under Releases, no source download, and nothing for
+`git checkout v1.8.0` to find. The code is up there and the version is still ungettable, which
 looks exactly like the update never landed.
 
 ```bash
@@ -251,23 +252,54 @@ Each **week** has three **deadlines**:
 | 2 | Afternoon Session | ×1.5 | can be skipped for a bonus |
 | 3 | **Boss Deadline** | ×2.0 | one of 29 rules that breaks your build |
 
-Weeks come in **acts of eight**, and the quota curve gets steeper at every act boundary — so
-weeks 9, 17, 25, 33 and on each start a harder stretch than the one before:
+Weeks come in **acts of eight**. Act 1 is a hand-tuned table. After that the quota **compounds**,
+because that is what a desk does.
 
-| Act | Weeks | Quota growth |
+A build does not get stronger by a fixed amount each week. Every multiplicative broker it picks up
+multiplies everything already on the desk, and every extra print applies all of them again — a
+working build compounds on its own compounding. Against that, a quota that grows by a fixed factor
+a week is not difficulty, it is a countdown. It only sets how many weeks pass before someone is
+scoring **e50 against a quota of e8**, which is exactly what players were doing by week 15.
+
+So the quota compounds the same way, and harder. The per-week multiplier is not fixed and does not
+merely step up at act boundaries — it accelerates, and the acceleration itself accelerates:
+
+| Week | This week's quota is | The quota |
 |---|---|---|
-| 1 | 1–8 | a hand-tuned table, ×2.5 easing to ×2.17 a week |
-| 2 | 9–16 | ×3.00 a week |
-| 3 | 17–24 | ×4.35 a week |
-| 4 | 25–32 | ×5.70 a week |
-| *n* | … | ×1.35 a week faster than the act before |
+| 9 | ×3 last week's | 1.95e5 |
+| 10 | ×7.6 | 1.49e6 |
+| 11 | ×125 | 1.86e8 |
+| 12 | ×1.3e4 | 2.45e12 |
+| 13 | ×9.0e6 | 2.21e19 |
+| 15 | ×1.1e15 | **9.83e44** |
+| 18 | ×1.9e33 | 9.16e124 |
 
-Endless mode used to flatten to a constant ×2.4 forever, which meant a desk that could clear week
-12 could clear week 40 — it got longer, not harder. Now each act is decisively harder than the
-last rather than merely longer: week 24's quota is roughly **130× what the old curve asked**, and
-week 32's is thousands of times more. **Act 1 is untouched**, so the eight weeks the game is
-actually balanced around play exactly as they always did. The act and its current rate are printed
-above the week's deadlines, and the week that starts a new act says so.
+Weeks 9 and 10 sit near where they always were, so leaving act 1 feels the same. By the mid teens
+the curve is climbing faster than any desk can, and somewhere around week 22 the quota passes what
+a double can hold and the run is over — both the quota and your P/L are doubles, so endless mode
+stops when the numbers do. **Act 1 is untouched**: the eight weeks the game is balanced around play
+exactly as they always did.
+
+The dial is `ENDLESS_ACCEL` in `src/game/state.js`, documented in place with a table of what other
+values give. Raise it if players are still outrunning the curve.
+
+### Today's Tape tells you whether you are going to make it
+
+The panel down the left lists the trades you have booked this deadline — direction, formation, the
+conviction multiplier it earned, and the P/L. On its own that was a receipt: it told you what had
+just happened, which you had watched happen.
+
+The line above the list is the point of it. It carries **what you still owe and what one more
+trade has to be worth**:
+
+| It says | It means |
+|---|---|
+| `$5.90e44 to go` · `$2.95e44 × 2 trades` | the gap, and the average each remaining trade must clear |
+| `QUOTA CLEARED` · `$5.90e44 over` | you are through; anything else today is profit |
+| `$5.90e44 short` · `no trades left` | it is over, and you can see why |
+
+It adds no rule and costs no decision — every number in it is already on screen. It just does the
+arithmetic you were doing in your head with two trades left.
 
 ### One boss each, for the first eight weeks
 
@@ -460,7 +492,7 @@ redraw comes back in it, so you never have to press it again mid-deadline.
 | **Brokers** | 140 | Sit on your desk and trigger left to right. The combo engine. **One of each, ever** &mdash; see below. |
 | **Charts** | 29 | Reshape the candles in your book — bodies, sectors, polarity, enhancements. |
 | **Contracts** | 14 | Permanently level one formation. |
-| **Rumors** | 20 | High-risk power spikes with a real cost. **Rumor Packs only**, unless you employ *Insider Line*. |
+| **Rumors** | 21 | High-risk power spikes with a real cost — bar one. **Rumor Packs only**, unless you employ *Insider Line*. |
 | **Licences** | 28 | Permanent run upgrades, in 14 two-tier chains. |
 | **Bosses** | 29 | One rule each, and it's always the wrong one for your build. |
 | **Packs** | 15 | Every tile says exactly what is inside — "Keep 2 of 5 Brokers". The expensive Mega packs let you keep **two**. |
@@ -546,6 +578,16 @@ The two pack licences also do what their cards say now: *Clearing House* ("Contr
 far more often") and *Prime Broker* ("Rumor Packs appear far more often too") used to move the
 **shelf** roll instead of the pack pool, so neither stocked the packs it named. Both do now —
 roughly doubling how often that family turns up.
+
+### The Golden Parachute
+
+One rumor has no downside at all. **Golden Parachute** (🪂) signs a random **Legendary** broker —
+no cash, no burnt candle, no fired colleague. All it needs is a free desk slot, and if it has not
+got one it refuses rather than half-working, so the card stays in your hand.
+
+It turns up in **3 rolls in a thousand**. That is set as a share rather than a raw weight, so
+adding rumors later cannot quietly make it commoner or rarer than it is meant to be. Most runs will
+never see one.
 
 ### Rumors say what they cost
 
@@ -684,12 +726,12 @@ src/game/
   state.js            run state, deadline flow, the deck/swept piles, the Floor, save/load
 src/ui/               canvas chart, particles/audio, candle components, overlays
 test/
-  run-tests.mjs       188 tests, no dependencies
+  run-tests.mjs       194 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
 ```
 
 ```bash
-npm test              # 188 assertions across formations, conviction, scoring, flow and content
+npm test              # 194 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 ```
 

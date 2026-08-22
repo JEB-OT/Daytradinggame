@@ -10,11 +10,21 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.7.0';
-export const VERSION_NAME = 'The Long Game';
+export const VERSION = 'v1.8.0';
+export const VERSION_NAME = 'Compound Interest';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.8.0',
+    name: 'Compound Interest',
+    notes: [
+      'Past act 1 the quota compounds the way a desk does — week 15 asks e44 where it used to ask e8',
+      "Today's Tape now says what you still owe and what one more trade has to be worth",
+      'Golden Parachute: 3 rolls in a thousand, signs a random Legendary, no cost and no catch',
+      'Money over a trillion is printed readably instead of as fifty digits',
+    ],
+  },
   {
     version: 'v1.7.0',
     name: 'The Long Game',

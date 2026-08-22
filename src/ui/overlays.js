@@ -75,14 +75,15 @@ export function deadlineSelect(game) {
       </div>`;
   }).join('');
 
-  // Which eight-week act the run is in, and whether this week starts one. The
-  // curve steepens at every act boundary, so the player is told before they
-  // walk into a quota that is suddenly a different shape.
+  // Past act 1 the quota multiplier changes every week and keeps accelerating,
+  // so the badge names this week's rate rather than the act's — an act no longer
+  // has one rate to name. The player is told what the jump is before they walk
+  // into it.
   const act = S.actOf(st.week);
   const actStart = act > 1 && (st.week - 1) % S.ACT_LENGTH === 0;
   const actLine = act > 1
-    ? `<div class="act-badge ${actStart ? 'new' : ''}">ACT ${act} &middot; quotas grow
-         <b>×${S.actGrowth(act).toFixed(2)}</b> a week${actStart ? ' &mdash; steeper from here' : ''}</div>`
+    ? `<div class="act-badge ${actStart ? 'new' : ''}">ACT ${act} &middot; this week's quota is
+         <b>×${bignum(S.weekGrowth(st.week))}</b> last week's &mdash; and the jump grows every week</div>`
     : '';
 
   const sheet = showOverlay(`
