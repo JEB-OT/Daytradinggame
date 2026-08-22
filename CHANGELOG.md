@@ -7,6 +7,29 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.8.0 — Compound Interest
+
+*2026-08-22*
+
+- **Past act 1 the quota compounds the way a desk does.** A build does not get stronger by a fixed
+  factor a week — every multiplicative broker multiplies everything already on the desk, and every
+  extra print applies all of them again. Against that, a fixed-rate quota is a countdown, not
+  difficulty: it only decides how many weeks pass before someone is scoring e50 against a quota of
+  e8, which is what players were doing by week 15. The per-week multiplier now accelerates, and the
+  acceleration accelerates. Week 15 asks **9.83e44** where it used to ask 2.84e8; week 18 asks
+  e124. Weeks 9 and 10 sit near where they were, and act 1 is untouched
+- **Today's Tape has a job.** It listed the trades you had booked, which you had just watched
+  happen. Above that list it now carries what you still owe and what one more trade has to be worth
+  — `$5.90e44 to go · $2.95e44 × 2 trades`, or `QUOTA CLEARED`, or `$5.90e44 short · no trades
+  left`. Rows show the conviction each trade earned. No new rule, no new decision: every number in
+  it was already on screen
+- **Golden Parachute** (🪂) — a rumor with nothing on the other side of it. Signs a random
+  **Legendary** broker for no cash, no burnt candle and no fired colleague. It needs a free desk
+  slot and refuses rather than half-working if it has not got one. Drawn **3 times in a thousand**,
+  set as a share so adding rumors later cannot drift it
+- Money past a trillion prints as `$9.83e44` rather than fifty comma-separated digits, which the
+  new curve reaches often enough to matter
+
 ## v1.7.0 — The Long Game
 
 *2026-08-22*

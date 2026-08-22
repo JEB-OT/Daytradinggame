@@ -2,7 +2,7 @@ import * as S from './game/state.js';
 import { RNG } from './engine/rng.js';
 import { money, bignum } from './engine/util.js';
 import { previewTrade } from './game/scoring.js';
-import { convictionOf, FORMATIONS } from './game/formations.js';
+import { convictionOf, FORMATIONS, CONVICTION } from './game/formations.js';
 import { BROKERS, brokerSellValue } from './game/brokers.js';
 import { BOSSES } from './game/bosses.js';
 import { sortCandles } from './game/candles.js';
@@ -273,16 +273,49 @@ class Game {
     $('r-draw').textContent = s ? s.drawPile.length : st.book.length;
   }
 
+  /**
+   * What you have booked today, and — the reason the panel exists — whether it
+   * is going to be enough.
+   *
+   * The list on its own was a receipt: it told you what had already happened,
+   * which you had just watched happen. The question you actually have with two
+   * trades left is "can I still get there, or am I playing for the next run?",
+   * and answering it meant holding the quota, the total and the trades left in
+   * your head at once. The standing line does that arithmetic. It invents no
+   * rule and costs no decision — every number in it is already on screen.
+   */
   renderTape() {
     const s = this.state.session;
     const list = $('tape-list');
+    const call = $('tape-call');
+
+    call.hidden = !s;
+    if (s) {
+      const short = s.quota - s.profit;
+      if (short <= 0) {
+        call.className = 'tape-call clear';
+        call.innerHTML = `<b>QUOTA CLEARED</b><span>$${bignum(-short)} over</span>`;
+      } else if (s.tradesLeft > 0) {
+        // What one more trade has to be worth if the rest are all like it.
+        const each = short / s.tradesLeft;
+        call.className = 'tape-call';
+        call.innerHTML = `<b>$${bignum(short)} to go</b><span>$${bignum(each)} × ${s.tradesLeft} trade${s.tradesLeft === 1 ? '' : 's'}</span>`;
+      } else {
+        call.className = 'tape-call short';
+        call.innerHTML = `<b>$${bignum(short)} short</b><span>no trades left</span>`;
+      }
+    }
+
     if (!s || !s.history.length) { list.innerHTML = '<div class="tape-empty">no trades booked</div>'; return; }
-    list.innerHTML = s.history.slice().reverse().map((h) => `
+    list.innerHTML = s.history.slice().reverse().map((h) => {
+      const c = h.conviction && h.conviction !== 'neutral' ? CONVICTION[h.conviction] : null;
+      return `
       <div class="tape-row ${h.correct ? 'green' : 'red'}">
         <span class="t-dir">${h.direction === 'LONG' ? '▲' : '▼'}</span>
-        <span class="t-pat">${h.formation}</span>
+        <span class="t-pat">${h.formation}${c ? ` <i class="t-conv" style="color:${c.color}">×${c.mult}</i>` : ''}</span>
         <span class="t-pl">$${bignum(h.pl)}</span>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 
   renderMarket() {
@@ -911,8 +944,9 @@ class Game {
       if (!s) return `<h4>Quota</h4><div class="tt-body">Pick a deadline to begin.</div>`;
       const act = S.actOf(g.week);
       const curve = act > 1
-        ? `<div class="tt-body">Week ${g.week} is in <b>act ${act}</b> — quotas are growing
-           <em>×${S.actGrowth(act).toFixed(2)}</em> a week, and every eighth week starts a steeper act.</div>`
+        ? `<div class="tt-body">Week ${g.week} is in <b>act ${act}</b> — this quota is
+           <em>×${bignum(S.weekGrowth(g.week))}</em> last week's, and that multiplier is bigger
+           every week. A desk that is working compounds; past act 1 the quota compounds harder.</div>`
         : '';
       return `<h4>Quota</h4>
         <div class="tt-body">Book <em>${money(s.quota)}</em> in P/L before your trades run out.

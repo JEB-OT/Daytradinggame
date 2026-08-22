@@ -2,7 +2,7 @@ import { RNG } from '../src/engine/rng.js';
 import { makeCandle, standardBook, baseVolume, SECTOR_KEYS, SECTORS, sortCandles, polarityOf, isWide, isDoji, candleShape } from '../src/game/candles.js';
 import { evaluate, bestFromBoard, formationStats, FORMATION_KEYS, convictionOf } from '../src/game/formations.js';
 import { BROKERS, BROKER_KEYS, makeBroker, brokerText, rollBrokerKey } from '../src/game/brokers.js';
-import { CHARTS, CONTRACTS, RUMORS, ALL_CONSUMABLES, makeConsumable, consumableText, consumableDownside, needsBoard } from '../src/game/consumables.js';
+import { CHARTS, CONTRACTS, RUMORS, RUMOR_KEYS, ALL_CONSUMABLES, makeConsumable, consumableText, consumableDownside, needsBoard, rollRumor } from '../src/game/consumables.js';
 import { LICENSES, LICENSE_KEYS } from '../src/game/licenses.js';
 import { BOSSES, BOSS_KEYS } from '../src/game/bosses.js';
 import { Market } from '../src/game/market.js';
@@ -884,30 +884,25 @@ t('advancing past the boss rolls the week over', () => {
   S.advanceAfterDeadline(st);
   eq(st.week, 2); eq(st.deadlineIndex, 0);
 });
-t('quotas get steeper at every eight-week act boundary', () => {
+t('weeks still group into acts of eight', () => {
   eq(S.actOf(1), 1); eq(S.actOf(8), 1);
   eq(S.actOf(9), 2); eq(S.actOf(16), 2);
   eq(S.actOf(17), 3); eq(S.actOf(24), 3); eq(S.actOf(25), 4);
-  // Each act grows faster per week than the one before it.
-  for (let a = 2; a < 10; a++) ok(S.actGrowth(a + 1) > S.actGrowth(a), 'act ' + a);
-
-  const step = (w) => S.weekBase(w) / S.weekBase(w - 1);
-  // Inside an act the rate holds; crossing a boundary it jumps.
-  ok(Math.abs(step(10) - step(16)) < 1e-6, 'flat inside act 2');
-  ok(step(17) > step(16) + 0.4, 'act 3 is steeper than act 2');
-  ok(step(25) > step(24) + 0.4, 'act 4 is steeper than act 3');
-  ok(step(33) > step(32) + 0.4, 'act 5 is steeper than act 4');
-  // And the old flat x2.4-forever curve is gone.
-  ok(step(40) > 4, 'late acts are far steeper than the old constant 2.4');
 });
-t('the quota curve stays finite and strictly rising deep into endless', () => {
-  let prev = 0;
+t('the quota curve stays finite deep into endless, and walls rather than wraps', () => {
+  let prev = 0, walled = 0;
   for (let w = 1; w <= 200; w++) {
     const v = S.weekBase(w);
     ok(Number.isFinite(v), 'week ' + w + ' overflowed');
-    ok(v > prev, 'week ' + w + ' did not rise');
+    ok(!Number.isNaN(v), 'week ' + w + ' is not a number');
+    if (v === prev) { walled = walled || w; ok(v === Number.MAX_VALUE, 'week ' + w + ' flattened below the ceiling'); }
+    else ok(v > prev, 'week ' + w + ' did not rise');
     prev = v;
   }
+  // It has to keep climbing well past the point anyone reaches, and when it
+  // finally stops it is because a double cannot hold the number, not because
+  // the curve ran out of ideas.
+  ok(walled === 0 || walled > 20, 'the curve gave up at week ' + walled);
 });
 t('skipping a non-boss deadline grants a bonus', () => {
   const st = S.newRun('SKIP');
@@ -1287,28 +1282,92 @@ t('act 1 is untouched — the eight weeks the game is balanced around', () => {
   for (let w = 1; w <= 8; w++) eq(S.actOf(w), 1, 'week ' + w);
 });
 
-t('every act after the first is steeper than the one before it', () => {
-  for (let act = 2; act < 8; act++) {
-    ok(S.actGrowth(act + 1) > S.actGrowth(act), `act ${act + 1} is not steeper than act ${act}`);
+t('act 1 grows by the table, not by the curve', () => {
+  for (let w = 1; w <= 8; w++) eq(S.weekGrowth(w), 1, 'week ' + w);
+  ok(S.weekGrowth(9) > 1);
+});
+
+t('every week past act 1 is steeper than the week before it', () => {
+  for (let w = 10; w <= 30; w++) {
+    ok(S.weekGrowth(w) > S.weekGrowth(w - 1), `week ${w} is not steeper than week ${w - 1}`);
   }
 });
 
-t('the act-on-act step is a substantial one, not a rounding error', () => {
-  const step = S.actGrowth(3) - S.actGrowth(2);
-  ok(step >= 1, `each act only gains x${step.toFixed(2)} per week on the last`);
-  // an act of eight weeks at the steeper rate has to leave the old curve well
-  // behind, or "it gets harder" is a claim the numbers do not back
-  ok(S.actGrowth(4) / S.actGrowth(2) >= 1.8, 'act 4 is not far enough past act 2');
+t('the growth rate accelerates, it does not just increase', () => {
+  // A fixed step would make these ratios equal. They have to keep growing, or
+  // the curve is exponential again and a compounding desk walks away from it.
+  const jump = (w) => S.weekGrowth(w) / S.weekGrowth(w - 1);
+  for (let w = 12; w <= 24; w++) {
+    ok(jump(w) > jump(w - 1), `the curve stopped accelerating at week ${w}`);
+  }
 });
 
-t('the quota curve keeps climbing and never flattens or overflows', () => {
-  let prev = 0;
-  for (let w = 1; w <= 60; w++) {
-    const q = S.weekBase(w);
-    ok(Number.isFinite(q), 'week ' + w + ' overflowed');
-    ok(q > prev, `week ${w} is not harder than week ${w - 1}`);
-    prev = q;
-  }
+t('the mid teens outrun a desk that compounds', () => {
+  // The report that prompted this: a player scoring e50 in week 15 against a
+  // quota of e8. Whatever else changes, week 15 has to be in that league.
+  ok(S.weekBase(15) > 1e30, `week 15 only asks ${S.weekBase(15).toExponential(2)}`);
+  ok(S.weekBase(18) > 1e100, `week 18 only asks ${S.weekBase(18).toExponential(2)}`);
+  // ...without touching the eight weeks the game is balanced around
+  eq(S.weekBase(8), 65000);
+  eq(S.weekBase(9), 195000);
+});
+
+// ------------------------------------------------------- the Golden Parachute
+t('Golden Parachute turns up about three times in a thousand', () => {
+  const rng = new RNG('odds');
+  let hit = 0;
+  const n = 200000;
+  for (let i = 0; i < n; i++) if (rollRumor(rng) === 'goldenChute') hit++;
+  const rate = hit / n;
+  ok(rate > 0.0023 && rate < 0.0037, `drawn ${(rate * 100).toFixed(3)}% of the time, wanted 0.300%`);
+});
+
+t('its odds are pinned to a share, not to a rumor count', () => {
+  // Adding an ordinary rumor must not move the rare one. The weight is solved
+  // against however many others exist, so the share is the thing that holds.
+  const ordinary = RUMOR_KEYS.filter((k) => k !== 'goldenChute');
+  const total = ordinary.length + RUMORS.goldenChute.weight;
+  const share = RUMORS.goldenChute.weight / total;
+  ok(Math.abs(share - 0.003) < 1e-9, `share is ${share}`);
+  for (const k of ordinary) ok(RUMORS[k].weight === undefined, `${k} should not carry a weight`);
+});
+
+t('it signs a legendary and takes nothing for it', () => {
+  const st = S.newRun('CHUTE');
+  const cash = st.cash, book = st.book.length, charts = st.consumables.length;
+  st.consumables = [makeConsumable('goldenChute')];
+  const r = S.useConsumable(st, st.consumables[0].uid, []);
+  ok(r.ok, r.msg);
+  eq(st.brokers.length, 1);
+  eq(BROKERS[st.brokers[0].key].rarity, 'legendary');
+  eq(st.cash, cash, 'it charged for itself');
+  eq(st.book.length, book, 'it burnt a candle');
+  eq(st.consumables.length, charts, 'it ate another card');
+  eq(consumableDownside('goldenChute'), '', 'it prints a downside');
+});
+
+t('with no desk slot it refuses rather than half-works', () => {
+  const st = S.newRun('CHUTEFULL');
+  st.brokers = BROKER_KEYS.slice(0, 5).map((k) => makeBroker(k, null));
+  S.computeMods(st);
+  st.consumables = [makeConsumable('goldenChute')];
+  const r = S.useConsumable(st, st.consumables[0].uid, []);
+  ok(!r.ok, 'it signed a broker with nowhere to put them');
+  eq(st.brokers.length, 5);
+  eq(st.consumables.length, 1, 'the card was spent for nothing');
+});
+
+t('it will not sign a legendary you already employ', () => {
+  const st = S.newRun('CHUTEDUP');
+  const legendaries = BROKER_KEYS.filter((k) => BROKERS[k].rarity === 'legendary');
+  st.brokers = legendaries.map((k) => makeBroker(k, null));
+  st.permanent.slots = legendaries.length + 1;
+  S.computeMods(st);
+  st.consumables = [makeConsumable('goldenChute')];
+  const r = S.useConsumable(st, st.consumables[0].uid, []);
+  ok(!r.ok, 'it handed out a duplicate legendary');
+  eq(st.brokers.length, legendaries.length);
+  eq(st.consumables.length, 1, 'the card was spent for nothing');
 });
 
 // ------------------------------------------------------------------- bosses
