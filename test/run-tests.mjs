@@ -8,6 +8,8 @@ import { BOSSES, BOSS_KEYS } from '../src/game/bosses.js';
 import { Market } from '../src/game/market.js';
 import { scoreTrade } from '../src/game/scoring.js';
 import * as S from '../src/game/state.js';
+import { VERSION, CHANGELOG } from '../src/engine/version.js';
+import { notesFor, versionsInChangelog } from '../scripts/release-notes.mjs';
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -1274,6 +1276,38 @@ t('a selecting card can be aimed at a candle that is still in the deck', () => {
   const r = S.useConsumable(st, inst.uid, [target.uid]);
   ok(r.ok, 'aiming into the deck was refused: ' + r.msg);
   eq(st.book.find((c) => c.uid === target.uid).stamp, 'reissue');
+});
+
+// ---------------------------------------------------------------- releasing
+// A version that ships without release notes cannot be published: the release
+// script and the workflow both refuse to tag one, so it silently never becomes
+// a thing anyone can download. Catch that here instead of on release day.
+
+t('the current version has a section in CHANGELOG.md', () => {
+  const found = notesFor(VERSION);
+  ok(found, `CHANGELOG.md has no section for ${VERSION} — add one before shipping it`);
+  ok(found.body.length > 0, `the ${VERSION} section in CHANGELOG.md is empty`);
+  ok(found.heading.startsWith(VERSION), `the ${VERSION} heading reads "${found.heading}"`);
+});
+
+t('the in-game changelog and CHANGELOG.md list the same versions', () => {
+  const inGame = CHANGELOG.map((e) => e.version);
+  const inFile = versionsInChangelog();
+  for (const v of inGame) ok(inFile.includes(v), `${v} is in the game but not in CHANGELOG.md`);
+  for (const v of inFile) ok(inGame.includes(v), `${v} is in CHANGELOG.md but not in the game`);
+});
+
+t('the in-game changelog leads with the version being run', () => {
+  eq(CHANGELOG[0].version, VERSION, 'the newest changelog entry is not the current version');
+});
+
+t('release notes are matched on the whole version, not a prefix', () => {
+  ok(!notesFor('v1.3'), 'v1.3 matched a section it should not have');
+  ok(notesFor('v1.3.0'), 'v1.3.0 did not find its own section');
+});
+
+t('a version can be asked for with or without the leading v', () => {
+  eq(notesFor('1.3.0').heading, notesFor('v1.3.0').heading);
 });
 
 console.log('');

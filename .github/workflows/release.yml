@@ -1,0 +1,87 @@
+# Turn a version into something people can actually get.
+#
+# Merging the pull request puts the code on GitHub; it does not create a v1.5.0.
+# Without a tag there is no entry under Tags, no source download and nothing for
+# `git checkout v1.5.0` to find — the version exists in the changelog and
+# nowhere else. This closes that gap, from either end:
+#
+#   * push a tag (`npm run release`)  -> this publishes the release for it
+#   * run it by hand from the Actions tab -> this creates the missing tags too
+#
+# The notes come out of CHANGELOG.md, so a release says the same thing the
+# repo does rather than being a second copy that drifts.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: 'Also tag every past version that never got a tag'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the whole history
+        uses: actions/checkout@v4
+        with:
+          # Tagging past versions means reading the version stamp at every
+          # commit, so a shallow clone is not enough.
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Use Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Name the tagger
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create any missing tags
+        if: github.event_name == 'workflow_dispatch'
+        run: node scripts/release.mjs ${{ inputs.backfill && '--backfill' || '' }}
+
+      - name: Publish a release for every tag that does not have one
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force --quiet
+
+          published=0
+          # Oldest first, so the newest version is created last and ends up
+          # being the one GitHub calls "Latest".
+          for tag in $(git tag -l 'v*' --sort=version:refname); do
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "= $tag already has a release"
+              continue
+            fi
+            if ! node scripts/release-notes.mjs "$tag" > /tmp/notes.md; then
+              echo "? $tag has no CHANGELOG.md section — skipping it"
+              continue
+            fi
+            title="$(node scripts/release-notes.mjs --title "$tag")"
+            gh release create "$tag" \
+              --title "$title" \
+              --notes-file /tmp/notes.md \
+              --target "$(git rev-list -n 1 "$tag")"
+            echo "+ published $tag"
+            published=$((published + 1))
+          done
+
+          echo "published $published release(s)"
