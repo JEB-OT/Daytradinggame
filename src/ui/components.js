@@ -86,7 +86,8 @@ function candleTip(c) {
 export function brokerEl(inst, state, opts = {}) {
   const d = BROKERS[inst.key];
   const el = document.createElement('div');
-  el.className = `broker rarity-${d.rarity}` + (inst.edition ? ` ed-${inst.edition}` : '');
+  el.className = `broker rarity-${d.rarity}` + (inst.edition ? ` ed-${inst.edition}` : '')
+    + (inst.editionSealed ? ' sealed-ed' : '');
   el.dataset.uid = inst.uid;
   if (opts.disabled) el.classList.add('disabled');
   const ctr = counterText(inst);
@@ -95,6 +96,7 @@ export function brokerEl(inst, state, opts = {}) {
     <div class="bk-art">${d.art || '📌'}</div>
     <div class="bk-name">${d.name}</div>
     ${ctr ? `<div class="bk-ctr">${ctr}</div>` : ''}
+    ${inst.editionSealed ? '<div class="bk-seal" aria-hidden="true">🔒</div>' : ''}
     <div class="bk-strip"></div>
   `;
   attachTip(el, () => brokerTip(inst, state, opts));
@@ -111,7 +113,13 @@ function counterText(inst) {
 export function brokerTip(inst, state, opts = {}) {
   const d = BROKERS[inst.key];
   const rar = RARITY[d.rarity];
-  const ed = inst.edition ? `<div class="tt-body" style="color:var(--gold)"><b>${EDITIONS[inst.edition].name}</b> — ${EDITIONS[inst.edition].desc}</div>` : '';
+  const ed = inst.edition
+    ? `<div class="tt-body" style="color:var(--gold)"><b>${EDITIONS[inst.edition].name}</b> — ${EDITIONS[inst.edition].desc}`
+      + (inst.editionSealed
+        ? ' <em style="font-style:normal;color:var(--ink-dim)">· sealed — nothing can replace it, and it lasts until you sell this broker</em>'
+        : '')
+      + '</div>'
+    : '';
   const foot = opts.hideSell ? '' : `<div class="tt-foot">Sells for $${brokerSellValue(inst, state)} · drag to reorder · right-click to sell</div>`;
   return `<h4>${d.name}</h4>
     <div class="tt-rarity" style="color:${rar.color}">${rar.name.toUpperCase()} BROKER</div>

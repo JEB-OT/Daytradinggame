@@ -958,13 +958,34 @@ export function consumableApi(state, selected) {
       state.brokers.splice(state.brokers.indexOf(victim), 1);
       return victim;
     },
+    /**
+     * Put an edition on a broker, and seal it there.
+     *
+     * These used to be able to land on a broker a rumor had already decorated,
+     * quietly replacing what you spent a card on — the Foiled broker you were
+     * building around turning Prismatic, with no way to refuse it. An edition
+     * a rumor grants is now sealed: nothing overwrites it for the rest of the
+     * run, and selling the broker is the only way to be rid of it. Editions a
+     * broker simply turned up with are not sealed, so there is still something
+     * for a later rumor to land on.
+     */
     editionRandomBroker: (edition) => {
-      const pool = state.brokers.filter((b) => b.edition !== edition);
-      if (!pool.length) return { ok: false, msg: 'No eligible broker' };
+      const pool = state.brokers.filter((b) => b.edition !== edition && !b.editionSealed);
+      if (!pool.length) {
+        const msg = !state.brokers.length ? 'No brokers on your desk'
+          : state.brokers.some((b) => b.editionSealed) ? 'Every broker already carries a sealed edition'
+          : 'No eligible broker';
+        return { ok: false, msg };
+      }
       const target = rng.pick(pool);
       target.edition = edition;
+      target.editionSealed = true;
       computeMods(state);
-      return { ok: true, msg: `${BROKERS[target.key].name} is now ${EDITIONS[edition].name} (${EDITIONS[edition].desc})`, spared: target };
+      return {
+        ok: true,
+        msg: `${BROKERS[target.key].name} is now ${EDITIONS[edition].name} (${EDITIONS[edition].desc}) — sealed for the run`,
+        spared: target,
+      };
     },
   };
 }

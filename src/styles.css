@@ -268,6 +268,13 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
 .broker.ed-holographic .bk-glow { background: conic-gradient(from 0deg, rgba(255,92,240,.4), rgba(64,217,255,.4), rgba(255,210,74,.4), rgba(255,92,240,.4)); animation: spin 3.5s linear infinite; opacity: .55; }
 .broker.ed-algorithmic { background: linear-gradient(135deg,#4d1440,#14264d); box-shadow: 0 4px 0 var(--lip), 0 0 24px rgba(255,92,240,.45), 0 8px 16px rgba(0,0,0,.55); }
 .broker.ed-offbook { background: repeating-linear-gradient(135deg,#0a0c14 0 5px,#12141f 5px 10px); border-color: #5c5c78; }
+/* a rumor put this edition here, so nothing can replace it for the rest of
+   the run — worth saying on the card, not only in the tooltip */
+.broker.sealed-ed { border-color: var(--gold); }
+.bk-seal {
+  position: absolute; top: 3px; right: 3px; z-index: 4; font-size: 9px; line-height: 1;
+  padding: 2px; border-radius: 5px; background: rgba(8,12,22,.82); border: 1px solid var(--gold);
+}
 @keyframes spin { to { transform: rotate(360deg) } }
 .broker.disabled { filter: grayscale(1) brightness(.5); }
 .broker.trigger { animation: brokerTrigger .42s cubic-bezier(.2,.9,.3,1); z-index: 8; }
@@ -983,9 +990,29 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 .bk-seccount i { font-size: 9px; font-style: normal; color: var(--ink-faint); font-weight: 700; }
 
 /* the fan itself — cards overlap, and the hovered one lifts clear */
-.bk-fan { display: flex; align-items: flex-end; justify-content: flex-start; padding-left: 4px; }
-.bk-fan > .bk-cell { margin-left: -13px; }
+/* `--cw` is the card width and `--lapf` the fraction of it each card lies over
+   its neighbour. Keeping the overlap as a fraction rather than a pixel count is
+   what lets bookRow tighten a long row from JS without having to know which
+   card size the viewport is currently using. */
+.bk-fan {
+  display: flex; align-items: flex-end; justify-content: flex-start;
+  padding-left: 4px; --cw: 62px; --lapf: .21;
+}
+/* Only a row that cannot be squeezed any further scrolls, and only then does it
+   pay for the headroom a hovered card needs — an ordinary book keeps the height
+   it always had. */
+.bk-fan.crowded {
+  overflow-x: auto; scrollbar-width: thin;
+  padding-top: 13px; padding-bottom: 3px;
+}
+.bk-fan > .bk-cell { margin-left: calc(-1 * var(--lapf) * var(--cw)); }
 .bk-fan > .bk-cell:first-child { margin-left: 0; }
+/* The first card of a body size gives up a little of its overlap, so a run of
+   copies reads as a run rather than as one undifferentiated fan. */
+.bk-fan > .bk-cell.opens-body { margin-left: calc(-1 * var(--lapf) * var(--cw) + 5px); }
+/* A card that has at least one twin is worth marking: the whole point of
+   showing copies separately is being able to tell them apart. */
+.bk-cell.copy .candle { border-color: color-mix(in srgb, var(--gold) 55%, var(--rim-2)); }
 /* Each card lies on top of the one to its left, so what gets covered is always
    a card's right edge and never its top-left corner — which is where the body
    number and sector glyph live. Stacking it the other way hides the numbers. */
@@ -1018,13 +1045,6 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 .bk-ghost span { font-size: 16px; font-weight: 900; color: rgba(120,140,175,.32); text-shadow: none; }
 .bk-cell.gone .bk-ghost { border-color: rgba(255,84,104,.34); background: rgba(60,10,18,.5); }
 .bk-cell.gone .bk-ghost span { color: rgba(255,120,135,.42); }
-
-/* more than one candle sits on the same square */
-.bk-dup {
-  position: absolute; left: -3px; bottom: -3px; z-index: 6;
-  padding: 1px 4px; border-radius: 8px; font-size: 9px; font-weight: 900;
-  background: var(--gold); color: #241800; border: 2px solid #0a0f1c;
-}
 
 .bk-tabs { display: flex; gap: 6px; }
 .bk-tab {
@@ -1061,7 +1081,7 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 @media (max-width: 1220px) {
   .bk-layout { grid-template-columns: 150px 54px 1fr; }
   .bk-cell .candle, .bk-ghost { width: 52px; height: 76px; }
-  .bk-fan > .bk-cell { margin-left: -11px; }
+  .bk-fan { --cw: 52px; }
   .bk-row { grid-template-columns: 80px 1fr; }
   .bk-secname { font-size: 8.5px }
 }

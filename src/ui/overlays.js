@@ -428,11 +428,57 @@ const BOOK_VIEWS = {
 /** Bodies high to low, the way a deck view reads: 13 down to 1. */
 const BOOK_BODIES = Array.from({ length: MAX_BODY }, (_, i) => MAX_BODY - i);
 
+/** How decorated a candle is, so plain copies sit under the interesting ones. */
+const decorCount = (c) => (c.enhancement ? 1 : 0) + (c.edition ? 1 : 0) + (c.stamp ? 1 : 0);
+
 /**
- * One sector's row, fanned. Cards overlap so a full run of thirteen stays wide
- * enough to read, and the one under the cursor lifts clear of its neighbours.
- * Empty squares are drawn as outlines — in the REMAINING view the gaps are the
- * whole point, so they have to be as visible as the cards.
+ * How far each card may lie over the one to its left, as a fraction of a card.
+ *
+ * A row used to hold thirteen cards — one square per body size — so a fixed
+ * overlap was enough. Now that every copy gets its own card a row can be any
+ * length, so the overlap tightens as the row grows. The floor is the point
+ * where a card's top-left corner, which carries its body number and sector
+ * glyph, would start to disappear under its neighbour; past that the row
+ * scrolls sideways instead of squeezing into something unreadable.
+ */
+export const LAP_MIN = 0.21;          // the fan's original overlap
+export const LAP_MAX = 0.6;
+const FAN_CARDS = 10.6;        // roughly the width a row has to play with
+
+export function lapFor(n) {
+  if (n < 2) return LAP_MIN;
+  return Math.min(LAP_MAX, Math.max(LAP_MIN, 1 - (FAN_CARDS - 1) / (n - 1)));
+}
+
+/**
+ * The cards a sector's row is made of, in the order they are laid down.
+ *
+ * One entry per candle rather than one per body size, plus a ghost entry for a
+ * body size you hold nothing of. Kept separate from the drawing so the rule —
+ * every copy gets its own card — can be checked without a browser.
+ */
+export function bookRowCells(candles, all) {
+  const cells = [];
+  for (const body of BOOK_BODIES) {
+    const here = candles.filter((c) => c.body === body)
+      .sort((a, b) => decorCount(a) - decorCount(b));
+    const owned = all.filter((c) => c.body === body);
+    if (!here.length) { cells.push({ body, owned }); continue; }
+    here.forEach((candle, j) => cells.push({ body, owned, candle, opensBody: j === 0, copies: here.length }));
+  }
+  return cells;
+}
+
+/**
+ * One sector's row, fanned: every candle you own of that sector, in body order,
+ * each on its own card.
+ *
+ * Copies used to collapse into one square with a ×N badge, which hid the very
+ * thing the badge was telling you about — two body-7s are rarely the same card
+ * once one is Foiled, stamped or enhanced, and there was no way to see which
+ * versions you held. Empty squares are still drawn as outlines: in the
+ * REMAINING view the gaps are the whole point, so they have to be as visible
+ * as the cards.
  */
 function bookRow(sectorKey, candles, all) {
   const sec = SECTORS[sectorKey];
@@ -447,28 +493,30 @@ function bookRow(sectorKey, candles, all) {
     <span class="bk-seccount">${candles.length}<i>/${all.length}</i></span>`;
   wrap.appendChild(head);
 
+  const cells = bookRowCells(candles, all);
+
   const fan = document.createElement('div');
   fan.className = 'bk-fan';
-  BOOK_BODIES.forEach((body, i) => {
-    const here = candles.filter((c) => c.body === body);
-    const owned = all.filter((c) => c.body === body);
+  const lapf = lapFor(cells.length);
+  fan.style.setProperty('--lapf', lapf.toFixed(3));
+  // Past the point where even the tightest overlap runs off the sheet, the row
+  // scrolls. That takes a book far bigger than the one you start with, so an
+  // ordinary row never grows a scrollbar.
+  if (1 + (cells.length - 1) * (1 - lapf) > FAN_CARDS) fan.classList.add('crowded');
+  cells.forEach((spec, i) => {
     const cell = document.createElement('div');
     cell.className = 'bk-cell';
     cell.style.setProperty('--n', i);
-    if (!here.length) {
-      cell.classList.add(owned.length ? 'gone' : 'missing');
-      cell.innerHTML = `<div class="bk-ghost"><span>${body}</span></div>`;
-      cell.title = owned.length
-        ? `${owned.length} × ${body} of ${sec.name} — none left in the deck`
-        : `no ${body} of ${sec.name} in your book`;
+    if (spec.opensBody !== false && i > 0) cell.classList.add('opens-body');
+    if (!spec.candle) {
+      cell.classList.add(spec.owned.length ? 'gone' : 'missing');
+      cell.innerHTML = `<div class="bk-ghost"><span>${spec.body}</span></div>`;
+      cell.title = spec.owned.length
+        ? `${spec.owned.length} × ${spec.body} of ${sec.name} — none left in the deck`
+        : `no ${spec.body} of ${sec.name} in your book`;
     } else {
-      cell.appendChild(candleEl(here[0], { reveal: true }));
-      if (here.length > 1) {
-        const dup = document.createElement('span');
-        dup.className = 'bk-dup';
-        dup.textContent = '×' + here.length;
-        cell.appendChild(dup);
-      }
+      cell.appendChild(candleEl(spec.candle, { reveal: true }));
+      if (spec.copies > 1) cell.classList.add('copy');
     }
     fan.appendChild(cell);
   });
@@ -610,8 +658,9 @@ function pickScreen(game, back, pick, where) {
  *
  * `pick` is `{ inst, onDone }`: the consumable being aimed, and what to redraw
  * once it has been used. In pick mode the fanned grid is replaced by a flat
- * one-card-per-candle grid, because the fan collapses duplicates into a single
- * cell with a ×N badge and you cannot aim at a card you cannot see.
+ * one-card-per-candle grid: the fan shows every copy too, but aiming wants
+ * cards that are whole and clickable rather than overlapping and sorted by
+ * sector.
  */
 export function bookScreen(game, back, view = 'all', pick = null) {
   const st = game.state;

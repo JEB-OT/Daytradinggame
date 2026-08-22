@@ -1,4 +1,4 @@
-import { SECTORS, isWide, isDoji, isSmall, bodyOf, polarityOf } from './candles.js';
+import { SECTORS, ENHANCEMENTS, isWide, isDoji, isSmall, bodyOf, polarityOf } from './candles.js';
 
 // ---------------------------------------------------------------------------
 // BROKERS — the people on your desk. They trigger left to right and they are
@@ -201,11 +201,13 @@ add([
     text: (b, s) => `+3 Leverage per consecutive GREEN trade (currently ${s?.session?.greenStreak ?? 0})`,
     independent: (ctx, b) => { if (ctx.greenStreak > 0) ctx.addLeverage(3 * ctx.greenStreak, b); } },
 
-  { key: 'contrarian', name: 'The Fool', cost: 7, rarity: 'uncommon', art: '🤡',
+  // The Fool doubles a RED trade's P/L where Stone Grip only stops the penalty,
+  // so the clown is strictly the better card and carries the higher rarity.
+  { key: 'contrarian', name: 'The Fool', cost: 9, rarity: 'rare', art: '🤡',
     text: 'RED trades keep x2 of their P/L instead of the usual penalty',
     redMult: 2 },
 
-  { key: 'diamondHands', name: 'Stone Grip', cost: 8, rarity: 'rare', art: '💎',
+  { key: 'diamondHands', name: 'Stone Grip', cost: 7, rarity: 'uncommon', art: '💎',
     text: 'RED trades pay in full — no wrong-way penalty',
     redMult: 1 },
 
@@ -293,7 +295,7 @@ add([
     text: 'Each printed candle with an edition gives +5 Leverage',
     candleScored: (ctx, c, b) => { if (c.edition) ctx.addLeverage(5, b, c); } },
 
-  { key: 'algoDesk', name: 'Shapeshifter', cost: 8, rarity: 'uncommon', art: '🦎',
+  { key: 'algoDesk', name: 'Shapeshifter', cost: 9, rarity: 'rare', art: '🦎',
     text: 'x1.5 Leverage for each printed Chameleon candle',
     candleScored: (ctx, c, b) => { if (c.enhancement === 'chameleon' && !c.debuffed) ctx.xLeverage(1.5, b, c); } },
 
@@ -304,6 +306,44 @@ add([
   { key: 'swingDesk', name: 'Fencesitter', cost: 8, rarity: 'uncommon', art: '🔀',
     text: 'x1.7 Leverage for each printed Janus candle',
     candleScored: (ctx, c, b) => { if (c.enhancement === 'janus' && !c.debuffed) ctx.xLeverage(1.7, b, c); } },
+
+  // More of the same shape: a multiplier that lands once per print rather than
+  // once per trade, so it compounds with anything that makes a candle print
+  // again. The condition is what sets the price — a multiplier keyed to a
+  // scarce enhancement is worth more than one keyed to something you hold four
+  // of. `ctx.enhOf` rather than `c.enhancement`, so a boss that switches
+  // enhancements off switches these off with them.
+  { key: 'emberDesk', name: 'Stokehold', cost: 8, rarity: 'uncommon', art: '🏺',
+    text: `x1.6 Leverage for each printed ${ENHANCEMENTS.ember.name} candle`,
+    candleScored: (ctx, c, b) => { if (ctx.enhOf(c) === 'ember') ctx.xLeverage(1.6, b, c); } },
+
+  { key: 'beaconDesk', name: 'Lamplighter', cost: 8, rarity: 'uncommon', art: '🏮',
+    text: `x1.6 Leverage for each printed ${ENHANCEMENTS.beacon.name} candle`,
+    candleScored: (ctx, c, b) => { if (ctx.enhOf(c) === 'beacon') ctx.xLeverage(1.6, b, c); } },
+
+  { key: 'cursedDesk', name: 'Ill Omen', cost: 9, rarity: 'rare', art: '☠️',
+    text: `x2.2 Leverage for each printed ${ENHANCEMENTS.cursed.name} candle`,
+    candleScored: (ctx, c, b) => { if (ctx.enhOf(c) === 'cursed') ctx.xLeverage(2.2, b, c); } },
+
+  { key: 'wishDesk', name: 'Wishing Well', cost: 9, rarity: 'rare', art: '⛲',
+    text: `x1.8 Leverage for each printed ${ENHANCEMENTS.wishbone.name} candle`,
+    candleScored: (ctx, c, b) => { if (ctx.enhOf(c) === 'wishbone') ctx.xLeverage(1.8, b, c); } },
+
+  { key: 'stampPress', name: 'Wax Seal', cost: 8, rarity: 'uncommon', art: '🔏',
+    text: 'x1.35 Leverage for each printed candle carrying a stamp',
+    candleScored: (ctx, c, b) => { if (c.stamp && !c.debuffed) ctx.xLeverage(1.35, b, c); } },
+
+  { key: 'colophon', name: 'Colophon', cost: 7, rarity: 'uncommon', art: '📘',
+    text: 'x1.3 Leverage for each printed candle carrying an edition',
+    candleScored: (ctx, c, b) => { if (c.edition && !c.debuffed) ctx.xLeverage(1.3, b, c); } },
+
+  { key: 'stillPoint', name: 'Still Point', cost: 7, rarity: 'uncommon', art: '☯️',
+    text: 'x1.3 Leverage for each printed DOJI (body 1)',
+    candleScored: (ctx, c, b) => { if (ctx.hasBody(c) && isDoji(c) && !c.debuffed) ctx.xLeverage(1.3, b, c); } },
+
+  { key: 'longShadow', name: 'Long Shadow', cost: 9, rarity: 'rare', art: '📏',
+    text: 'x1.7 Leverage for each printed body-13 candle',
+    candleScored: (ctx, c, b) => { if (ctx.hasBody(c) && bodyOf(c) === 13 && !c.debuffed) ctx.xLeverage(1.7, b, c); } },
 
   { key: 'ladder', name: 'Hoardling', cost: 6, rarity: 'uncommon', art: '🧗',
     text: '+2 Leverage for each candle left on your board',
@@ -635,7 +675,7 @@ add([
     text: 'Every printed candle with a body of 11 or more prints twice more',
     retriggerScored: (ctx, c) => (ctx.isWide(c) ? 2 : 0) },
 
-  { key: 'hairline', name: 'Hairline', cost: 7, rarity: 'uncommon', art: '✒️',
+  { key: 'hairline', name: 'Hairline', cost: 9, rarity: 'rare', art: '✒️',
     text: 'Every printed Doji (body 1) prints three extra times',
     retriggerScored: (ctx, c) => (ctx.hasBody(c) && bodyOf(c) === 1 ? 3 : 0) },
 

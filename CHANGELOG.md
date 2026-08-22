@@ -7,6 +7,26 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.6.0 — Every Copy
+
+*2026-08-22*
+
+- The book shows **every copy of a candle on its own card**, in body order, plainest first. Two
+  body-7 Techs are rarely the same card once one is Foiled and another is stamped, and collapsing
+  them into one square with a `×3` badge hid the one thing the badge was pointing at. A row
+  tightens its fan as it gets longer, and only scrolls when it has run out of room to tighten
+- An edition a **rumor** puts on a broker is **sealed**: nothing replaces it for the rest of the
+  run, and selling the broker is the only way to be rid of it. A second rumor used to be able to
+  overwrite the first one's gift with no say in it. Sealed brokers carry a 🔒 and drop out of the
+  pool the next rumor picks from
+- Eight more brokers that multiply **on every print** rather than once per trade, so they compound
+  with everything that makes a candle print again — Stokehold (Ember), Lamplighter (Beacon),
+  Ill Omen (Cursed), Wishing Well (Wishbone), Wax Seal (stamps), Colophon (editions), Still Point
+  (Dojis) and Long Shadow (body 13)
+- **The Fool** is now rare and **Stone Grip** uncommon. The clown keeps ×2 of a RED trade's P/L
+  where the stone only stops the penalty, so the better card carries the higher rarity
+- **Shapeshifter** and **Hairline** are rare
+
 ## v1.5.0 — The Fine Print
 
 *2026-08-21*

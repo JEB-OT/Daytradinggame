@@ -10,11 +10,22 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.5.0';
-export const VERSION_NAME = 'The Fine Print';
+export const VERSION = 'v1.6.0';
+export const VERSION_NAME = 'Every Copy';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.6.0',
+    name: 'Every Copy',
+    notes: [
+      'The book shows every copy of a candle on its own card — no more ×3 badge hiding which versions you own',
+      "A rumor's edition is sealed onto the broker it lands on: nothing can replace it, and it lasts until you sell",
+      'Eight more brokers that multiply on every print, from Ember and Cursed candles to stamps, editions and Dojis',
+      'The Fool is rare and Stone Grip uncommon — the clown was always the better of the two',
+      'Shapeshifter and Hairline are rare',
+    ],
+  },
   {
     version: 'v1.5.0',
     name: 'The Fine Print',

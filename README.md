@@ -76,7 +76,7 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ```bash
 npm run update           # pull the latest version of the game
 npm run release          # tag and publish this version (maintainers)
-npm test                 # 152 assertions, no dependencies
+npm test                 # 177 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 ```
 
@@ -187,7 +187,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.5.0** — The Fine Print | Everything below, plus: rumors state their cost in red, the book opens from anywhere and aims your Charts, and cash gains and spends animate |
+| **v1.6.0** — Every Copy | Everything below, plus: the book gives every copy of a candle its own card, a rumor's edition is sealed onto its broker, and eight more brokers multiply on every print |
+| v1.5.0 — The Fine Print | Everything below, plus: rumors state their cost in red, the book opens from anywhere and aims your Charts, and cash gains and spends animate |
 | v1.4.0 — Payday | The tape prints live when you call it, and beating the quota throws cash |
 | v1.3.3 — The Print Shop | The board sort sticks through a rearrange and a redraw |
 | v1.3.2 — The Print Shop | `npm start` warns you when a newer version exists |
@@ -211,7 +212,7 @@ branch today.
 |---|---|
 | The newest version | `npm run update` — see [Updating](#updating-to-the-latest-version) |
 | One exact version, as a download | Take the source zip from [**Releases**](https://github.com/JEB-OT/Daytradinggame/releases) |
-| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.5.0` |
+| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.6.0` |
 
 Checking out a tag leaves you on a *detached HEAD*. That is normal, and the game runs fine like
 that — it just means you are standing on a fixed point rather than a branch that moves. Get back
@@ -222,8 +223,8 @@ to the moving branch with `git checkout -`.
 ### Publishing a version (maintainers)
 
 Bumping `VERSION` and merging the pull request is only half of shipping. Until a tag points at
-the commit, GitHub has no v1.5.0 — nothing under Releases, no source download, and nothing for
-`git checkout v1.5.0` to find. The code is up there and the version is still ungettable, which
+the commit, GitHub has no v1.6.0 — nothing under Releases, no source download, and nothing for
+`git checkout v1.6.0` to find. The code is up there and the version is still ungettable, which
 looks exactly like the update never landed.
 
 ```bash
@@ -442,7 +443,7 @@ redraw comes back in it, so you never have to press it again mid-deadline.
 
 | Layer | Count | What it does |
 |---|---:|---|
-| **Brokers** | 131 | Sit on your desk and trigger left to right. The combo engine. **One of each, ever** &mdash; see below. |
+| **Brokers** | 139 | Sit on your desk and trigger left to right. The combo engine. **One of each, ever** &mdash; see below. |
 | **Charts** | 29 | Reshape the candles in your book — bodies, sectors, polarity, enhancements. |
 | **Contracts** | 14 | Permanently level one formation. |
 | **Rumors** | 20 | High-risk power spikes with a real cost. |
@@ -482,6 +483,25 @@ Leveraged, Rotating, Volatile, Dividend, Hedged, Penny, **Swing**, Sealed), **ed
 "Make a random broker Foiled (+50 Volume)", never "laminated". Hover any candle to see which
 layers it is carrying and what each one is worth.
 
+### A rumor's edition is sealed on
+
+*Foil Press*, *Prism*, *Runecarver* and *Faustian Deal* put an edition on a random broker. That
+edition is now **sealed**: nothing replaces it for the rest of the run, and the only way to be
+rid of it is to sell the broker. Before, a second rumor could land on the same broker and quietly
+overwrite what the first one gave you &mdash; the Foiled broker you were building around turning
+Prismatic, with no say in it. Sealed brokers carry a 🔒 on the card and drop out of the pool the
+next rumor picks from, so a later one goes looking for a broker that has not been decorated yet.
+An edition a broker simply turned up with is not sealed, so there is still something to land on.
+
+### Every copy gets its own card
+
+The book shows **one card per candle**, not one square per body size. Two body-7 Techs are
+rarely the same card &mdash; one may be Foiled, another stamped, another Chameleon &mdash; and
+they used to collapse into a single square with a `×3` badge, which hid the one thing the badge
+was pointing at. Copies now sit side by side in body order, plainest first, so the versions you
+own are something you can look at. The empty squares still mark the body sizes you hold nothing
+of, which is the whole point of the **REMAINING** tab.
+
 ### The book is always one click away
 
 **BOOK** sits in the Floor's button row, on the strip inside a pack, in the topbar during a
@@ -520,6 +540,21 @@ are worth far more together than either is alone.
 | **Last Word** | the last candle you placed prints again (the mirror of *Encore*) |
 | **Kerning** | every printed candle whose body matches another candle you placed prints again |
 | **Misprint** | every printed candle carrying an **edition** prints again |
+
+| Broker | Multiplies on every print |
+|---|---|
+| **Stokehold** | ×1.6 Leverage for each printed **Ember** candle |
+| **Lamplighter** | ×1.6 Leverage for each printed **Beacon** candle |
+| **Ill Omen** | ×2.2 Leverage for each printed **Cursed** candle |
+| **Wishing Well** | ×1.8 Leverage for each printed **Wishbone** candle |
+| **Wax Seal** | ×1.35 Leverage for each printed candle carrying a **stamp** |
+| **Colophon** | ×1.3 Leverage for each printed candle carrying an **edition** |
+| **Still Point** | ×1.3 Leverage for each printed **Doji** (body 1) |
+| **Long Shadow** | ×1.7 Leverage for each printed **body-13** candle |
+
+These land *inside* the print rather than once per trade, so they compound with everything in
+the table above: *Still Point* under *Hairline* multiplies four times per Doji, not once. They
+join *Shapeshifter*, *Powder Keg* and *Fencesitter*, which already worked this way.
 
 | Broker | Paid per extra print |
 |---|---|
@@ -613,7 +648,7 @@ src/game/
   candles.js          candles: sector, body, polarity, enhancements, editions, stamps
   formations.js       formation evaluation (set-based + order-based marches) and Conviction
   scoring.js          the Volume × Leverage pipeline, step by step
-  brokers.js          131 brokers
+  brokers.js          139 brokers
   consumables.js      charts, contracts, rumors
   licenses.js         permanent run upgrades
   bosses.js           29 boss rules
@@ -621,12 +656,12 @@ src/game/
   state.js            run state, deadline flow, the deck/swept piles, the Floor, save/load
 src/ui/               canvas chart, particles/audio, candle components, overlays
 test/
-  run-tests.mjs       141 tests, no dependencies
+  run-tests.mjs       177 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
 ```
 
 ```bash
-npm test              # 141 assertions across formations, conviction, scoring, flow and content
+npm test              # 177 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 ```
 
