@@ -571,6 +571,13 @@ add([
     payout: () => 6,
     independent: (ctx, b) => ctx.xLeverage(1 + 0.1 * Math.floor(ctx.state.cash / 25), b) },
 
+  // Rumors are pack-only, so this is the one way onto the shelf. It is priced
+  // as a rare because it reopens a whole item type, not because the numbers on
+  // it are large.
+  { key: 'wireTap', name: 'Insider Line', cost: 9, rarity: 'rare', art: '📻',
+    text: 'Rumors turn up on the Floor as well as in Rumor Packs, and Rumor Packs appear more often',
+    mods: { shopRumors: true, rumorWeight: 2 } },
+
   { key: 'shellCorp', name: 'The Fixer', cost: 7, rarity: 'uncommon', art: '🐚',
     text: 'The first reroll on every visit to the Floor is free',
     mods: { freeRerolls: 1 } },

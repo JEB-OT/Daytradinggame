@@ -76,7 +76,7 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ```bash
 npm run update           # pull the latest version of the game
 npm run release          # tag and publish this version (maintainers)
-npm test                 # 177 assertions, no dependencies
+npm test                 # 188 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 ```
 
@@ -187,7 +187,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.6.0** — Every Copy | Everything below, plus: the book gives every copy of a candle its own card, a rumor's edition is sealed onto its broker, and eight more brokers multiply on every print |
+| **v1.7.0** — The Long Game | Everything below, plus: acts past the first are far steeper, one boss per rule for weeks 1-8, a REROLL button that stays put, and rumors confined to Rumor Packs |
+| v1.6.0 — Every Copy | Everything below, plus: the book gives every copy of a candle its own card, a rumor's edition is sealed onto its broker, and eight more brokers multiply on every print |
 | v1.5.0 — The Fine Print | Everything below, plus: rumors state their cost in red, the book opens from anywhere and aims your Charts, and cash gains and spends animate |
 | v1.4.0 — Payday | The tape prints live when you call it, and beating the quota throws cash |
 | v1.3.3 — The Print Shop | The board sort sticks through a rearrange and a redraw |
@@ -212,7 +213,7 @@ branch today.
 |---|---|
 | The newest version | `npm run update` — see [Updating](#updating-to-the-latest-version) |
 | One exact version, as a download | Take the source zip from [**Releases**](https://github.com/JEB-OT/Daytradinggame/releases) |
-| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.6.0` |
+| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.7.0` |
 
 Checking out a tag leaves you on a *detached HEAD*. That is normal, and the game runs fine like
 that — it just means you are standing on a fixed point rather than a branch that moves. Get back
@@ -223,8 +224,8 @@ to the moving branch with `git checkout -`.
 ### Publishing a version (maintainers)
 
 Bumping `VERSION` and merging the pull request is only half of shipping. Until a tag points at
-the commit, GitHub has no v1.6.0 — nothing under Releases, no source download, and nothing for
-`git checkout v1.6.0` to find. The code is up there and the version is still ungettable, which
+the commit, GitHub has no v1.7.0 — nothing under Releases, no source download, and nothing for
+`git checkout v1.7.0` to find. The code is up there and the version is still ungettable, which
 looks exactly like the update never landed.
 
 ```bash
@@ -256,14 +257,27 @@ weeks 9, 17, 25, 33 and on each start a harder stretch than the one before:
 | Act | Weeks | Quota growth |
 |---|---|---|
 | 1 | 1–8 | a hand-tuned table, ×2.5 easing to ×2.17 a week |
-| 2 | 9–16 | ×2.40 a week |
-| 3 | 17–24 | ×2.95 a week |
-| 4 | 25–32 | ×3.50 a week |
-| *n* | … | ×0.55 a week faster than the act before |
+| 2 | 9–16 | ×3.00 a week |
+| 3 | 17–24 | ×4.35 a week |
+| 4 | 25–32 | ×5.70 a week |
+| *n* | … | ×1.35 a week faster than the act before |
 
 Endless mode used to flatten to a constant ×2.4 forever, which meant a desk that could clear week
-12 could clear week 40 — it got longer, not harder. Now it keeps outrunning you. The act and its
-current rate are printed above the week's deadlines, and the week that starts a new act says so.
+12 could clear week 40 — it got longer, not harder. Now each act is decisively harder than the
+last rather than merely longer: week 24's quota is roughly **130× what the old curve asked**, and
+week 32's is thousands of times more. **Act 1 is untouched**, so the eight weeks the game is
+actually balanced around play exactly as they always did. The act and its current rate are printed
+above the week's deadlines, and the week that starts a new act says so.
+
+### One boss each, for the first eight weeks
+
+Inside act 1 a boss you have already met never comes round again — all eight boss deadlines of a
+full run are eight different rules. Meeting one is what counts: a boss used to be remembered only
+if you *cleared* it, so a run that had not reached that week yet drew from the full list of 29
+every time, and about **two runs in three saw the same boss twice** before week 8.
+
+From week 9 the rule lifts completely. Any boss, in any order, as often as the roll says — by
+then you are in endless mode and the repeats are part of what makes it endless.
 
 A deadline gives you a cash **quota**, a handful of **trades** and some **sweeps**.
 
@@ -443,10 +457,10 @@ redraw comes back in it, so you never have to press it again mid-deadline.
 
 | Layer | Count | What it does |
 |---|---:|---|
-| **Brokers** | 139 | Sit on your desk and trigger left to right. The combo engine. **One of each, ever** &mdash; see below. |
+| **Brokers** | 140 | Sit on your desk and trigger left to right. The combo engine. **One of each, ever** &mdash; see below. |
 | **Charts** | 29 | Reshape the candles in your book — bodies, sectors, polarity, enhancements. |
 | **Contracts** | 14 | Permanently level one formation. |
-| **Rumors** | 20 | High-risk power spikes with a real cost. |
+| **Rumors** | 20 | High-risk power spikes with a real cost. **Rumor Packs only**, unless you employ *Insider Line*. |
 | **Licences** | 28 | Permanent run upgrades, in 14 two-tier chains. |
 | **Bosses** | 29 | One rule each, and it's always the wrong one for your build. |
 | **Packs** | 15 | Every tile says exactly what is inside — "Keep 2 of 5 Brokers". The expensive Mega packs let you keep **two**. |
@@ -518,6 +532,20 @@ selected and the book opens as a picker: every candle you own, laid out flat, ta
 whether it is still in the deck, on the board, or already traded. Pick, press **USE**, and you
 land back where you were. During a deadline, selecting on the board still works exactly as
 before &mdash; the picker is only for when you have not.
+
+### Rumors come out of packs
+
+Rumors are the swingiest thing in the game, and buying one off the Floor's shelf skipped the pack
+that is meant to be how you get them. They now appear in **Rumor Packs only** — the shelf stocks
+brokers, charts and contracts.
+
+One broker reopens it. **Insider Line** (📻, Rare) puts rumors back on the shelf *and* makes Rumor
+Packs turn up more often, which is the whole of what it does and enough to build a run around.
+
+The two pack licences also do what their cards say now: *Clearing House* ("Contract Packs appear
+far more often") and *Prime Broker* ("Rumor Packs appear far more often too") used to move the
+**shelf** roll instead of the pack pool, so neither stocked the packs it named. Both do now —
+roughly doubling how often that family turns up.
 
 ### Rumors say what they cost
 
@@ -648,7 +676,7 @@ src/game/
   candles.js          candles: sector, body, polarity, enhancements, editions, stamps
   formations.js       formation evaluation (set-based + order-based marches) and Conviction
   scoring.js          the Volume × Leverage pipeline, step by step
-  brokers.js          139 brokers
+  brokers.js          140 brokers
   consumables.js      charts, contracts, rumors
   licenses.js         permanent run upgrades
   bosses.js           29 boss rules
@@ -656,12 +684,12 @@ src/game/
   state.js            run state, deadline flow, the deck/swept piles, the Floor, save/load
 src/ui/               canvas chart, particles/audio, candle components, overlays
 test/
-  run-tests.mjs       177 tests, no dependencies
+  run-tests.mjs       188 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
 ```
 
 ```bash
-npm test              # 177 assertions across formations, conviction, scoring, flow and content
+npm test              # 188 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 ```
 

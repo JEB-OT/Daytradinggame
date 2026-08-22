@@ -318,7 +318,8 @@ export function shopScreen(game) {
     ${floorBarHtml(st)}
     <div class="btn-row">
       <button class="btn" id="shop-reroll" ${st.cash < rerollCost && shop.freeRerolls <= 0 ? 'disabled' : ''}>
-        REROLL ${shop.freeRerolls > 0 ? '(FREE ×' + shop.freeRerolls + ')' : '$' + rerollCost}</button>
+        <span>REROLL</span><span class="rr-cost ${shop.freeRerolls > 0 ? 'free' : ''}"
+          >${shop.freeRerolls > 0 ? 'FREE ×' + shop.freeRerolls : '$' + rerollCost}</span></button>
       <button class="btn ghost" id="shop-book">BOOK</button>
       <button class="btn ghost" id="shop-form">FORMATIONS</button>
       <button class="btn primary" id="shop-next">NEXT DEADLINE →</button>

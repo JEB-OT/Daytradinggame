@@ -1280,6 +1280,124 @@ t('a selecting card can be aimed at a candle that is still in the deck', () => {
   eq(st.book.find((c) => c.uid === target.uid).stamp, 'reissue');
 });
 
+// ------------------------------------------------------------- the act curve
+t('act 1 is untouched — the eight weeks the game is balanced around', () => {
+  eq(S.weekBase(1), 180);
+  eq(S.weekBase(8), 65000);
+  for (let w = 1; w <= 8; w++) eq(S.actOf(w), 1, 'week ' + w);
+});
+
+t('every act after the first is steeper than the one before it', () => {
+  for (let act = 2; act < 8; act++) {
+    ok(S.actGrowth(act + 1) > S.actGrowth(act), `act ${act + 1} is not steeper than act ${act}`);
+  }
+});
+
+t('the act-on-act step is a substantial one, not a rounding error', () => {
+  const step = S.actGrowth(3) - S.actGrowth(2);
+  ok(step >= 1, `each act only gains x${step.toFixed(2)} per week on the last`);
+  // an act of eight weeks at the steeper rate has to leave the old curve well
+  // behind, or "it gets harder" is a claim the numbers do not back
+  ok(S.actGrowth(4) / S.actGrowth(2) >= 1.8, 'act 4 is not far enough past act 2');
+});
+
+t('the quota curve keeps climbing and never flattens or overflows', () => {
+  let prev = 0;
+  for (let w = 1; w <= 60; w++) {
+    const q = S.weekBase(w);
+    ok(Number.isFinite(q), 'week ' + w + ' overflowed');
+    ok(q > prev, `week ${w} is not harder than week ${w - 1}`);
+    prev = q;
+  }
+});
+
+// ------------------------------------------------------------------- bosses
+t('the first eight weeks never show the same boss twice', () => {
+  for (const seed of ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8']) {
+    const st = S.newRun(seed);
+    const met = [];
+    for (let w = 1; w <= 8; w++) { st.week = w; st.upcoming = S.buildWeek(st); met.push(st.upcoming[2].boss); }
+    eq(new Set(met).size, 8, `${seed} drew ${met.length - new Set(met).size} repeat(s): ${met.join(', ')}`);
+  }
+});
+
+t('a boss you skipped past still counts as met', () => {
+  // The old rule only remembered a boss you *cleared*, so a skipped or unreached
+  // boss week left no trace and could come round again.
+  const st = S.newRun('SKIPPED');
+  st.week = 1; st.upcoming = S.buildWeek(st);
+  const first = st.upcoming[2].boss;
+  ok(st.seenBosses.includes(first), 'meeting a boss did not record it');
+  eq(st.stats.bossesCleared, 0, 'nothing was cleared, so nothing should say it was');
+  for (let w = 2; w <= 8; w++) { st.week = w; st.upcoming = S.buildWeek(st); ok(st.upcoming[2].boss !== first); }
+});
+
+t('from week 9 a boss may come round again, in any order', () => {
+  let repeated = 0;
+  for (let i = 0; i < 60; i++) {
+    const st = S.newRun('R' + i);
+    const act1 = [];
+    for (let w = 1; w <= 8; w++) { st.week = w; st.upcoming = S.buildWeek(st); act1.push(st.upcoming[2].boss); }
+    for (let w = 9; w <= 16; w++) {
+      st.week = w; st.upcoming = S.buildWeek(st);
+      if (act1.includes(st.upcoming[2].boss)) repeated++;
+    }
+  }
+  ok(repeated > 0, 'no boss ever came back after week 8, so the rule never lifts');
+});
+
+// -------------------------------------------------------- rumors are pack-only
+t('rumors never turn up on the Floor shelf on their own', () => {
+  for (let i = 0; i < 120; i++) {
+    const st = S.newRun('NORUMOR' + i);
+    st.week = 1 + (i % 8); st.deadlineIndex = i % 3;
+    S.openShop(st);
+    ok(!st.shop.items.some((it) => it.type === 'rumor'), 'a rumor reached the shelf with no broker for it');
+  }
+});
+
+t('Rumor Packs are still stocked without the broker', () => {
+  let packs = 0;
+  for (let i = 0; i < 200; i++) {
+    const st = S.newRun('PACKS' + i);
+    st.week = 1 + (i % 8); st.deadlineIndex = i % 3;
+    S.openShop(st);
+    packs += st.shop.packs.filter((p) => p.family === 'rumor').length;
+  }
+  ok(packs > 0, 'rumors became unreachable entirely');
+});
+
+t('Insider Line puts rumors back on the shelf', () => {
+  let withBroker = 0;
+  for (let i = 0; i < 200; i++) {
+    const st = S.newRun('WIRE' + i);
+    st.brokers = [makeBroker('wireTap', null)];
+    S.computeMods(st);
+    ok(st.mods.shopRumors, 'the broker did not set the mod');
+    st.week = 1 + (i % 8); st.deadlineIndex = i % 3;
+    S.openShop(st);
+    withBroker += st.shop.items.filter((it) => it.type === 'rumor').length;
+  }
+  ok(withBroker > 0, 'the broker did not open the shelf to rumors');
+  eq(BROKERS.wireTap.rarity, 'rare');
+});
+
+t('the pack licenses stock the packs they name', () => {
+  const rate = (licenses, family) => {
+    let hit = 0, all = 0;
+    for (let i = 0; i < 240; i++) {
+      const st = S.newRun('LIC' + i);
+      st.licenses = licenses; S.computeMods(st);
+      st.week = 1 + (i % 8); st.deadlineIndex = i % 3;
+      S.openShop(st);
+      for (const p of st.shop.packs) { all++; if (p.family === family) hit++; }
+    }
+    return hit / all;
+  };
+  ok(rate(['clearingHouse'], 'contract') > rate([], 'contract'), 'Clearing House did not stock more Contract Packs');
+  ok(rate(['clearingHouse', 'primeBroker'], 'rumor') > rate([], 'rumor'), 'Prime Broker did not stock more Rumor Packs');
+});
+
 // --------------------------------------------------- print-shop multipliers
 // These land inside printCandle, so they multiply once per print rather than
 // once per trade — which is what makes them worth pairing with anything that

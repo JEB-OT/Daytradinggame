@@ -7,6 +7,30 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.7.0 — The Long Game
+
+*2026-08-22*
+
+- **Every act past the first is far steeper than the one before it.** The per-act step went from
+  ×0.55 to ×1.35 a week, and act 2 from ×2.40 to ×3.00, so week 24 now asks roughly 130× what the
+  old curve did and week 32 thousands of times more. Endless mode gets *harder*, not just longer.
+  Act 1 is untouched — the eight weeks the game is balanced around play exactly as they did
+- **A boss you have met never comes round again inside the first eight weeks.** A boss used to be
+  remembered only if you *cleared* it, so a week you had not reached yet drew from all 29 every
+  time and about two runs in three saw the same boss twice before week 8. From week 9 the rule
+  lifts completely: any boss, any order, as often as the roll says
+- **The REROLL button keeps its width.** The price climbs a dollar a reroll and can read
+  "FREE ×3", and the button used to resize under the cursor and shove BOOK, FORMATIONS and NEXT
+  DEADLINE up to 27px along the row — worst when spamming reroll, which is when it happens most.
+  The cost now sits in a fixed slot and nothing moves
+- **Rumors come out of Rumor Packs only.** They are the swingiest thing on the Floor and buying one
+  off the shelf skipped the pack that is meant to be how you get them. **Insider Line** (📻, Rare)
+  is the one way to reopen the shelf, and makes Rumor Packs turn up more often while it is on your
+  desk
+- *Clearing House* and *Prime Broker* now stock the packs their cards name. Both promised
+  "Packs appear far more often" while actually moving the **shelf** roll, so neither did what it
+  said
+
 ## v1.6.0 — Every Copy
 
 *2026-08-22*
