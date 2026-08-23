@@ -10,11 +10,19 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.8.0';
+export const VERSION = 'v1.8.1';
 export const VERSION_NAME = 'Compound Interest';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.8.1',
+    name: 'Compound Interest',
+    notes: [
+      '`npm run update` finds the newest build again — it was telling players on an old branch they were up to date',
+      'It now moves you onto the newest branch itself instead of printing two commands for you to run',
+    ],
+  },
   {
     version: 'v1.8.0',
     name: 'Compound Interest',

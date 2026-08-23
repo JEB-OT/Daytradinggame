@@ -7,6 +7,26 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.8.1 — Compound Interest
+
+*2026-08-22*
+
+- **`npm run update` finds the newest build again.** It carried a hand-written list of branches,
+  ordered "best first", and stopped searching the moment it reached the branch you were standing
+  on. The list had gone stale — the oldest branch sat at the top and the branch carrying v1.6
+  through v1.8 was never added — so anyone on that first entry was told **"Already on the newest
+  version. v1.5.0"** while three versions behind. The list is gone. The updater now reads the
+  version stamp off every branch on the remote and takes the highest, with the remote's own default
+  branch breaking a tie; nothing about the answer is maintained by hand any more
+- **It moves you, rather than telling you how to move yourself.** It used to print
+  `git checkout …` / `git pull` and leave you to run them, which is not updating, it is homework.
+  The tree is already known to be clean by that point — a dirty one stops the script — and the save
+  lives in the browser, so it just does it and says what it did
+- Versions compare as numbers rather than as text, so `v1.10.0` will beat `v1.9.0` when it exists
+- The README's recovery instructions pointed at the **stale** branch, which is one way to end up
+  stranded on it. They now name the default branch, and show how to find it without trusting a name
+  written in a README
+
 ## v1.8.0 — Compound Interest
 
 *2026-08-22*

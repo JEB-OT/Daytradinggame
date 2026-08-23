@@ -10,9 +10,11 @@
  * day and never see it — the game just keeps looking the same, which is
  * indistinguishable from "the update didn't work".
  *
- * So this does the whole job: fetch, fast-forward, and if a release branch is
- * ahead of wherever you are, say exactly what to run to get on it. It never
- * throws away local work — a dirty tree stops it with an explanation instead.
+ * So this does the whole job: fetch, fast-forward, and — if the newest build is
+ * on a different branch from the one you are standing on — move you onto it.
+ * Printing the two commands and leaving you to run them was not updating, it
+ * was homework. It never throws away local work: a dirty tree stops it with an
+ * explanation instead.
  *
  * Uses nothing but git and Node's standard library, like the rest of the repo.
  */
@@ -94,23 +96,38 @@ if (tryGit(['rev-parse', '--abbrev-ref', '@{upstream}'])) {
   console.log(C.dim(`  ${branch} does not track a remote branch`));
 }
 
-// --- is a release branch ahead of where you are? ---------------------------
+// --- is another branch carrying a newer build? -----------------------------
+// The tree is clean by here — a dirty one exited above — so moving between
+// branches cannot lose anything, and the save lives in the browser rather than
+// the repo. So do it rather than describe it.
 const { suggestion } = newsFor(branch);
+let switched = null;
+if (suggestion && !blocked) {
+  console.log(C.dim(`  ${suggestion.branch} is carrying ${suggestion.version || 'the newest build'} — switching to it…`));
+  try {
+    git(['checkout', suggestion.branch], { stdio: ['ignore', 'pipe', 'inherit'] });
+    // A branch that already existed in this clone may itself be behind.
+    if (tryGit(['rev-parse', '--abbrev-ref', '@{upstream}'])) {
+      const behind = Number(tryGit(['rev-list', '--count', 'HEAD..@{upstream}']) || 0);
+      if (behind > 0) git(['merge', '--ff-only', '@{upstream}']);
+    }
+    switched = suggestion.branch;
+    moved = true;
+  } catch {
+    blocked = true;
+    console.log(C.yellow('  Could not switch branches automatically. Do it by hand:'));
+    console.log(C.cyan(`    git checkout ${suggestion.branch}`));
+    console.log(C.cyan('    git pull'));
+  }
+}
 
 line();
 const after = localVersion();
 if (blocked) {
   console.log(C.yellow('  Not updated.') + '  Run the command above, then try again.');
-} else if (suggestion) {
-  console.log(C.yellow(`  ${suggestion.branch} has ${suggestion.ahead} commit${suggestion.ahead === 1 ? '' : 's'} you do not have.`));
-  console.log('  That is where the newest version lives. To switch to it:');
-  console.log('');
-  console.log(C.cyan(`    git checkout ${suggestion.branch}`));
-  console.log(C.cyan(`    git pull`));
-  console.log('');
-  console.log(C.dim('  (Your save is in the browser, not the repo, so switching keeps it.)'));
 } else if (moved) {
   console.log(C.green('  Up to date.') + `  Now on ${C.cyan(after)}`);
+  if (switched) console.log(C.dim(`  Moved you onto ${switched} — your save is in the browser, so nothing was lost.`));
   console.log('');
   console.log('  Start the game with ' + C.cyan('npm start') + ', then hard-refresh the page:');
   console.log(C.dim('    Ctrl+Shift+R  (Windows/Linux)   ·   Cmd+Shift+R  (macOS)'));
