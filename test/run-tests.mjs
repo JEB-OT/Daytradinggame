@@ -10,6 +10,12 @@ import { scoreTrade } from '../src/game/scoring.js';
 import * as S from '../src/game/state.js';
 import { VERSION, CHANGELOG } from '../src/engine/version.js';
 import { notesFor, versionsInChangelog } from '../scripts/release-notes.mjs';
+import { compareVersions } from '../scripts/version-check.mjs';
+import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync, readFileSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { bookRowCells, lapFor, LAP_MIN, LAP_MAX } from '../src/ui/overlays.js';
 import { MAX_BODY as BODY_SIZES } from '../src/game/candles.js';
 
@@ -1273,6 +1279,113 @@ t('a selecting card can be aimed at a candle that is still in the deck', () => {
   const r = S.useConsumable(st, inst.uid, [target.uid]);
   ok(r.ok, 'aiming into the deck was refused: ' + r.msg);
   eq(st.book.find((c) => c.uid === target.uid).stamp, 'reissue');
+});
+
+// ------------------------------------------------------------- the updater
+// The bug this guards against shipped twice. `npm run update` carried a
+// hand-written list of branches, ordered "best first", and stopped searching the
+// moment it reached the branch you were standing on — so a player on the first
+// entry was told "Already on the newest version" while three versions behind.
+// The list is gone; the newest build is now whatever the remote actually says.
+
+t('versions compare as numbers, not as text', () => {
+  ok(compareVersions('v1.10.0', 'v1.9.0') > 0, 'v1.10.0 lost to v1.9.0');
+  ok(compareVersions('v1.8.0', 'v1.7.9') > 0);
+  ok(compareVersions('v1.8.0', 'v1.8.0') === 0);
+  ok(compareVersions('v1.8.0', 'v1.8.1') < 0);
+  ok(compareVersions('1.8.0', 'v1.8.0') === 0, 'the leading v should not matter');
+  ok(compareVersions(null, 'v1.0.0') < 0, 'an unstamped branch should not win');
+});
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * A throwaway remote with two branches at different versions, and a clone of it
+ * standing on one of them. Real git, so the updater is asked the same questions
+ * it is asked in a player's folder.
+ */
+function updaterFixture(branches, standOn) {
+  const dir = mkdtempSync(join(tmpdir(), 'margin-call-update-'));
+  const git = (cwd, ...args) => execFileSync('git',
+    ['-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'init.defaultBranch=main', ...args],
+    { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+
+  const origin = join(dir, 'origin');
+  mkdirSync(join(origin, 'src', 'engine'), { recursive: true });
+  git(origin, 'init', '-q');
+  branches.forEach((b, i) => {
+    git(origin, i === 0 ? 'checkout' : 'checkout', ...(i === 0 ? ['-q', '-B', b.name] : ['-q', '-b', b.name]));
+    writeFileSync(join(origin, 'src/engine/version.js'), `export const VERSION = '${b.version}';\n`);
+    git(origin, 'add', '-A');
+    git(origin, 'commit', '-qm', `${b.version} on ${b.name}`);
+  });
+  // The remote's own default branch is the last one — what a fresh clone gets.
+  git(origin, 'checkout', '-q', branches[branches.length - 1].name);
+
+  const clone = join(dir, 'clone');
+  git(dir, 'clone', '-q', origin, clone);
+  mkdirSync(join(clone, 'scripts'), { recursive: true });
+  copyFileSync(join(REPO_ROOT, 'scripts/version-check.mjs'), join(clone, 'scripts/version-check.mjs'));
+  git(clone, 'checkout', '-q', standOn);
+
+  const ask = () => JSON.parse(execFileSync(process.execPath, ['-e',
+    `import(${JSON.stringify(pathToFileURL(join(clone, 'scripts/version-check.mjs')).href)})`
+    + `.then((m) => console.log(JSON.stringify(m.newsFor())))`],
+    { cwd: clone, encoding: 'utf8' }));
+  return { dir, clone, ask, done: () => rmSync(dir, { recursive: true, force: true }) };
+}
+
+t('standing on an older branch, the updater points at the newer one', () => {
+  const f = updaterFixture([
+    { name: 'aaa-old-branch', version: 'v1.5.0' },
+    { name: 'zzz-new-branch', version: 'v1.8.0' },
+  ], 'aaa-old-branch');
+  try {
+    const news = f.ask();
+    ok(news.suggestion, 'told a v1.5.0 clone it was up to date');
+    eq(news.suggestion.branch, 'zzz-new-branch');
+    eq(news.suggestion.version, 'v1.8.0');
+    ok(news.suggestion.ahead > 0);
+  } finally { f.done(); }
+});
+
+t('the branch it points at is found by version, not by list order', () => {
+  // The newest build sorts LAST alphabetically here and is not the branch the
+  // clone starts on. Nothing about the answer may depend on either.
+  const f = updaterFixture([
+    { name: 'zzz-stale', version: 'v1.2.0' },
+    { name: 'aaa-newest', version: 'v2.0.0' },
+  ], 'zzz-stale');
+  try {
+    eq(f.ask().suggestion?.branch, 'aaa-newest');
+  } finally { f.done(); }
+});
+
+t('standing on the newest branch, it says nothing', () => {
+  const f = updaterFixture([
+    { name: 'old', version: 'v1.5.0' },
+    { name: 'newest', version: 'v1.8.0' },
+  ], 'newest');
+  try {
+    const news = f.ask();
+    eq(news.suggestion, null, 'it tried to move a clone that was already current');
+    eq(news.behind, 0);
+  } finally { f.done(); }
+});
+
+t('it never points backwards to an older build', () => {
+  const f = updaterFixture([
+    { name: 'behind-but-older', version: 'v1.5.0' },
+    { name: 'current', version: 'v1.8.0' },
+  ], 'current');
+  try {
+    eq(f.ask().suggestion, null, 'it offered to move you onto an older version');
+  } finally { f.done(); }
+});
+
+t('there is no hand-maintained list of branches left to rot', () => {
+  const src = readFileSync(join(REPO_ROOT, 'scripts/version-check.mjs'), 'utf8');
+  ok(!/RELEASE_BRANCHES/.test(src), 'the hardcoded branch list is back');
 });
 
 // ------------------------------------------------------------- the act curve

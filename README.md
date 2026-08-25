@@ -76,7 +76,7 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ```bash
 npm run update           # pull the latest version of the game
 npm run release          # tag and publish this version (maintainers)
-npm test                 # 194 assertions, no dependencies
+npm test                 # 200 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 ```
 
@@ -91,9 +91,16 @@ npm run update
 ```
 
 Then `npm start`, and **hard-refresh** the page: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R`
-(macOS). It fetches, fast-forwards, refuses to run if you have uncommitted changes so it can never
-eat your work, and tells you which version you ended up on. Your save lives in the browser, not the
-repo, so none of this touches your run.
+(macOS).
+
+It fetches, fast-forwards, and — if the newest build is on a different branch from the one you are
+standing on — **moves you onto it**. It refuses to run if you have uncommitted changes, so it can
+never eat your work, and it prints the version you ended up on. Your save lives in the browser, not
+the repo, so switching branches does not touch your run.
+
+Which branch is newest is not a list anyone maintains: the updater reads the version stamp off
+every branch on the remote and takes the highest. That matters, because the list it used to carry
+went stale and told people on an old branch they were up to date.
 
 > **Use `npm run update`, not `git pull`.** `git pull` only updates the branch you are standing on.
 > When a build lands on another branch it says `Already up to date` and changes nothing, which is
@@ -104,8 +111,8 @@ repo, so none of this touches your run.
 >   ┌──────────────────────────────────────────────┐
 >   │  A NEWER VERSION OF THE GAME IS AVAILABLE    │
 >   └──────────────────────────────────────────────┘
->      v1.3.1 is on claude/day-trading-candle-mechanics-mordep,
->      which has 2 commits this copy does not.
+>      v1.8.0 is on claude/roguelike-day-trading-game-vy5qsg,
+>      which has 7 commits this copy does not.
 >
 >      Stop the server (Ctrl+C) and run:  npm run update
 > ```
@@ -130,25 +137,31 @@ npm error Missing script: "update"
 ```bash
 git remote set-branches origin "*"
 git fetch origin
-git checkout claude/day-trading-candle-mechanics-mordep
+git checkout claude/roguelike-day-trading-game-vy5qsg
 ```
 
 > The first line matters. Clones are often made `--single-branch`, and then `git fetch` never
 > learns the other branches exist and the checkout fails with
 > `pathspec ... did not match any file(s) known to git`. It is harmless on a normal clone.
+>
+> That third branch name is this repository's **default branch** — the one a fresh `git clone`
+> lands on. If you would rather not trust a name written in a README, this finds it for you:
+>
+> ```bash
+> git remote set-head origin -a
+> git checkout "$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|^origin/||')"
+> ```
 
-After that `npm run update` works, and it will tell you if a branch ever moves ahead of you again:
+After that `npm run update` does the rest, every time — including moving you between branches:
 
 ```
-  claude/day-trading-candle-mechanics-mordep has 3 commits you do not have.
-  That is where the newest version lives. To switch to it:
-
-    git checkout claude/day-trading-candle-mechanics-mordep
-    git pull
+  claude/roguelike-day-trading-game-vy5qsg is carrying v1.8.0 — switching to it…
+  Switched to branch 'claude/roguelike-day-trading-game-vy5qsg'
+  ─────────────────────────────────────────────────────────
+  Up to date.  Now on v1.8.0 — Compound Interest
+  Moved you onto claude/roguelike-day-trading-game-vy5qsg — your save is in the
+  browser, so nothing was lost.
 ```
-
-Once a branch has been merged into the one you are on, the updater stops mentioning it — so after
-the pull request lands, plain `npm run update` on the default branch is the whole story.
 
 ### When nothing else works: start clean
 
@@ -187,7 +200,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.8.0** — Compound Interest | Everything below, plus: the quota compounds past act 1 (week 15 asks e44, not e8), Today's Tape says whether you will make it, and Golden Parachute signs a Legendary for nothing |
+| **v1.8.1** — Compound Interest | `npm run update` finds the newest build again, and moves you onto it |
+| v1.8.0 — Compound Interest | Everything below, plus: the quota compounds past act 1 (week 15 asks e44, not e8), Today's Tape says whether you will make it, and Golden Parachute signs a Legendary for nothing |
 | v1.7.0 — The Long Game | Everything below, plus: acts past the first are far steeper, one boss per rule for weeks 1-8, a REROLL button that stays put, and rumors confined to Rumor Packs |
 | v1.6.0 — Every Copy | Everything below, plus: the book gives every copy of a candle its own card, a rumor's edition is sealed onto its broker, and eight more brokers multiply on every print |
 | v1.5.0 — The Fine Print | Everything below, plus: rumors state their cost in red, the book opens from anywhere and aims your Charts, and cash gains and spends animate |
@@ -214,7 +228,7 @@ branch today.
 |---|---|
 | The newest version | `npm run update` — see [Updating](#updating-to-the-latest-version) |
 | One exact version, as a download | Take the source zip from [**Releases**](https://github.com/JEB-OT/Daytradinggame/releases) |
-| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.8.0` |
+| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.8.1` |
 
 Checking out a tag leaves you on a *detached HEAD*. That is normal, and the game runs fine like
 that — it just means you are standing on a fixed point rather than a branch that moves. Get back
@@ -225,8 +239,8 @@ to the moving branch with `git checkout -`.
 ### Publishing a version (maintainers)
 
 Bumping `VERSION` and merging the pull request is only half of shipping. Until a tag points at
-the commit, GitHub has no v1.8.0 — nothing under Releases, no source download, and nothing for
-`git checkout v1.8.0` to find. The code is up there and the version is still ungettable, which
+the commit, GitHub has no v1.8.1 — nothing under Releases, no source download, and nothing for
+`git checkout v1.8.1` to find. The code is up there and the version is still ungettable, which
 looks exactly like the update never landed.
 
 ```bash
@@ -726,12 +740,12 @@ src/game/
   state.js            run state, deadline flow, the deck/swept piles, the Floor, save/load
 src/ui/               canvas chart, particles/audio, candle components, overlays
 test/
-  run-tests.mjs       194 tests, no dependencies
+  run-tests.mjs       200 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
 ```
 
 ```bash
-npm test              # 194 assertions across formations, conviction, scoring, flow and content
+npm test              # 200 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 ```
 

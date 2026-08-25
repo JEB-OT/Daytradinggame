@@ -20,15 +20,6 @@ import { dirname, resolve } from 'node:path';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-/**
- * Branches that may carry a newer build than the default branch, best first.
- * A branch already merged into the one you are on contains no commits you lack,
- * so it drops out of the answer on its own and needs no maintenance here.
- */
-export const RELEASE_BRANCHES = [
-  'claude/day-trading-candle-mechanics-mordep',
-  'claude/roguelike-day-trading-game-vy5qsg',
-];
 
 export function git(args, opts = {}) {
   return execFileSync('git', args, {
@@ -73,6 +64,56 @@ export function fetchQuiet(timeout = 8000) {
   return tryGit(['fetch', '--all', '--prune', '--quiet'], { timeout }) !== null;
 }
 
+/** 'v1.10.0' beats 'v1.9.0'. Compared number by number, never as text. */
+export function compareVersions(a, b) {
+  const parts = (v) => String(v || '').replace(/^v/, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const x = parts(a), y = parts(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0);
+  }
+  return 0;
+}
+
+/** The branch a fresh clone lands on, or `null` if this clone cannot tell. */
+export function defaultBranch() {
+  let ref = tryGit(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']);
+  if (!ref) {
+    // A clone made before the remote had a default branch has no origin/HEAD.
+    // Ask once, with a timeout, and carry on regardless if there is no network.
+    tryGit(['remote', 'set-head', 'origin', '-a'], { timeout: 8000 });
+    ref = tryGit(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']);
+  }
+  return ref ? ref.replace(/^origin\//, '') : null;
+}
+
+/**
+ * Which branch on the remote is actually carrying the newest build.
+ *
+ * This used to be a hand-written list, ordered "best first", and it rotted
+ * exactly the way hand-written lists do: the newest work landed on a branch
+ * nobody had added, the oldest branch sat at the top of the list, and the
+ * search stopped the moment it reached the branch you were standing on — so a
+ * player on the first entry was told they were up to date while three versions
+ * behind. Nothing here is maintained by hand any more. Every branch on the
+ * remote is asked what version it carries and the highest one wins; the
+ * remote's own default branch breaks a tie, because that is what a fresh clone
+ * gets.
+ */
+export function newestRelease() {
+  const refs = (tryGit(['for-each-ref', '--format=%(refname:short)', 'refs/remotes/origin']) || '')
+    .split('\n').map((r) => r.trim())
+    .filter((r) => r && !r.endsWith('/HEAD'));
+  const head = defaultBranch();
+  const rows = [];
+  for (const ref of refs) {
+    const version = versionAt(ref);
+    if (version) rows.push({ ref, name: ref.replace(/^origin\//, ''), version });
+  }
+  rows.sort((a, b) => compareVersions(b.version, a.version)
+    || (b.name === head ? 1 : 0) - (a.name === head ? 1 : 0));
+  return rows[0] || null;
+}
+
 /**
  * Where the newest build is, relative to this working copy.
  *
@@ -87,13 +128,18 @@ export function newsFor(branch = currentBranch()) {
   if (tryGit(['rev-parse', '--abbrev-ref', '@{upstream}'])) {
     out.behind = Number(tryGit(['rev-list', '--count', 'HEAD..@{upstream}']) || 0);
   }
-  for (const rb of RELEASE_BRANCHES) {
-    const ref = `origin/${rb}`;
-    if (!tryGit(['rev-parse', '--verify', ref])) continue;
-    if (rb === branch) break;                 // already standing on it
-    const ahead = Number(tryGit(['rev-list', '--count', `HEAD..${ref}`]) || 0);
-    if (ahead > 0) { out.suggestion = { branch: rb, ahead, version: versionAt(ref) }; break; }
-  }
+  const best = newestRelease();
+  if (!best || best.name === branch) return out;
+
+  const ahead = Number(tryGit(['rev-list', '--count', `HEAD..${best.ref}`]) || 0);
+  if (!ahead) return out;
+
+  // Only ever point forwards. A branch holding commits you lack but an older
+  // version stamp is a side road, not an update.
+  const here = versionAt('HEAD');
+  if (here && compareVersions(best.version, here) < 0) return out;
+
+  out.suggestion = { branch: best.name, ahead, version: best.version };
   return out;
 }
 
