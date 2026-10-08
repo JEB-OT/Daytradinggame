@@ -6,6 +6,7 @@ import { ALL_CONSUMABLES, CHARTS, CONTRACTS, RUMORS, consumableText, consumableD
 import { FORMATIONS, FORMATION_KEYS, formationStats } from '../game/formations.js';
 import { BOSSES, BOSS_KEYS } from '../game/bosses.js';
 import { LICENSES, LICENSE_KEYS } from '../game/licenses.js';
+import { artSvg, consumableArt } from './art.js';
 import { sfx } from './fx.js';
 import { VERSION, VERSION_NAME, CHANGELOG } from '../engine/version.js';
 
@@ -396,7 +397,7 @@ export function compendiumScreen(game, back, tab = 'candles', query = '') {
           const inst = makeBroker(k, null);
           const txt = typeof d.text === 'function' ? d.text(inst, st) : d.text;
           return `<div class="cl" style="--rc:${RARITY[r].color}">
-            <span class="cl-art">${d.art}</span>
+            <span class="cl-art">${artSvg('broker', k)}</span>
             <span class="cl-body"><b>${d.name}</b><small>${txt}</small></span>
             <span class="cl-cost">$${d.cost}</span></div>`;
         }).join('')}</div>`;
@@ -416,7 +417,7 @@ export function compendiumScreen(game, back, tab = 'candles', query = '') {
       if (!list.length) return '';
       return `<h3>${label} · ${list.length}</h3><div class="comp-list">${list.map((d) => {
         const down = consumableDownside(d, game.state);
-        return `<div class="cl ${cls}"><span class="cl-art">${d.art}</span>
+        return `<div class="cl ${cls}"><span class="cl-art">${consumableArt(d.key)}</span>
           <span class="cl-body"><b>${d.name}</b><small>${consumableText(d, game.state)}</small>${
             down ? `<small class="cl-down">${down}</small>` : ''}</span>
           <span class="cl-cost">$${d.cost}</span></div>`;
@@ -427,12 +428,12 @@ export function compendiumScreen(game, back, tab = 'candles', query = '') {
   } else if (tab === 'bosses') {
     body.innerHTML = `<div class="comp-note">Every third deadline is a boss. Read the rule on the select screen and buy around it.</div>
       <div class="comp-list">${BOSS_KEYS.filter((k) => hit(BOSSES[k].name, BOSSES[k].blurb)).map((k) =>
-        `<div class="cl k-boss"><span class="cl-art">${BOSSES[k].art}</span>
+        `<div class="cl k-boss"><span class="cl-art">${artSvg('boss', k)}</span>
           <span class="cl-body"><b>${BOSSES[k].name}</b><small>${BOSSES[k].blurb}</small></span></div>`).join('')}</div>`;
   } else {
     body.innerHTML = `<div class="comp-note">Licences are permanent for the rest of a run, and come in two tiers.</div>
       <div class="comp-list">${LICENSE_KEYS.filter((k) => hit(LICENSES[k].name, LICENSES[k].text)).map((k) =>
-        `<div class="cl k-lic"><span class="cl-art">${LICENSES[k].art}</span>
+        `<div class="cl k-lic"><span class="cl-art">${artSvg('license', k)}</span>
           <span class="cl-body"><b>${LICENSES[k].name}</b><small>${LICENSES[k].text}</small></span>
           <span class="cl-cost">$${LICENSES[k].cost}</span></div>`).join('')}</div>`;
   }

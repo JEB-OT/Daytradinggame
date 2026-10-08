@@ -9,6 +9,7 @@ import { SECTORS, MAX_BODY } from '../game/candles.js';
 import * as S from '../game/state.js';
 import { candleEl, brokerEl, consumableEl, hideTip } from './components.js';
 import { sfx, toast } from './fx.js';
+import { artSvg, consumableArt } from './art.js';
 import { VERSION, VERSION_NAME } from '../engine/version.js';
 
 const root = () => document.getElementById('overlay-root');
@@ -60,7 +61,7 @@ export function deadlineSelect(game) {
     const current = !done && i === st.deadlineIndex;
     return `
       <div class="dl-choice ${current ? 'current' : ''} ${slot.boss ? 'boss' : ''} ${done ? 'done' : ''}">
-        <div class="c-art">${boss ? boss.art : slot.art}</div>
+        <div class="c-art">${boss ? artSvg('boss', slot.boss) : artSvg('slot', slot.index)}</div>
         <div class="c-name">${(boss ? boss.name : slot.name).toUpperCase()}</div>
         <div class="c-quota">${money(quota)}</div>
         <div class="c-reward">clears for $${slot.reward}</div>
@@ -110,7 +111,7 @@ export function deadlineSelect(game) {
 export function bonusScreen(game, bonus) {
   const sheet = showOverlay(`
     <div class="title-wrap">
-      <div style="font-size:50px">${bonus.art}</div>
+      <div class="bonus-art">${artSvg('bonus', bonus.key)}</div>
       <h2 style="margin-top:8px">${bonus.name.toUpperCase()}</h2>
       <div class="sub">${bonus.text}</div>
       <button class="btn primary" id="b-ok">CONTINUE</button>
@@ -264,7 +265,7 @@ export function shopScreen(game) {
     const employed = it.type === 'broker' && S.alreadyEmployed(st, it.key);
     tiles.push(`<div class="shop-slot ${it.sold ? 'sold' : ''} ${rar ? 'rar-' + rar : 'kind-' + it.type}">
       <div class="s-kind">${KIND[it.type] || it.type.toUpperCase()}</div>
-      <div class="s-art">${d.art}</div>
+      <div class="s-art">${it.type === 'broker' ? artSvg('broker', it.key) : consumableArt(it.key)}</div>
       <div class="s-name">${d.name}</div>
       ${rar ? `<div class="s-rarity" style="color:${RARITY[rar].color}">${RARITY[rar].name.toUpperCase()}</div>` : ''}
       <div class="s-desc">${desc}</div>
@@ -279,7 +280,7 @@ export function shopScreen(game) {
     const c = S.PACK_CONTENTS[p.family];
     tiles.push(`<div class="shop-slot kind-pack ${p.sold ? 'sold' : ''} ${p.choose > 1 ? 'multi' : ''}">
       <div class="s-kind">PACK${p.choose > 1 ? ' · KEEP ' + p.choose : ''}</div>
-      <div class="s-art">${p.art}</div>
+      <div class="s-art">${artSvg('pack', p.key)}</div>
       <div class="s-name">${p.name}</div>
       <div class="s-yield">${S.packSummary(p)}</div>
       <div class="s-desc">${c.blurb}</div>
@@ -293,7 +294,7 @@ export function shopScreen(game) {
     const price = S.itemPrice(st, l.cost);
     tiles.push(`<div class="shop-slot kind-licence">
       <div class="s-kind">LICENCE · REST OF THE RUN</div>
-      <div class="s-art">${l.art}</div>
+      <div class="s-art">${artSvg('license', shop.license.key)}</div>
       <div class="s-name">${l.name}</div>
       <div class="s-yield">Tier ${l.tier} &middot; one per run</div>
       <div class="s-desc">${l.text}</div>
@@ -599,7 +600,7 @@ function pickScreen(game, back, pick, where) {
       <div><h2>CHOOSE ${asks.toUpperCase()}</h2>
         <div class="sub" style="margin:0">from anywhere in your book — the deck, the board, or already traded</div></div>
       <div class="pick-card">
-        <span class="pk-art">${d.art}</span>
+        <span class="pk-art">${consumableArt(pick.inst.key)}</span>
         <span class="pk-body"><b>${d.name}</b>
           <small>${consumableText(d, st)}</small>
           ${down ? `<small class="pk-down">${down}</small>` : ''}</span>
@@ -786,7 +787,7 @@ export function runInfoScreen(game, back) {
   const st = game.state;
   const licHtml = st.licenses.length
     ? st.licenses.map((k) => `<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(37,48,72,.4)">
-        <span style="font-size:18px">${LICENSES[k].art}</span>
+        <span class="ri-art">${artSvg('license', k)}</span>
         <span style="font-size:11px"><b>${LICENSES[k].name}</b> — <span style="color:var(--ink-dim)">${LICENSES[k].text}</span></span></div>`).join('')
     : '<div style="font-size:11px;color:var(--ink-faint)">None yet.</div>';
   const m = st.mods;

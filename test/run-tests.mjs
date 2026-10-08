@@ -11,6 +11,9 @@ import * as S from '../src/game/state.js';
 import { VERSION, CHANGELOG } from '../src/engine/version.js';
 import { notesFor, versionsInChangelog } from '../scripts/release-notes.mjs';
 import { compareVersions } from '../scripts/version-check.mjs';
+import { artSvg, artKeys, hasGlyph, brokerEffect } from '../src/ui/art.js';
+import { LICENSES as LIC_ALL } from '../src/game/licenses.js';
+import { BONUSES as BONUS_ALL, PACKS as PACK_ALL } from '../src/game/state.js';
 import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync, readFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -1298,6 +1301,62 @@ t('a selecting card can be aimed at a candle that is still in the deck', () => {
   const r = S.useConsumable(st, inst.uid, [target.uid]);
   ok(r.ok, 'aiming into the deck was refused: ' + r.msg);
   eq(st.book.find((c) => c.uid === target.uid).stamp, 'reissue');
+});
+
+// --------------------------------------------------------------------- art
+// Every card used to show a bare emoji. Each one now has an illustration built
+// from a glyph library; these keep every item covered and every picture sound.
+
+const ART_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const ART_KINDS = {
+  broker: Object.keys(BROKERS), chart: Object.keys(CHARTS), contract: Object.keys(CONTRACTS),
+  rumor: Object.keys(RUMORS), license: Object.keys(LIC_ALL), boss: Object.keys(BOSSES),
+  pack: PACK_ALL.map((p) => p.key), bonus: Object.keys(BONUS_ALL),
+};
+
+t('every item in the game has its own illustration', () => {
+  for (const [kind, keys] of Object.entries(ART_KINDS)) {
+    const covered = new Set(artKeys(kind));
+    for (const k of keys) ok(covered.has(k), `${kind} ${k} has no art and would fall back to a placeholder`);
+  }
+});
+
+t('every illustration names a glyph that is actually drawn', () => {
+  const src = readFileSync(join(ART_ROOT, 'src/ui/art.js'), 'utf8');
+  const named = new Set([...src.matchAll(/\[\s*'([a-z]+)'\s*,\s*\d/g)].map((m) => m[1]));
+  ok(named.size > 100, 'expected a real glyph library');
+  for (const g of named) ok(hasGlyph(g), `glyph "${g}" is referenced but never drawn`);
+});
+
+t('no illustration carries a NaN or undefined into its SVG', () => {
+  for (const [kind, keys] of Object.entries(ART_KINDS)) {
+    for (const k of keys) {
+      const svg = artSvg(kind, k);
+      ok(svg.startsWith('<svg') && svg.endsWith('</svg>'), `${kind} ${k} is not a whole SVG`);
+      ok(!/NaN|undefined|Infinity/.test(svg), `${kind} ${k} has a broken value in it`);
+    }
+  }
+  for (const k of [0, 1, 2, 'between']) ok(!/NaN|undefined/.test(artSvg('slot', k)), `slot ${k}`);
+});
+
+t('a broker\'s pip says what it actually does', () => {
+  eq(brokerEffect('drillSergeant'), 'mult');   // x2.2 on Soldiers
+  eq(brokerEffect('contrarian'), 'mult');      // keeps x2 of a RED trade
+  eq(brokerEffect('sticky'), 'leverage');      // +4 Leverage
+  eq(brokerEffect('tickertape'), 'volume');    // +40 Volume
+  eq(brokerEffect('savingsBond'), 'money');    // $5 a deadline
+  eq(brokerEffect('frontRunner'), 'retrigger');
+  eq(brokerEffect('fourFingers'), 'rule');
+  const kinds = new Set(['mult', 'leverage', 'volume', 'money', 'retrigger', 'rule']);
+  for (const k of BROKER_KEYS) ok(kinds.has(brokerEffect(k)), `${k} has no pip`);
+});
+
+t('no screen still prints an emoji where the art goes', () => {
+  for (const f of ['src/ui/components.js', 'src/ui/overlays.js', 'src/ui/screens.js', 'src/main.js']) {
+    const src = readFileSync(join(ART_ROOT, f), 'utf8');
+    const hit = src.match(/\$\{[^}]*\.art\b[^}]*\}/);
+    ok(!hit, `${f} interpolates a definition's emoji: ${hit && hit[0]}`);
+  }
 });
 
 // ------------------------------------------------------------- the updater

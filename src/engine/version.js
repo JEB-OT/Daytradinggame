@@ -10,11 +10,21 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.8.1';
-export const VERSION_NAME = 'Compound Interest';
+export const VERSION = 'v1.9.0';
+export const VERSION_NAME = 'Drawn by Hand';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.9.0',
+    name: 'Drawn by Hand',
+    notes: [
+      'Every card — brokers, Charts, Contracts, Rumors, licences, bosses, packs — is illustrated instead of an emoji',
+      'Brokers wear a pip for what they do: × multiplies, + adds, $ pays, ↻ reprints, ⚙ bends a rule',
+      'Contracts show the formation they level as real candlesticks',
+      'No formation reads the order you click candles in — three bulls on different bodies are Soldiers any way round',
+    ],
+  },
   {
     version: 'v1.8.1',
     name: 'Compound Interest',
