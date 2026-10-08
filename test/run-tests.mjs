@@ -67,10 +67,10 @@ t('bigger bodies draw taller candles', () => {
 
 // ---------------------------------------------------------------- formations
 const F = (cards, opts) => evaluate(cards, opts || {}).key;
-t('single tick', () => eq(F([mk('TECH', 5), mk('CRYPTO', 9, false), mk('ENERGY', 2), mk('FINANCE', 13, false), mk('TECH', 7, false)]), 'tick'));
-t('tweezer', () => eq(F([mk('TECH', 5), mk('CRYPTO', 5, false), mk('ENERGY', 9, false), mk('FINANCE', 2), mk('TECH', 12, false)]), 'tweezer'));
-t('double tweezer', () => eq(F([mk('TECH', 5), mk('CRYPTO', 5, false), mk('ENERGY', 2, false), mk('FINANCE', 2), mk('TECH', 12, false)]), 'doubleTweezer'));
-t('triple tap', () => eq(F([mk('TECH', 5), mk('CRYPTO', 5, false), mk('ENERGY', 5), mk('FINANCE', 2, false), mk('TECH', 12, false)]), 'triple'));
+t('single tick', () => eq(F([mk('TECH', 5), mk('CRYPTO', 9, false), mk('ENERGY', 2), mk('FINANCE', 13, false)]), 'tick'));
+t('tweezer', () => eq(F([mk('TECH', 5), mk('CRYPTO', 5, false), mk('ENERGY', 9, false), mk('FINANCE', 2)]), 'tweezer'));
+t('double tweezer', () => eq(F([mk('TECH', 5), mk('CRYPTO', 5, false), mk('ENERGY', 2, false), mk('FINANCE', 2)]), 'doubleTweezer'));
+t('triple tap', () => eq(F([mk('TECH', 5), mk('CRYPTO', 5, false), mk('ENERGY', 5), mk('FINANCE', 2, false)]), 'triple'));
 t('staircase', () => eq(F([mk('TECH', 5), mk('CRYPTO', 6, false), mk('ENERGY', 7), mk('FINANCE', 8, false), mk('TECH', 9, false)]), 'staircase'));
 t('sector cluster', () => eq(F([mk('TECH', 5), mk('TECH', 7, false), mk('TECH', 9), mk('TECH', 2, false), mk('TECH', 12, false)]), 'cluster'));
 t('pillars', () => eq(F([mk('TECH', 5), mk('CRYPTO', 5, false), mk('ENERGY', 5), mk('FINANCE', 2, false), mk('TECH', 2)]), 'pillars'));
@@ -80,22 +80,40 @@ t('five alarm', () => eq(F([mk('TECH', 5), mk('CRYPTO', 5, false), mk('ENERGY', 
 t('mega cluster', () => eq(F([mk('TECH', 5), mk('TECH', 5, false), mk('TECH', 5), mk('TECH', 2, false), mk('TECH', 2)]), 'megaCluster'));
 t('perfect storm', () => eq(F([mk('TECH', 5), mk('TECH', 5, false), mk('TECH', 5), mk('TECH', 5, false), mk('TECH', 5)]), 'perfectStorm'));
 
-t('three white soldiers needs rising bull bodies in placed order', () => {
+t('three white soldiers is three bull candles on different bodies', () => {
   eq(F([mk('TECH', 3, true), mk('CRYPTO', 6, true), mk('ENERGY', 9, true), mk('FINANCE', 2, false), mk('TECH', 12, false)]), 'soldiers');
 });
-t('three black crows needs falling bear bodies in placed order', () => {
+t('three black crows is three bear candles on different bodies', () => {
   eq(F([mk('TECH', 12, false), mk('CRYPTO', 8, false), mk('ENERGY', 4, false), mk('FINANCE', 2, true), mk('TECH', 11, true)]), 'crows');
 });
-t('the SAME candles in the wrong order do not print a march', () => {
-  const cs = [mk('TECH', 9, true), mk('CRYPTO', 3, true), mk('ENERGY', 6, true), mk('FINANCE', 2, false), mk('TECH', 12, false)];
-  eq(F(cs), 'tick');
-  eq(F([cs[1], cs[2], cs[0], cs[3], cs[4]]), 'soldiers');
+t('placement order never changes the formation', () => {
+  // The report: 1,2,3,4,5 worked and 2,1,4,3,5 — the same five cards — did not.
+  // Every ordering of a hand has to read the same, for every formation.
+  const hands = [
+    [mk('TECH', 9, true), mk('CRYPTO', 3, true), mk('ENERGY', 6, true), mk('FINANCE', 2, false), mk('TECH', 12, false)],
+    [mk('TECH', 12, false), mk('CRYPTO', 4, false), mk('ENERGY', 8, false), mk('FINANCE', 1, true)],
+    [mk('TECH', 1), mk('CRYPTO', 2), mk('ENERGY', 3), mk('FINANCE', 4), mk('TECH', 5)],
+    [mk('TECH', 5), mk('CRYPTO', 5, false), mk('ENERGY', 5), mk('FINANCE', 2, false), mk('TECH', 2)],
+  ];
+  const perms = (a) => a.length < 2 ? [a] : a.flatMap((x, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map((p) => [x, ...p]));
+  for (const hand of hands) {
+    const want = F(hand);
+    for (const p of perms(hand)) eq(F(p), want, `reordered to ${p.map((c) => c.body).join(',')}`);
+  }
 });
-t('a march must be contiguous — an interruption breaks it', () => {
-  eq(F([mk('TECH', 3, true), mk('CRYPTO', 2, false), mk('ENERGY', 6, true), mk('FINANCE', 9, true)]), 'tick');
+t('the exact order from the report prints a march', () => {
+  const [a, b, c] = [mk('TECH', 3, true), mk('CRYPTO', 6, true), mk('ENERGY', 9, true)];
+  eq(F([b, a, c]), 'soldiers');
+  eq(F([c, a, b]), 'soldiers');
 });
-t('bear candles cannot form soldiers', () => {
-  eq(F([mk('TECH', 3, false), mk('CRYPTO', 6, false), mk('ENERGY', 9, false)]), 'tick');
+t('a candle of the other colour no longer breaks a march', () => {
+  eq(F([mk('TECH', 3, true), mk('CRYPTO', 2, false), mk('ENERGY', 6, true), mk('FINANCE', 9, true)]), 'soldiers');
+});
+t('a repeated body is not a second step of a march', () => {
+  eq(F([mk('TECH', 3, true), mk('CRYPTO', 3, true), mk('ENERGY', 6, true)]), 'tweezer');
+});
+t('bear candles march as crows, never as soldiers', () => {
+  eq(F([mk('TECH', 3, false), mk('CRYPTO', 6, false), mk('ENERGY', 9, false)]), 'crows');
 });
 t('swing candles march with either polarity', () => {
   eq(F([mk('TECH', 3, false, { enhancement: 'janus' }), mk('CRYPTO', 6, true), mk('ENERGY', 9, true)]), 'soldiers');
@@ -107,7 +125,7 @@ t('Cadence lets a march happen with 2 candles', () => {
 t('rotating candles complete a cluster', () =>
   eq(F([mk('TECH', 2), mk('TECH', 5, false), mk('CRYPTO', 7, false, { enhancement: 'chameleon' }), mk('TECH', 9), mk('TECH', 12, false)]), 'cluster'));
 t('four fingers makes a 4-candle cluster', () => {
-  const cs = [mk('TECH', 2), mk('TECH', 5, false), mk('TECH', 7, false), mk('TECH', 12, false)];
+  const cs = [mk('TECH', 2), mk('TECH', 5, false), mk('TECH', 7), mk('TECH', 12, false)];
   eq(F(cs, { fourCard: true }), 'cluster');
   eq(F(cs), 'tick');
 });
@@ -116,7 +134,7 @@ t('shortcut allows a gapped staircase', () =>
 t('smeared sectors merge growth and value', () =>
   eq(F([mk('TECH', 2), mk('CRYPTO', 5, false), mk('TECH', 7, false), mk('CRYPTO', 9), mk('TECH', 12, false)], { smeared: true }), 'cluster'));
 t('sealed candles always print', () => {
-  const ev = evaluate([mk('TECH', 5), mk('CRYPTO', 5, false), mk('ENERGY', 9, true, { enhancement: 'obsidian' }), mk('FINANCE', 2, false), mk('TECH', 12, false)]);
+  const ev = evaluate([mk('TECH', 5), mk('CRYPTO', 5, false), mk('ENERGY', 9, true, { enhancement: 'obsidian' }), mk('FINANCE', 2, false), mk('TECH', 12)]);
   eq(ev.key, 'tweezer');
   eq(ev.scoringCandles.length, 3);
 });
@@ -125,12 +143,12 @@ t('allScore makes every placed candle print', () => {
   eq(ev.scoringCandles.length, 5);
 });
 t('printing order follows placement order', () => {
-  const cs = [mk('TECH', 12, false), mk('CRYPTO', 5), mk('ENERGY', 5, false), mk('FINANCE', 2), mk('TECH', 3, false)];
+  const cs = [mk('TECH', 12, false), mk('CRYPTO', 5), mk('ENERGY', 5, false), mk('FINANCE', 2)];
   const ev = evaluate(cs);
   eq(ev.scoringCandles[0].uid, cs[1].uid);
   eq(ev.scoringCandles[1].uid, cs[2].uid);
 });
-t('bestFromBoard finds arrangements, not just subsets', () => {
+t('bestFromBoard finds a march however the board is dealt', () => {
   const board = [mk('TECH', 9, true), mk('CRYPTO', 3, true), mk('ENERGY', 6, true), mk('FINANCE', 13, false), mk('TECH', 2, false)];
   eq(bestFromBoard(board).key, 'soldiers');
 });
@@ -339,7 +357,8 @@ t('The Bull Pen only pays for bull candles', () => {
 });
 t('Drill Sergeant only fires on Soldiers', () => {
   const march = scoreWith(['drillSergeant'], [mk('TECH', 3), mk('CRYPTO', 6), mk('ENERGY', 9)]);
-  const notMarch = scoreWith(['drillSergeant'], [mk('TECH', 9), mk('CRYPTO', 6), mk('ENERGY', 3)]);
+  // two bulls and a bear: no march, whatever order they are in
+  const notMarch = scoreWith(['drillSergeant'], [mk('TECH', 9), mk('CRYPTO', 6, false), mk('ENERGY', 3)]);
   ok(march.pl > notMarch.pl * 2, 'soldiers should be worth much more');
 });
 t('The Hedge Book wants an even bull/bear split', () => {

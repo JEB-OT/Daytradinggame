@@ -327,8 +327,9 @@ then you are in endless mode and the repeats are part of what makes it endless.
 
 A deadline gives you a cash **quota**, a handful of **trades** and some **sweeps**.
 
-1. Place **1–5 candles** from your board. **The order you place them is the order they print** —
-   a numbered badge appears on each one.
+1. Place **1–5 candles** from your board. The formation they make **does not depend on the order
+   you click them in** — the order only decides which prints first, shown by a numbered badge on
+   each one.
 2. What they print is a **formation**, which sets base **Volume** and **Leverage**.
 3. Call the tape: **LONG** or **SHORT**. The tick you called against **prints live** — the candle
    opens flat, wanders inside its own high and low, and settles on its close. About one in four
@@ -434,8 +435,8 @@ Fourteen of them. Most read the **set** of bodies you placed; two read the **ord
 | Tweezer | two matching bodies | 10 | ×2 |
 | Double Tweezer | two separate matching pairs | 20 | ×2 |
 | Triple Tap | three matching bodies | 30 | ×3 |
-| **Three White Soldiers** | 3+ bull candles, bodies rising | 30 | ×4 |
-| **Three Black Crows** | 3+ bear candles, bodies falling | 30 | ×4 |
+| **Three White Soldiers** | 3+ bull candles, all different bodies | 30 | ×4 |
+| **Three Black Crows** | 3+ bear candles, all different bodies | 30 | ×4 |
 | Staircase | five consecutive bodies | 35 | ×4 |
 | Sector Cluster | five candles from one sector | 40 | ×4 |
 | Pillars | three matching plus two matching | 45 | ×4 |
@@ -447,9 +448,13 @@ Fourteen of them. Most read the **set** of bodies you placed; two read the **ord
 
 The last three stay hidden until you first print one.
 
-**Soldiers and Crows must be contiguous in placement order.** The same three candles placed
-9-3-6 print nothing; placed 3-6-9 they print Soldiers. `ARRANGE` sorts your placement rising or
-falling in one click, so the mechanic is a decision rather than a chore.
+**No formation reads the order you place candles in.** Soldiers and Crows used to: the same three
+bulls placed 9-3-6 printed nothing, and placed 3-6-9 printed Soldiers — a test of clicking rather
+than of building. Now three bulls on different bodies are Soldiers however you click them, and a
+bear placed among them does not break the march. The engine lines the bodies up for you.
+
+Order still matters for what it should matter for: **which candle prints first.** That is how you
+put additive brokers ahead of multipliers, and it is what *Encore* and *Last Word* read.
 
 ---
 
@@ -486,8 +491,8 @@ candle or broker is worth more before a multiplying one. You control both.
 
 - **Click order.** The badge on each candle is its slot.
 - **Drag.** Pick a candle up and drop it anywhere on the board.
-- **`ARRANGE` / `A`** cycles five presets: **Rising ▲**, **Falling ▼** (the shapes the two marches
-  want), **Volume 1st**, **Leverage 1st**, and **Reverse**.
+- **`ARRANGE` / `A`** cycles five presets: **Rising ▲**, **Falling ▼**, **Volume 1st**,
+  **Leverage 1st**, and **Reverse** — all about print order; none changes the formation.
 
 **Moving a candle moves it in the print order.** Drag one, `ARRANGE`, or re-sort the board and the
 placement is re-derived from where the cards actually sit — so once you have rearranged anything,
@@ -656,7 +661,7 @@ a build; six is a printing press.
 ### Some builds that work
 
 - **The march** — *Marching Drum* drops Soldiers to two candles, *Drillmaster* multiplies them and
-  *Coattails* pays per candle in the run. Chart your book into rising bulls with *Greenwake*.
+  *Coattails* pays per candle in the run. Chart your book into bulls with *Greenwake*.
 - **All-in conviction** — an all-bull book plus *Zealot's Badge* and *The Convert* makes every
   LONG ×1.9, and *Sun Chaser* stacks on top.
 - **The two-faced book** — Janus candles count as *both* polarities, so *Janus Ledger*'s
@@ -730,7 +735,7 @@ src/main.js           controller: input, placement order, scoring animation, scr
 src/engine/           seeded RNG, formatting, event bus, the version stamp
 src/game/
   candles.js          candles: sector, body, polarity, enhancements, editions, stamps
-  formations.js       formation evaluation (set-based + order-based marches) and Conviction
+  formations.js       formation evaluation (all set-based) and Conviction
   scoring.js          the Volume × Leverage pipeline, step by step
   brokers.js          140 brokers
   consumables.js      charts, contracts, rumors

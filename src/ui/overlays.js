@@ -771,7 +771,7 @@ export function formationScreen(game, back) {
   const sheet = showOverlay(`
     <h2>FORMATIONS</h2>
     <div class="sub">Contracts bought on the Floor level these permanently.
-      Soldiers and Crows read the candles <b style="color:var(--cyan)">in the order you place them</b>.</div>
+      Every formation reads <b style="color:var(--cyan)">the set of candles you place</b> — click them in any order.</div>
     <table class="pat-table">
       <tr><th>FORMATION</th><th>MADE OF</th><th>LEVEL</th><th>VOLUME</th><th>LEVERAGE</th><th>PRINTED</th></tr>
       ${rows}
@@ -857,8 +857,9 @@ export function helpScreen(game, fromTitle, back) {
         <h3>THE LOOP</h3>
         <ul>
           <li>Every <b>deadline</b> gives you a <b>quota</b>, a few <b>trades</b> and some <b>sweeps</b>.</li>
-          <li>Place 1–5 candles from your board. <b>The order you place them is the order they print</b> —
-              the badge on each candle shows its slot.</li>
+          <li>Place 1–5 candles from your board. The formation they make <b>does not depend on the order</b>
+              you click them in. The order only decides which prints first — the badge on each candle
+              shows its slot.</li>
           <li>What they print is a <b>formation</b>, which sets base
               <b style="color:var(--cyan)">Volume</b> and <b style="color:var(--red)">Leverage</b>.</li>
           <li>Then call it: <b style="color:var(--green)">LONG</b> or <b style="color:var(--red)">SHORT</b>.</li>
@@ -882,8 +883,8 @@ export function helpScreen(game, fromTitle, back) {
               and a <b>polarity</b> — bull or bear.</li>
           <li>Matching bodies make Tweezers, Triples and Pillars. Consecutive bodies make a <b>Staircase</b>.
               One sector across the board makes a <b>Cluster</b>.</li>
-          <li>Three rising bulls in a row print <b>Three White Soldiers</b>; three falling bears print
-              <b>Three Black Crows</b>. Use <span class="k">ARRANGE</span> to sort your placement.</li>
+          <li>Three bulls on different bodies print <b>Three White Soldiers</b>; three bears on different
+              bodies print <b>Three Black Crows</b>. Any order, and other candles in between do not break it.</li>
           <li><b>Moving a candle moves it in the print order.</b> Drag one, <span class="k">ARRANGE</span>,
               or re-sort the board and the badges re-read <b>1 2 3</b> straight across — what you see
               left to right is what prints.</li>

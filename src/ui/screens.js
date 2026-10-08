@@ -203,13 +203,13 @@ const TUTORIAL = [
     body: `<p>What your placed candles make is a <b>formation</b>, and it sets the starting Volume and
       Leverage. Matching bodies make Tweezers and Pillars. Consecutive bodies make a <b>Staircase</b>.
       One sector across five candles makes a <b>Cluster</b>.</p>
-      <p>Two formations read the <b>order you place them in</b>: three rising bulls print
-      <b>Three White Soldiers</b>, three falling bears print <b>Three Black Crows</b>. Press
-      <span class="k">A</span> to sort your placement instead of clicking them in order.</p>`,
+      <p>Three bulls on different bodies print <b>Three White Soldiers</b>; three bears on
+      different bodies print <b>Three Black Crows</b>. Click them in any order — no formation
+      cares what order you place candles in.</p>`,
     art: () => {
       const w = document.createElement('div');
       w.className = 'tut-row';
-      [[3, true], [7, true], [11, true]].forEach(([b, bull], i) => {
+      [[11, true], [3, true], [7, true]].forEach(([b, bull], i) => {
         const cell = document.createElement('div');
         cell.className = 'tut-cell';
         const el = candleEl(demoCandle('TECH', b, bull), { reveal: true, order: i + 1 });
@@ -218,7 +218,7 @@ const TUTORIAL = [
       });
       const cap = document.createElement('div');
       cap.className = 'tut-caption';
-      cap.innerHTML = 'Rising bull bodies, placed in order &rarr; <b>Three White Soldiers</b>';
+      cap.innerHTML = 'Three bulls on different bodies, in any order &rarr; <b>Three White Soldiers</b>';
       const wrap = document.createElement('div');
       wrap.appendChild(w); wrap.appendChild(cap);
       return wrap;
@@ -402,8 +402,8 @@ export function compendiumScreen(game, back, tab = 'candles', query = '') {
         }).join('')}</div>`;
     }).join('') || '<div class="comp-note">Nothing matches that.</div>';
   } else if (tab === 'formations') {
-    body.innerHTML = `<div class="comp-note">Contracts level these permanently. Marches read the order you place
-      candles in; everything else reads the set.</div>
+    body.innerHTML = `<div class="comp-note">Contracts level these permanently. Every formation reads the
+      set of candles you place — the order you click them in never changes what prints.</div>
       <table class="pat-table"><tr><th>FORMATION</th><th>MADE OF</th><th>VOLUME</th><th>LEVERAGE</th></tr>
       ${FORMATION_KEYS.slice().reverse().filter((k) => hit(FORMATIONS[k].name, FORMATIONS[k].made)).map((k) => {
         const f = FORMATIONS[k]; const s = formationStats(k, 1);
@@ -468,7 +468,7 @@ const GLOSSARY = [
   ['Desk', 'Your broker slots. Five to start. Brokers trigger left to right.'],
   ['Print', 'What a candle does when it scores. Only candles inside the formation print, unless a broker says otherwise.'],
   ['Formation', 'What your placed candles make — Tweezer, Staircase, Cluster, Soldiers and so on. Sets the base Volume and Leverage.'],
-  ['March', 'Three White Soldiers or Three Black Crows. The only formations that care about the order you place candles in, and they must be contiguous.'],
+  ['March', 'Three White Soldiers or Three Black Crows: three or more candles of one colour, each on a different body. Placement order does not matter.'],
   ['Conviction', 'The bonus for your printed candles agreeing with the direction you called. All agreeing is ×1.5 Leverage, most agreeing is ×1.2.'],
   ['Green trade', 'You called the tape correctly. Full P/L.'],
   ['Red trade', 'You called it wrong. You keep 35% — unless a broker says otherwise.'],

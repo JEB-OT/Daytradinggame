@@ -383,8 +383,8 @@ export function syncPlacementToBoard(state) {
 }
 
 export const ARRANGE_MODES = [
-  { key: 'rising',   label: 'RISING ▲',   hint: 'smallest body first — the shape Three White Soldiers wants' },
-  { key: 'falling',  label: 'FALLING ▼',  hint: 'largest body first — the shape Three Black Crows wants' },
+  { key: 'rising',   label: 'RISING ▲',   hint: 'smallest body prints first' },
+  { key: 'falling',  label: 'FALLING ▼',  hint: 'largest body prints first' },
   { key: 'volume',   label: 'VOLUME 1st', hint: 'candles that add Volume print before ones that multiply Leverage' },
   { key: 'leverage', label: 'LEVER. 1st', hint: 'candles that multiply Leverage print before the Volume ones' },
   { key: 'reverse',  label: 'REVERSE',    hint: 'flip the current placement end to end' },
