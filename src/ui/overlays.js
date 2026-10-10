@@ -11,6 +11,7 @@ import { candleEl, brokerEl, consumableEl, hideTip } from './components.js';
 import { sfx, toast } from './fx.js';
 import { artSvg, consumableArt } from './art.js';
 import { VERSION, VERSION_NAME } from '../engine/version.js';
+import { keyLabel } from '../engine/keys.js';
 
 const root = () => document.getElementById('overlay-root');
 
@@ -918,7 +919,11 @@ export function helpScreen(game, fromTitle, back) {
         </ul>
         <h3>CONTROLS</h3>
         <ul>
-          <li><span class="k">1–9</span> place candle · <span class="k">click</span> place</li>
+          <li><span class="k">1–9</span> place candle · <span class="k">click</span> place ·
+              <b>hold and slide</b> across candles to place several</li>
+          <li><span class="k">${keyLabel(game.keys.hoverSelect)}</span> hover select — hold it and sweep the mouse ·
+              <span class="k">${keyLabel(game.keys.deselectAll)}</span> deselect all
+              <small style="color:var(--ink-faint)">(change them in Settings)</small></li>
           <li><span class="k">L</span> long · <span class="k">S</span> short · <span class="k">W</span> sweep</li>
           <li><span class="k">A</span> arrange · <span class="k">Space</span> sort board ·
               <span class="k">Esc</span> menu · <span class="k">M</span> mute</li>
@@ -948,6 +953,7 @@ export function menuScreen(game, back) {
         <button class="btn wide ghost" id="m-run">RUN INFO</button>
         <button class="btn wide ghost" id="m-comp">COMPENDIUM</button>
         <button class="btn wide ghost" id="m-gloss">GLOSSARY</button>
+        <button class="btn wide ghost" id="m-settings">SETTINGS &amp; KEYS</button>
         <button class="btn wide ghost" id="m-mute">${game.muted ? 'UNMUTE' : 'MUTE'}</button>
         <button class="btn wide danger" id="m-quit">ABANDON RUN</button>
       </div>
@@ -958,6 +964,7 @@ export function menuScreen(game, back) {
   sheet.querySelector('#m-run').onclick = () => runInfoScreen(game, () => menuScreen(game, back));
   sheet.querySelector('#m-comp').onclick = () => game.openCompendium(() => menuScreen(game, back));
   sheet.querySelector('#m-gloss').onclick = () => game.openGlossary(() => menuScreen(game, back));
+  sheet.querySelector('#m-settings').onclick = () => game.openSettings(() => menuScreen(game, back));
   sheet.querySelector('#m-mute').onclick = () => { game.toggleMute(); menuScreen(game, back); };
   sheet.querySelector('#m-quit').onclick = () => game.toHome();
 }

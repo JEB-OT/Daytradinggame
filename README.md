@@ -10,12 +10,12 @@ starting pieces, a shop full of things that break the rules, and a deadline that
 No build step and no dependencies — just Node and a browser.
 
 <!-- latest-version: the test suite checks this names the current VERSION, so a release can never leave the front page behind -->
-> **Latest version: v1.10.2 — Inked** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
+> **Latest version: v1.11.0 — Quick Hands** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
 >
-> Updating can no longer get stuck: a stray `package-lock.json` used to read as "uncommitted
-> changes" and stop every update. **`npm start` updates the game itself** before it opens. And
-> the whole interface is hand-inked to match the cards — pen outlines, cel shading, hand
-> lettering, candles as cream playing cards and a chart chalked onto a slate.
+> **Hold the mouse button and slide across candles** to place every one you pass. **`E`** is
+> hover select — press it over a candle, or hold it and sweep — and **`X`** deselects them all;
+> both are yours to rebind in **Settings → Controls**. `npm start` keeps the game up to date by
+> itself, and the whole interface is hand-inked to match the cards.
 >
 > **Stuck on `You have uncommitted changes, so nothing was pulled`?** That is an old copy's updater
 > tripping over a stray file. Stop the game, then in the game folder run these three, once:
@@ -104,7 +104,7 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ```bash
 npm run update           # pull the latest version of the game (npm start does this too)
 npm run release          # tag and publish this version (maintainers)
-npm test                 # 221 assertions, no dependencies
+npm test                 # 228 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 ```
 
@@ -235,7 +235,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.10.2** — Inked | Everything below, plus: a stray `package-lock.json` no longer stops an update |
+| **v1.11.0** — Quick Hands | Everything below, plus: slide across candles to place them all, `E` hover select, `X` deselect all — both rebindable in Settings |
+| v1.10.2 — Inked | Everything below, plus: a stray `package-lock.json` no longer stops an update |
 | v1.10.1 — Inked | Everything below, plus: `npm start` updates the game itself before opening it |
 | v1.10.0 — Inked | Everything below, plus: the whole interface is hand-inked to match the cards, candles are cream playing cards, the lettering is hand-drawn, and the chart is chalked onto a slate |
 | v1.9.1 — Drawn by Hand | Everything below, plus: the card art is hand-inked — wobbling pen lines, cel highlights, cross-hatched shadows |
@@ -268,7 +269,7 @@ branch today.
 |---|---|
 | The newest version | `npm run update` — see [Updating](#updating-to-the-latest-version) |
 | One exact version, as a download | Take the source zip from [**Releases**](https://github.com/JEB-OT/Daytradinggame/releases) |
-| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.10.2` |
+| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.11.0` |
 
 Checking out a tag leaves you on a *detached HEAD*. That is normal, and the game runs fine like
 that — it just means you are standing on a fixed point rather than a branch that moves. Get back
@@ -279,8 +280,8 @@ to the moving branch with `git checkout -`.
 ### Publishing a version (maintainers)
 
 Bumping `VERSION` and merging the pull request is only half of shipping. Until a tag points at
-the commit, GitHub has no v1.10.2 — nothing under Releases, no source download, and nothing for
-`git checkout v1.10.2` to find. The code is up there and the version is still ungettable, which
+the commit, GitHub has no v1.11.0 — nothing under Releases, no source download, and nothing for
+`git checkout v1.11.0` to find. The code is up there and the version is still ungettable, which
 looks exactly like the update never landed.
 
 ```bash
@@ -529,8 +530,10 @@ candle or broker is worth more before a multiplying one. You control both.
 
 **Candles** — three ways:
 
-- **Click order.** The badge on each candle is its slot.
-- **Drag.** Pick a candle up and drop it anywhere on the board.
+- **Click order.** The badge on each candle is its slot. Painting a stroke across the board (hold
+  the mouse button and slide, or hold `E`) places them in the order you cross them.
+- **Drag.** Pick a placed candle up and drop it anywhere on the board. Only placed candles pick up
+  — pressing on an unplaced one starts a painted selection instead.
 - **`ARRANGE` / `A`** cycles five presets: **Rising ▲**, **Falling ▼**, **Volume 1st**,
   **Leverage 1st**, and **Reverse** — all about print order; none changes the formation.
 
@@ -754,6 +757,11 @@ a build; six is a printing press.
 
 | Key | Action |
 |---|---|
+| click | place / remove a candle |
+| hold the mouse button and slide | place every candle you pass over |
+| `E` *(rebindable)* | **hover select** — press over a candle to place it, or hold it and sweep the mouse across several; started on a placed candle it takes them out instead |
+| `X` *(rebindable)* | **deselect all** — take every candle out of your placement |
+| drag a placed candle | move it in the print order |
 | `1`–`9` | place / remove a candle |
 | `L` / `S` | go long / go short |
 | `W` | sweep the selection |
@@ -761,6 +769,10 @@ a build; six is a printing press.
 | `Space` | sort the board (body / sector / bull-bear) |
 | `Esc` | menu · `M` mute |
 | right-click | sell a broker or chart |
+
+`E` and `X` are yours to change: **Settings → Controls**, on the title screen or in the in-game
+menu. Click the action, press the key you want. A key that already does something — `L`, `S`,
+`Space`, a number — is refused with the reason, so a rebind can never cost you a trade.
 
 ---
 
@@ -806,7 +818,7 @@ src/styles.css        the whole look, and the ink outline every surface is drawn
 src/fonts/            Bangers and Patrick Hand, with their OFL licences
 docs/screenshot.jpg   the picture at the top of this page
 src/main.js           controller: input, placement order, scoring animation, screen flow
-src/engine/           seeded RNG, formatting, event bus, the version stamp
+src/engine/           seeded RNG, formatting, event bus, the version stamp, rebindable keys
 src/game/
   candles.js          candles: sector, body, polarity, enhancements, editions, stamps
   formations.js       formation evaluation (all set-based) and Conviction
@@ -820,12 +832,12 @@ src/game/
 src/ui/               canvas chart, particles/audio, candle components, overlays
   art.js              every card's illustration: the glyph library, frames and pips
 test/
-  run-tests.mjs       221 tests, no dependencies
+  run-tests.mjs       228 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
 ```
 
 ```bash
-npm test              # 221 assertions across formations, conviction, scoring, flow and content
+npm test              # 228 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 ```
 

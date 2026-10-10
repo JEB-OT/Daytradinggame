@@ -364,6 +364,12 @@ export function toggleSelect(state, uid) {
   return s.selected;
 }
 
+/** Take every candle out of the placement. The array is emptied in place. */
+export function clearSelection(state) {
+  state.session.selected.length = 0;
+  return state.session.selected;
+}
+
 /**
  * Rewrite the placement order so it matches what the board actually shows,
  * left to right.

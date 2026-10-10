@@ -21,6 +21,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { bookRowCells, lapFor, LAP_MIN, LAP_MAX } from '../src/ui/overlays.js';
 import { MAX_BODY as BODY_SIZES } from '../src/game/candles.js';
+import { BINDABLE, FIXED, defaultKeys, keyLabel, bindProblem, loadKeys, saveKeys } from '../src/engine/keys.js';
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -1592,6 +1593,69 @@ t('the server runs the updater before it listens', () => {
 t('there is no hand-maintained list of branches left to rot', () => {
   const src = readFileSync(join(REPO_ROOT, 'scripts/version-check.mjs'), 'utf8');
   ok(!/RELEASE_BRANCHES/.test(src), 'the hardcoded branch list is back');
+});
+
+// ------------------------------------------------------------- rebindable keys
+const memStore = (init = {}) => {
+  const m = new Map(Object.entries(init));
+  return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), m };
+};
+
+t('the rebindable keys start on X (deselect all) and E (hover select)', () => {
+  eq(defaultKeys().deselectAll, 'x');
+  eq(defaultKeys().hoverSelect, 'e');
+});
+
+t('no default key collides with a fixed one or with another default', () => {
+  const keys = defaultKeys();
+  for (const [action, key] of Object.entries(keys)) eq(bindProblem(keys, action, key), null, action);
+});
+
+t('a key that already does something cannot be bound', () => {
+  const keys = defaultKeys();
+  ok(/go long/.test(bindProblem(keys, 'deselectAll', 'l')), 'L goes long — binding it would cost a trade');
+  ok(bindProblem(keys, 'deselectAll', ' '), 'Space sorts the board');
+  ok(bindProblem(keys, 'hoverSelect', '3'), 'number keys place candles');
+  ok(bindProblem(keys, 'hoverSelect', 'escape'), 'Esc is the menu, and cancels a rebind');
+  ok(/Deselect all/.test(bindProblem(keys, 'hoverSelect', 'x')), 'two actions on one key');
+  ok(bindProblem(keys, 'hoverSelect', 'shift'), 'a modifier on its own is no use');
+  eq(bindProblem(keys, 'deselectAll', 'q'), null);
+  eq(bindProblem(keys, 'deselectAll', 'x'), null, 'rebinding an action to its own key is fine');
+  for (const k of Object.keys(FIXED)) ok(bindProblem(keys, 'deselectAll', k), `${k} slipped through`);
+});
+
+t('saved keys come back, and swapping the two keys survives a reload', () => {
+  const store = memStore();
+  saveKeys({ deselectAll: 'e', hoverSelect: 'x' }, store);
+  const keys = loadKeys(store);
+  eq(keys.deselectAll, 'e'); eq(keys.hoverSelect, 'x');
+});
+
+t('a broken or clashing save falls back to the defaults, never to a dead key', () => {
+  eq(loadKeys(memStore({ 'margincall.keys': '{not json' })).deselectAll, 'x');
+  eq(loadKeys(memStore({ 'margincall.keys': JSON.stringify({ deselectAll: 'l' }) })).deselectAll, 'x', 'a fixed key was loaded');
+  const clash = loadKeys(memStore({ 'margincall.keys': JSON.stringify({ deselectAll: 'q', hoverSelect: 'q' }) }));
+  eq(clash.deselectAll, 'x'); eq(clash.hoverSelect, 'e');
+  eq(loadKeys(null).hoverSelect, 'e', 'no storage at all');
+  const throwing = { getItem() { throw new Error('blocked'); } };
+  eq(loadKeys(throwing).deselectAll, 'x');
+});
+
+t('keys are written the way a keyboard labels them', () => {
+  eq(keyLabel('x'), 'X'); eq(keyLabel(' '), 'Space'); eq(keyLabel('backspace'), 'Backspace');
+  ok(Object.values(BINDABLE).every((b) => b.label && b.blurb), 'every rebindable key needs a label and a blurb');
+});
+
+t('deselect all empties the placement in place', () => {
+  const st = S.newRun('DESEL');
+  S.startDeadline(st, 0);
+  const s = st.session;
+  const ref = s.selected;
+  for (const c of s.board.slice(0, 3)) S.toggleSelect(st, c.uid);
+  eq(s.selected.length, 3);
+  S.clearSelection(st);
+  eq(s.selected.length, 0);
+  ok(s.selected === ref, 'anything holding the placement array would have been left with the old one');
 });
 
 // ------------------------------------------------------------- the act curve

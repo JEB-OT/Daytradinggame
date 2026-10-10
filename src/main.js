@@ -13,6 +13,7 @@ import * as FX from './ui/fx.js';
 import { sfx, toast, shake, popText, particles } from './ui/fx.js';
 import * as OV from './ui/overlays.js';
 import * as SC from './ui/screens.js';
+import { loadKeys, saveKeys } from './engine/keys.js';
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -29,6 +30,10 @@ class Game {
     this.muted = localStorage.getItem('margincall.muted') === '1';
     FX.setMuted(this.muted);
     this.sortMode = 'body';
+    /** The player's own keys for the rebindable actions (Settings → Controls). */
+    this.keys = loadKeys();
+    /** The stroke being painted across the board, if any — see startPaint. */
+    this.paint = null;
     this.arrangeMode = 'rising';
     this.arrangeIndex = 0;
     this.reducedMotion = localStorage.getItem('margincall.motion') === '0';
@@ -59,6 +64,13 @@ class Game {
     OV.bookScreen(this, back, view);
   }
   openGlossary(back) { SC.glossaryScreen(this, back); }
+  openSettings(back) { SC.settingsScreen(this, back); }
+
+  /** Rebind one of the player's keys. The settings screen has already checked it is free. */
+  setKey(action, key) {
+    this.keys = { ...this.keys, [action]: key };
+    saveKeys(this.keys);
+  }
 
   applyMotion() { document.body.classList.toggle('no-motion', this.reducedMotion); }
   toggleMotion() {
@@ -428,8 +440,23 @@ class Game {
       el.style.setProperty('--i', i);
       if (idx >= 0) el.classList.add('selected');
       el.onclick = () => { if (this.didDrag) { this.didDrag = false; return; } this.toggleCandle(c.uid); };
-      el.draggable = true;
+      // Holding the button on an unplaced candle paints a selection across the
+      // board, so only a placed candle can be picked up and dragged to reorder.
+      // The two gestures would otherwise be the same movement.
+      // Nor can anything be picked up mid-stroke: when the pointer starts moving,
+      // Chrome looks for a draggable element under the point where the button
+      // went down — which is the candle the press just placed — and starts a
+      // native drag that swallows the rest of the stroke.
+      el.draggable = idx >= 0 && !this.paint;
+      el.addEventListener('pointerdown', (e) => {
+        this.swallowClick = false;
+        if (e.button !== 0 || idx >= 0) return;
+        this.startPaint(c.uid, 'mouse');
+        // The press already placed it; the click that follows must not take it out again.
+        this.swallowClick = true;
+      });
       el.addEventListener('dragstart', (e) => {
+        if (this.paint) { e.preventDefault(); return; }
         this.dragCandle = c.uid; this.didDrag = false;
         el.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
@@ -612,21 +639,86 @@ class Game {
 
   // ---------------------------------------------------------------- input
   toggleCandle(uid) {
-    const st = this.state, s = st.session;
-    if (!s || this.busy) return;
-    const was = s.selected.includes(uid);
+    const s = this.state?.session;
+    if (s) this.setSelected(uid, !s.selected.includes(uid));
+  }
+
+  /**
+   * Put one candle into the placement or take it out.
+   * @returns {boolean} false only when the placement was already full.
+   */
+  setSelected(uid, want, { quietFull = false } = {}) {
+    const st = this.state, s = st?.session;
+    if (!s || this.busy || s.selected.includes(uid) === want) return true;
     S.toggleSelect(st, uid);
-    const now = s.selected.includes(uid);
-    if (now && s.selected.length === 1) {
+    if (s.selected.includes(uid) !== want) {
+      if (!quietFull) { sfx.err(); toast('You can place at most 5 candles', 'bad'); }
+      return false;
+    }
+    if (want && s.selected.length === 1) {
       this.hint('place', 'The number on a candle is its placement order — marches read it left to right.');
     }
-    if (now && s.selected.length === 3) {
+    if (want && s.selected.length === 2 && !this.paint) {
+      this.hint('paint', 'Hold the mouse button and slide across candles to place several at once.');
+    }
+    if (want && s.selected.length === 3) {
       this.hint('conviction', 'Check the ▲/▼ line under your score: that is what each call is worth in Conviction.');
     }
-    if (now !== was) (was ? sfx.deselect() : sfx.select());
-    else if (!now) { sfx.err(); toast('You can place at most 5 candles', 'bad'); }
+    want ? sfx.select() : sfx.deselect();
     this.renderBoard();
     this.updatePreview();
+    return true;
+  }
+
+  clearSelection() {
+    const st = this.state, s = st?.session;
+    if (!s || this.busy || !s.selected.length) return;
+    S.clearSelection(st);
+    sfx.deselect();
+    this.renderBoard();
+    this.updatePreview();
+  }
+
+  // -------------------------------------------------------- painting a stroke
+  /**
+   * Place several candles in one stroke: hold the mouse button on an unplaced
+   * candle and slide across the others, or hold the hover-select key and sweep
+   * the mouse. Every candle the pointer passes over goes the way the first one
+   * went — into the placement, or (from the key, starting on a placed candle)
+   * out of it. Never a toggle: crossing a candle twice cannot flip it back.
+   *
+   * The board is redrawn after every change, so a stroke tracks candles by
+   * what is under the pointer rather than by element.
+   */
+  startPaint(uid, by, key = null) {
+    const s = this.state?.session;
+    if (!s || this.busy || OV.overlayOpen()) return;
+    hideTip();
+    this.paint = { by, key, want: !s.selected.includes(uid), full: false, last: null };
+    this.paintAt(uid);
+  }
+
+  paintAt(uid) {
+    const p = this.paint;
+    if (!p || uid === p.last) return;
+    p.last = uid;
+    // One "placement is full" warning per stroke, not one per candle crossed.
+    if (!this.setSelected(uid, p.want, { quietFull: p.full })) p.full = true;
+  }
+
+  endPaint() {
+    if (!this.paint) return;
+    this.paint = null;
+    // Placed candles are drawn undraggable mid-stroke (see renderBoard); give
+    // them their handles back without redrawing the board under the pointer.
+    document.querySelectorAll('#board-row .candle.selected').forEach((el) => { el.draggable = true; });
+  }
+
+  /** The board candle under the mouse, by uid — wherever the last redraw put it. */
+  candleUnderPointer() {
+    if (!this.pointer) return null;
+    const el = document.elementFromPoint(this.pointer.x, this.pointer.y);
+    return el?.closest('#board-row .candle')?.dataset.uid || null;
   }
 
   arrange() {
@@ -1007,6 +1099,25 @@ class Game {
     $('btn-book').onclick = () => this.openBook('all');
     $('btn-formations').onclick = () => this.state && OV.formationScreen(this, () => OV.closeOverlay());
 
+    // A painted stroke places its first candle on the press, so the click that
+    // ends it is swallowed here rather than toggling that candle back out.
+    $('board-row').addEventListener('click', (e) => {
+      if (!this.swallowClick) return;
+      this.swallowClick = false;
+      e.stopPropagation();
+    }, true);
+    window.addEventListener('pointermove', (e) => {
+      this.pointer = { x: e.clientX, y: e.clientY };
+      if (!this.paint) return;
+      const uid = this.candleUnderPointer();
+      if (uid) this.paintAt(uid);
+    });
+    window.addEventListener('pointerup', () => { if (this.paint?.by === 'mouse') this.endPaint(); });
+    window.addEventListener('keyup', (e) => {
+      if (this.paint?.by === 'key' && e.key.toLowerCase() === this.paint.key) this.endPaint();
+    });
+    window.addEventListener('blur', () => this.endPaint());
+
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT') return;
       const st = this.state, s = st?.session;
@@ -1029,6 +1140,13 @@ class Game {
       else if (k === ' ') { e.preventDefault(); this.sortBoard(); }
       else if (/^[1-9]$/.test(k)) { const c = s.board[+k - 1]; if (c) this.toggleCandle(c.uid); }
       else if (k === '0') { const c = s.board[9]; if (c) this.toggleCandle(c.uid); }
+      else if (k === this.keys.deselectAll) { e.preventDefault(); this.clearSelection(); }
+      else if (k === this.keys.hoverSelect) {
+        e.preventDefault();
+        if (e.repeat || this.paint) return;
+        const uid = this.candleUnderPointer();
+        if (uid) this.startPaint(uid, 'key', k);
+      }
     });
 
     window.addEventListener('contextmenu', (e) => {

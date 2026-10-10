@@ -7,6 +7,25 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.11.0 — Quick Hands
+
+*2026-10-10*
+
+- **Paint a selection.** Hold the mouse button on a candle and slide across the board: every candle
+  you pass over is placed, in the order you crossed them. Crossing one twice never flips it back,
+  and painting past five stops at five with a single warning. Only placed candles pick up to be
+  dragged now — pressing on an unplaced one starts a stroke instead, so the two gestures no longer
+  share one movement
+- **Hover select — `E`.** Press it over a candle to place that candle, or hold it and sweep the
+  mouse across several. Start it on a candle that is already placed and the sweep takes candles out
+  instead
+- **Deselect all — `X`.** Empties your placement in one keypress
+- **Both keys are rebindable** in **Settings → Controls**: click the action, press the key you want,
+  `Esc` cancels. A key that already does something (`L`, `S`, `Space`, the numbers…) is refused
+  with the reason, so a rebind can never cost you a trade; the binding is saved on this device and
+  the help screen shows your own keys. Settings is now in the in-game menu as well as on the title
+  screen
+
 ## v1.10.2 — Inked
 
 *2026-10-10*
