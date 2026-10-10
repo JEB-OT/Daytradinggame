@@ -10,11 +10,19 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.9.0';
+export const VERSION = 'v1.9.1';
 export const VERSION_NAME = 'Drawn by Hand';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.9.1',
+    name: 'Drawn by Hand',
+    notes: [
+      'The card art is hand-inked: lines that wobble like a pen, hard cel highlights, cross-hatched shadows',
+      'Frames keep clean polished metal so the drawing, not the border, carries the texture',
+    ],
+  },
   {
     version: 'v1.9.0',
     name: 'Drawn by Hand',
