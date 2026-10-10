@@ -8,16 +8,16 @@ import { BOSSES, BOSS_KEYS } from '../src/game/bosses.js';
 import { Market } from '../src/game/market.js';
 import { scoreTrade } from '../src/game/scoring.js';
 import * as S from '../src/game/state.js';
-import { VERSION, CHANGELOG } from '../src/engine/version.js';
+import { VERSION, VERSION_NAME, CHANGELOG } from '../src/engine/version.js';
 import { notesFor, versionsInChangelog } from '../scripts/release-notes.mjs';
 import { compareVersions } from '../scripts/version-check.mjs';
 import { artSvg, artKeys, hasGlyph, brokerEffect } from '../src/ui/art.js';
 import { LICENSES as LIC_ALL } from '../src/game/licenses.js';
 import { BONUSES as BONUS_ALL, PACKS as PACK_ALL } from '../src/game/state.js';
-import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { bookRowCells, lapFor, LAP_MIN, LAP_MAX } from '../src/ui/overlays.js';
 import { MAX_BODY as BODY_SIZES } from '../src/game/candles.js';
@@ -1411,14 +1411,27 @@ function updaterFixture(branches, standOn) {
   const clone = join(dir, 'clone');
   git(dir, 'clone', '-q', origin, clone);
   mkdirSync(join(clone, 'scripts'), { recursive: true });
-  copyFileSync(join(REPO_ROOT, 'scripts/version-check.mjs'), join(clone, 'scripts/version-check.mjs'));
+  for (const f of ['version-check.mjs', 'update.mjs']) copyFileSync(join(REPO_ROOT, 'scripts', f), join(clone, 'scripts', f));
+  // The copied scripts are not part of the fixture's history, and an untracked
+  // file would read as local changes the updater refuses to pull over.
+  writeFileSync(join(clone, '.git/info/exclude'), 'scripts/\n');
   git(clone, 'checkout', '-q', standOn);
 
   const ask = () => JSON.parse(execFileSync(process.execPath, ['-e',
     `import(${JSON.stringify(pathToFileURL(join(clone, 'scripts/version-check.mjs')).href)})`
     + `.then((m) => console.log(JSON.stringify(m.newsFor())))`],
     { cwd: clone, encoding: 'utf8' }));
-  return { dir, clone, ask, done: () => rmSync(dir, { recursive: true, force: true }) };
+  /** What `npm start` runs before serving: the exit code says whether the folder moved. */
+  const auto = () => spawnSync(process.execPath, [join(clone, 'scripts/update.mjs'), '--auto'],
+    { cwd: clone, encoding: 'utf8', timeout: 30000 });
+  /** Publish a newer build on the remote, after the clone was made. */
+  const publish = (branch, version) => {
+    git(origin, 'checkout', '-q', branch);
+    writeFileSync(join(origin, 'src/engine/version.js'), `export const VERSION = '${version}';\n`);
+    git(origin, 'commit', '-qam', `${version} on ${branch}`);
+  };
+  const versionHere = () => readFileSync(join(clone, 'src/engine/version.js'), 'utf8').match(/'([^']+)'/)[1];
+  return { dir, clone, origin, git, ask, auto, publish, versionHere, done: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
 t('standing on an older branch, the updater points at the newer one', () => {
@@ -1467,6 +1480,65 @@ t('it never points backwards to an older build', () => {
   try {
     eq(f.ask().suggestion, null, 'it offered to move you onto an older version');
   } finally { f.done(); }
+});
+
+// `npm start` runs the updater before it serves, because the command players
+// actually type — `npm update` — is npm's own and never runs it.
+t('starting the game pulls a newer build on the same branch', () => {
+  const f = updaterFixture([{ name: 'main', version: 'v1.0.0' }], 'main');
+  try {
+    f.publish('main', 'v1.1.0');
+    const r = f.auto();
+    eq(r.status, 10, 'it should report that the folder moved');
+    eq(f.versionHere(), 'v1.1.0');
+  } finally { f.done(); }
+});
+
+t('starting the game moves an old branch onto the newest build', () => {
+  const f = updaterFixture([
+    { name: 'old-feature', version: 'v1.5.0' },
+    { name: 'main', version: 'v1.10.0' },
+  ], 'old-feature');
+  try {
+    eq(f.auto().status, 10);
+    eq(f.versionHere(), 'v1.10.0');
+    eq(f.git(f.clone, 'rev-parse', '--abbrev-ref', 'HEAD').trim(), 'main');
+  } finally { f.done(); }
+});
+
+t('starting an up-to-date game changes nothing and says so', () => {
+  const f = updaterFixture([{ name: 'main', version: 'v1.0.0' }], 'main');
+  try {
+    const r = f.auto();
+    eq(r.status, 0);
+    ok(/Already on the newest version/.test(r.stdout));
+  } finally { f.done(); }
+});
+
+t('local changes are never pulled over, and the game still starts', () => {
+  const f = updaterFixture([{ name: 'main', version: 'v1.0.0' }], 'main');
+  try {
+    f.publish('main', 'v1.1.0');
+    writeFileSync(join(f.clone, 'src/engine/version.js'), "export const VERSION = 'v1.0.0-mine';\n");
+    eq(f.auto().status, 0, 'a dirty tree should not stop the game starting');
+    eq(f.versionHere(), 'v1.0.0-mine', 'it pulled over local changes');
+  } finally { f.done(); }
+});
+
+t('no connection is not a reason to refuse to start', () => {
+  const f = updaterFixture([{ name: 'main', version: 'v1.0.0' }], 'main');
+  try {
+    f.git(f.clone, 'remote', 'set-url', 'origin', join(f.dir, 'nowhere'));
+    const r = f.auto();
+    eq(r.status, 0);
+    eq(f.versionHere(), 'v1.0.0');
+  } finally { f.done(); }
+});
+
+t('the server runs the updater before it listens', () => {
+  const src = readFileSync(join(REPO_ROOT, 'server.js'), 'utf8');
+  ok(src.includes("'scripts/update.mjs'") && src.includes("'--auto'"), 'server.js no longer updates on start');
+  ok(/if \(selfUpdate\(\)\) relaunch\(\);/.test(src), 'the server should restart on the new code after an update');
 });
 
 t('there is no hand-maintained list of branches left to rot', () => {
@@ -1844,6 +1916,32 @@ t('the in-game changelog and CHANGELOG.md list the same versions', () => {
 
 t('the in-game changelog leads with the version being run', () => {
   eq(CHANGELOG[0].version, VERSION, 'the newest changelog entry is not the current version');
+});
+
+// The repository's front page is the README. If its top still names last
+// version, the GitHub page looks as if the release never happened — which is
+// exactly what players reported, release after release.
+t('the top of the README names the version being shipped', () => {
+  const readme = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
+  const latest = readme.match(/\*\*Latest version: (v[\d.]+) — ([^*]+)\*\*/);
+  ok(latest, 'README.md has lost its "Latest version" line');
+  eq(latest[1], VERSION, 'the README front page names the wrong version');
+  eq(latest[2].trim(), VERSION_NAME, 'the README front page names the wrong release');
+  ok(latest.index < readme.indexOf('## Quick start'), 'the "Latest version" line should sit above the fold');
+});
+
+t('the README version table leads with the version being shipped', () => {
+  const readme = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
+  const first = readme.match(/^\| \*\*(v[\d.]+)\*\* — /m);
+  eq(first?.[1], VERSION, 'the bold first row of the version table is not the current version');
+});
+
+t('every picture the README shows is in the repo', () => {
+  const readme = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
+  for (const [, src] of readme.matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)) {
+    if (/^https?:/.test(src)) continue;
+    ok(existsSync(join(REPO_ROOT, src)), `README.md shows ${src}, which does not exist`);
+  }
 });
 
 t('release notes are matched on the whole version, not a prefix', () => {

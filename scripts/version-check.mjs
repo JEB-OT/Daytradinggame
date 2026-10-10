@@ -1,8 +1,8 @@
 /**
  * "Is there a newer version of the game than the one in this folder?"
  *
- * Shared by `npm run update` and by `npm start`, which prints a one-line notice
- * when the answer is yes. Both need the same answer, and the answer is not the
+ * Shared by `npm run update` and by `npm start`, which runs the same updater
+ * before it serves the game. Both need the same answer, and the answer is not the
  * obvious one: `git pull` only ever updates the branch you are standing on, so
  * it reports `Already up to date` while a finished build sits on another branch.
  * Anything that only asks git "am I behind my upstream?" inherits that blind
@@ -13,12 +13,15 @@
  * them just means "no news", because none of them is a reason to stop the game
  * from starting.
  */
-import { execFile, execFileSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/** `update.mjs --auto` exits with this when the folder now holds a different build. */
+export const UPDATED = 10;
 
 
 export function git(args, opts = {}) {
@@ -141,24 +144,4 @@ export function newsFor(branch = currentBranch()) {
 
   out.suggestion = { branch: best.name, ahead, version: best.version };
   return out;
-}
-
-/**
- * The `npm start` path: fetch and answer off the main thread, and hand back
- * nothing at all unless there is genuinely something to say. Never rejects.
- */
-export function checkInBackground() {
-  return new Promise((done) => {
-    if (!isRepo()) return done(null);
-    widenRefspec();
-    execFile('git', ['fetch', '--all', '--prune', '--quiet'],
-      { cwd: ROOT, timeout: 8000 }, () => {
-        // Even a failed fetch is worth answering from: refs already on disk can
-        // show the player is behind something they fetched earlier.
-        try {
-          const news = newsFor();
-          done(news.behind > 0 || news.suggestion ? news : null);
-        } catch { done(null); }
-      });
-  });
 }

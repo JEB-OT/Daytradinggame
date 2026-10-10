@@ -17,11 +17,24 @@
  * explanation instead.
  *
  * Uses nothing but git and Node's standard library, like the rest of the repo.
+ *
+ *   node scripts/update.mjs --auto
+ *
+ * is what `npm start` runs before it serves the game, so a player never has to
+ * remember an update command at all — which matters, because the one people
+ * reach for, `npm update`, is npm's own dependency updater: it runs none of
+ * this, and answers "up to date" whatever state the folder is in. In auto mode
+ * nothing is ever allowed to stop the game starting: no clone, no network, local
+ * changes or a diverged branch each print one line and leave the folder as it
+ * is. The exit code says whether the folder moved (UPDATED), so the server
+ * knows to restart itself on the new code.
  */
 // The logic for "where is the newest build?" lives in version-check.mjs,
 // because `npm start` needs exactly the same answer and two copies of a rule
 // this fiddly would drift.
-import { git, tryGit, isRepo, localVersion, newsFor, widenRefspec } from './version-check.mjs';
+import { git, tryGit, isRepo, localVersion, newsFor, widenRefspec, UPDATED } from './version-check.mjs';
+
+const AUTO = process.argv.includes('--auto');
 
 const C = {
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
@@ -34,17 +47,23 @@ const C = {
 
 function line() { console.log(C.dim('─'.repeat(58))); }
 
+/** Stop without updating. By hand that is a failure; on the way to a game it is not. */
+function giveUp() {
+  if (AUTO) console.log(C.dim('  Starting the copy you have.'));
+  console.log('');
+  process.exit(AUTO ? 0 : 1);
+}
+
 // ---------------------------------------------------------------------------
 console.log('');
-console.log(C.bold('  MARGIN CALL — update'));
+console.log(C.bold(AUTO ? '  MARGIN CALL — checking for a newer version' : '  MARGIN CALL — update'));
 line();
 
 if (!isRepo()) {
   console.log(C.red('  This folder is not a git clone.'));
   console.log('  You probably downloaded a ZIP. To get updates, clone it instead:');
   console.log(C.cyan('    git clone https://github.com/JEB-OT/Daytradinggame.git'));
-  console.log('');
-  process.exit(1);
+  giveUp();
 }
 
 const before = localVersion();
@@ -59,19 +78,18 @@ if (dirty) {
   console.log(C.yellow('  You have uncommitted changes, so nothing was pulled.'));
   console.log('  Keep them:   ' + C.cyan('git stash') + C.dim('   (then re-run npm run update, and `git stash pop`)'));
   console.log('  Bin them:    ' + C.cyan('git checkout .'));
-  console.log('');
-  process.exit(1);
+  giveUp();
 }
 
 console.log(C.dim('  fetching…'));
 try {
   widenRefspec();
-  git(['fetch', '--all', '--prune'], { stdio: ['ignore', 'pipe', 'inherit'] });
+  // On the way to a game, a dead connection must not hold the window hostage.
+  git(['fetch', '--all', '--prune'], { stdio: ['ignore', 'pipe', AUTO ? 'pipe' : 'inherit'], timeout: AUTO ? 15000 : 0 });
 } catch {
   line();
-  console.log(C.red('  Could not reach GitHub. Check your internet connection and try again.'));
-  console.log('');
-  process.exit(1);
+  console.log(C.red('  Could not reach GitHub.') + (AUTO ? '' : ' Check your internet connection and try again.'));
+  giveUp();
 }
 
 // --- fast-forward the branch you are on -----------------------------------
@@ -124,15 +142,21 @@ if (suggestion && !blocked) {
 line();
 const after = localVersion();
 if (blocked) {
-  console.log(C.yellow('  Not updated.') + '  Run the command above, then try again.');
+  console.log(C.yellow(moved ? '  Only partly updated.' : '  Not updated.') + '  Run the command above, then try again.');
+  if (AUTO) console.log(C.dim('  Starting the copy you have.'));
 } else if (moved) {
-  console.log(C.green('  Up to date.') + `  Now on ${C.cyan(after)}`);
+  console.log(C.green('  Updated.') + `  Now on ${C.cyan(after)}` + C.dim(`  (was ${before})`));
   if (switched) console.log(C.dim(`  Moved you onto ${switched} — your save is in the browser, so nothing was lost.`));
   console.log('');
-  console.log('  Start the game with ' + C.cyan('npm start') + ', then hard-refresh the page:');
-  console.log(C.dim('    Ctrl+Shift+R  (Windows/Linux)   ·   Cmd+Shift+R  (macOS)'));
+  if (AUTO) {
+    console.log(C.dim('  Starting the new version…'));
+  } else {
+    console.log('  Start the game with ' + C.cyan('npm start') + ', then hard-refresh the page:');
+    console.log(C.dim('    Ctrl+Shift+R  (Windows/Linux)   ·   Cmd+Shift+R  (macOS)'));
+  }
 } else {
   console.log(C.green('  Already on the newest version.') + `  ${C.cyan(after)}`);
-  console.log(C.dim('  The title screen shows this same number — if it disagrees, hard-refresh the page.'));
+  if (!AUTO) console.log(C.dim('  The title screen shows this same number — if it disagrees, hard-refresh the page.'));
 }
 console.log('');
+if (AUTO) process.exit(moved ? UPDATED : 0);

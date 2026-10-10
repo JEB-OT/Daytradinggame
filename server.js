@@ -9,13 +9,17 @@
  *   node server.js            → http://localhost:8080
  *   node server.js 3000       → a port you pick
  *   PORT=3000 node server.js  → same thing
+ *
+ * Before it serves anything it brings the folder up to the newest version of
+ * the game (see selfUpdate below). MC_NO_UPDATE_CHECK=1 skips that.
  */
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
+import { UPDATED } from './scripts/version-check.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const START_PORT = Number(process.argv[2] || process.env.PORT || 8080);
@@ -112,7 +116,6 @@ server.on('listening', () => {
   console.log('     Ctrl+Shift+R  (Windows/Linux)   ·   Cmd+Shift+R  (macOS)');
   console.log('');
   if (process.env.NO_OPEN !== '1') openBrowser(url);
-  if (process.env.MC_NO_UPDATE_CHECK !== '1') announceUpdate();
 });
 
 /**
@@ -136,38 +139,34 @@ function localBuild() {
 }
 
 /**
- * Tell the player when they are about to play an old copy.
+ * Bring the folder up to the newest version before serving it.
  *
- * `git pull` answers "am I behind my own branch?", which is not the same
- * question as "is there a newer version of this game?" — when a build lands on
- * another branch, pull reports `Already up to date` and the game quietly stays
- * as it was. That is impossible to distinguish from everything being fine, so
- * the game says so itself at the one moment the player is guaranteed to look.
+ * This used to print "a newer version is available — run npm run update" and
+ * leave it to the player, and players kept typing `npm update` instead: npm's
+ * own dependency updater, which runs none of this and answers "up to date"
+ * whatever state the folder is in. So starting the game now updates it. The
+ * updater's auto mode never gets in the way of playing — no clone, no network,
+ * local changes or a diverged branch each print a line and the game starts as
+ * it is.
  *
- * Runs after the server is already listening and never blocks it: no git, no
- * network, no news — all identical, and all silent. MC_NO_UPDATE_CHECK=1 opts
- * out entirely.
+ * @returns {boolean} whether the folder now holds a different build.
  */
-async function announceUpdate() {
-  let news = null;
-  try {
-    const vc = await import('./scripts/version-check.mjs');
-    news = await vc.checkInBackground();
-    if (!news) return;
-    const target = news.suggestion;
-    console.log('  ┌──────────────────────────────────────────────┐');
-    console.log('  │  A NEWER VERSION OF THE GAME IS AVAILABLE    │');
-    console.log('  └──────────────────────────────────────────────┘');
-    if (target) {
-      console.log(`     ${target.version ? target.version + ' is' : 'It is'} on ${target.branch},`);
-      console.log(`     which has ${target.ahead} commit${target.ahead === 1 ? '' : 's'} this copy does not.`);
-    } else {
-      console.log(`     Your branch is ${news.behind} commit${news.behind === 1 ? '' : 's'} behind.`);
-    }
-    console.log('');
-    console.log('     Stop the server (Ctrl+C) and run:  npm run update');
-    console.log('');
-  } catch { /* a version check is never worth interrupting a game for */ }
+function selfUpdate() {
+  if (process.env.MC_NO_UPDATE_CHECK === '1' || process.env.MC_UPDATED === '1') return false;
+  const r = spawnSync(process.execPath, [join(ROOT, 'scripts/update.mjs'), '--auto'],
+    { cwd: ROOT, stdio: 'inherit', timeout: 60000 });
+  return r.status === UPDATED;
+}
+
+/**
+ * This process loaded the old server.js, so the new one runs in its place. It
+ * shares this terminal, and Ctrl+C reaches it the same way.
+ */
+function relaunch() {
+  const child = spawn(process.execPath, [fileURLToPath(import.meta.url), ...process.argv.slice(2)],
+    { cwd: ROOT, stdio: 'inherit', env: { ...process.env, MC_UPDATED: '1' } });
+  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => child.kill(sig));
+  child.on('exit', (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
 }
 
 function listen(port, triesLeft) {
@@ -183,4 +182,5 @@ function listen(port, triesLeft) {
   server.listen(port);
 }
 
-listen(START_PORT, MAX_TRIES);
+if (selfUpdate()) relaunch();
+else listen(START_PORT, MAX_TRIES);
