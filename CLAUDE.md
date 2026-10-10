@@ -3,6 +3,10 @@
 A browser roguelike deckbuilder. No build step and no dependencies: `npm start` serves the repo,
 `npm test` runs `test/run-tests.mjs`, `npm run sim` plays 200 bot runs for balance.
 
+`npm start` updates the folder before serving it — fetching, fast-forwarding and even switching to
+whichever branch carries the newest version. In a working copy you are developing in, start the
+server with `MC_NO_UPDATE_CHECK=1 NO_OPEN=1 node server.js` so it leaves your branch alone.
+
 ## Shipping a patch — every time, without being asked
 
 The owner wants every patch on GitHub the moment it is done: merged, released, and visible on
@@ -14,6 +18,11 @@ the repository page. A patch is not finished until all of this has happened.
    to the version table in `README.md` (the version table, and any counts the patch changes, are
    what people read on the GitHub page). The test suite fails if `CHANGELOG.md` is missing the
    current version.
+   **Keep the GitHub front page current.** The `**Latest version: vX.Y.Z — Name**` block at the top
+   of `README.md` is the first thing on the repository page: point it at the new version and
+   rewrite its two or three lines to say what changed. Tests fail if it, or the bold first row of
+   the version table, names any other version. When the look of the game changes, retake
+   `docs/screenshot.jpg` (the picture under it) from the real game.
 2. **Verify.** `npm test` green; `npm run sim` for anything touching balance; drive the real game in
    a browser for anything visual.
 3. **One patch, one pull request.** Commit on the working branch, push, and open a pull request
@@ -27,7 +36,7 @@ the repository page. A patch is not finished until all of this has happened.
    branch with `backfill: true`. It tags every version that lacks a tag and publishes a GitHub
    Release for each, with notes taken from `CHANGELOG.md`. Pushing a tag from a Claude session
    is refused, so the workflow is the way in. Then confirm the new version is listed — and marked
-   Latest — on the Releases page.
+   Latest — on the Releases page, and that the default branch's README leads with it.
 6. **Start the next patch fresh.** After the merge, restart the working branch from the default
    branch rather than stacking new work on merged history.
 

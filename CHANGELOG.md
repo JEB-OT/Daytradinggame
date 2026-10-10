@@ -7,6 +7,24 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.10.1 — Inked
+
+*2026-10-10*
+
+- **`npm start` updates the game itself.** Every launch — `npm start` or either double-click
+  launcher — fetches, fast-forwards, moves you onto the branch carrying the newest build if that is
+  a different one, and then starts that build. Nothing to remember and nothing to type. It never
+  gets in the way of playing: with no internet, local changes of your own or a diverged branch it
+  says so in one line and starts the copy you have. `MC_NO_UPDATE_CHECK=1 npm start` skips it
+- **`npm update` was never the update command.** Without the `run`, npm runs its own dependency
+  updater; this game has no dependencies, so it printed `up to date, audited 1 package` and changed
+  nothing, whatever version you were on. The README now says so at the top and in the
+  troubleshooting table, and `npm start` makes the question moot
+- **The GitHub page leads with the newest version** — what it is, what changed, a link to its
+  release notes, and a screenshot of the game as it looks now. The test suite fails if that line,
+  or the first row of the version table, names anything but the version being shipped, so a
+  release can no longer leave the front page a version behind
+
 ## v1.10.0 — Inked
 
 *2026-10-10*
