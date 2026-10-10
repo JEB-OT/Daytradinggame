@@ -7,6 +7,25 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.10.2 — Inked
+
+*2026-10-10*
+
+- **A stray file no longer stops an update.** Typing `npm update` — npm's own command, not the
+  game's — writes a `package-lock.json` into the folder. The updater counted that as
+  `You have uncommitted changes, so nothing was pulled` and stopped, and neither fix it offered
+  (`git stash`, `git checkout .`) removes a new file, so a player was sent round the same loop
+  forever. The up-front check is gone: git itself refuses to update over anything local the update
+  would overwrite and leaves the folder as it was, which is all the protection local work needs.
+  Untracked files are ignored, and edits to files the update does not touch are carried along
+- **When something really is in the way, it says what** — the files, and
+  `git stash --include-untracked` followed by `npm run update`, which sets aside edits and new
+  files alike (`git stash pop` brings them back)
+- **npm no longer drops the file at all.** An `.npmrc` turns lockfiles off for this dependency-free
+  game, and `.gitignore` ignores any that already exist
+- Copies older than this still have the old check, so a stuck copy needs that stash once:
+  `git stash --include-untracked`, then `npm run update`
+
 ## v1.10.1 — Inked
 
 *2026-10-10*

@@ -146,8 +146,8 @@ function localBuild() {
  * own dependency updater, which runs none of this and answers "up to date"
  * whatever state the folder is in. So starting the game now updates it. The
  * updater's auto mode never gets in the way of playing — no clone, no network,
- * local changes or a diverged branch each print a line and the game starts as
- * it is.
+ * files in the way or a diverged branch each print a line and the game starts
+ * as it is.
  *
  * @returns {boolean} whether the folder now holds a different build.
  */

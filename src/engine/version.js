@@ -10,11 +10,20 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.10.1';
+export const VERSION = 'v1.10.2';
 export const VERSION_NAME = 'Inked';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.10.2',
+    name: 'Inked',
+    notes: [
+      'A stray package-lock.json no longer stops an update — it used to read as "uncommitted changes" forever',
+      '`npm update` and `npm install` no longer write that file into the game folder',
+      'When something really is in the way, the updater names the files and gives a fix that works',
+    ],
+  },
   {
     version: 'v1.10.1',
     name: 'Inked',

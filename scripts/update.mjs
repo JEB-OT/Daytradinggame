@@ -13,8 +13,8 @@
  * So this does the whole job: fetch, fast-forward, and — if the newest build is
  * on a different branch from the one you are standing on — move you onto it.
  * Printing the two commands and leaving you to run them was not updating, it
- * was homework. It never throws away local work: a dirty tree stops it with an
- * explanation instead.
+ * was homework. It never throws away local work: git refuses to move the folder
+ * over anything local the update would overwrite, and the refusal is explained.
  *
  * Uses nothing but git and Node's standard library, like the rest of the repo.
  *
@@ -24,8 +24,8 @@
  * remember an update command at all — which matters, because the one people
  * reach for, `npm update`, is npm's own dependency updater: it runs none of
  * this, and answers "up to date" whatever state the folder is in. In auto mode
- * nothing is ever allowed to stop the game starting: no clone, no network, local
- * changes or a diverged branch each print one line and leave the folder as it
+ * nothing is ever allowed to stop the game starting: no clone, no network, files
+ * in the way or a diverged branch each print a line and leave the folder as it
  * is. The exit code says whether the folder moved (UPDATED), so the server
  * knows to restart itself on the new code.
  */
@@ -46,6 +46,27 @@ const C = {
 };
 
 function line() { console.log(C.dim('─'.repeat(58))); }
+
+/**
+ * Say why git would not move the folder, and the one fix that always works.
+ *
+ * `git stash --include-untracked` sets aside edits and new files alike, and
+ * `git stash pop` brings them back. Plain `git stash` and `git checkout .`
+ * both leave untracked files where they are, so they never clear an untracked
+ * file that is in the way.
+ */
+function explainRefusal(err, otherwise) {
+  const msg = String(err?.stderr || err?.message || '');
+  if (!/would be overwritten|untracked working tree files/i.test(msg)) return otherwise();
+  const files = [...msg.matchAll(/^\t(.+)$/gm)].map((m) => m[1].trim());
+  console.log(C.yellow('  Files in this folder are in the way of the update:'));
+  for (const f of files.slice(0, 6)) console.log(C.dim(`    ${f}`));
+  if (files.length > 6) console.log(C.dim(`    …and ${files.length - 6} more`));
+  console.log('  Set them aside, then update again:');
+  console.log(C.cyan('    git stash --include-untracked'));
+  console.log(C.cyan('    npm run update'));
+  console.log(C.dim('  (`git stash pop` afterwards brings them back, if you want them)'));
+}
 
 /** Stop without updating. By hand that is a failure; on the way to a game it is not. */
 function giveUp() {
@@ -71,14 +92,18 @@ const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
 console.log(`  branch   ${C.cyan(branch)}`);
 console.log(`  version  ${C.cyan(before)}`);
 
-// A dirty tree is the one thing that can lose work, so stop rather than guess.
-const dirty = git(['status', '--porcelain']);
-if (dirty) {
-  line();
-  console.log(C.yellow('  You have uncommitted changes, so nothing was pulled.'));
-  console.log('  Keep them:   ' + C.cyan('git stash') + C.dim('   (then re-run npm run update, and `git stash pop`)'));
-  console.log('  Bin them:    ' + C.cyan('git checkout .'));
-  giveUp();
+// Nothing is refused up front. Git will not fast-forward or switch branches
+// over a local edit or an untracked file that the update would overwrite — it
+// stops and leaves the folder exactly as it was — so that refusal, explained by
+// explainRefusal() below, is all the protection local work needs.
+//
+// The up-front check this replaced counted every untracked file as
+// "uncommitted changes" and stopped dead. The usual culprit was
+// package-lock.json, which npm writes into the folder when someone types
+// `npm update` — and neither fix it suggested (`git stash`, `git checkout .`)
+// touches an untracked file, so players were sent round the same loop forever.
+if (tryGit(['status', '--porcelain', '--untracked-files=no'])) {
+  console.log(C.dim('  some of the game\'s files have local edits — they are kept'));
 }
 
 console.log(C.dim('  fetching…'));
@@ -102,10 +127,12 @@ if (tryGit(['rev-parse', '--abbrev-ref', '@{upstream}'])) {
       git(['merge', '--ff-only', '@{upstream}']);
       console.log(C.green(`  pulled ${behind} new commit${behind === 1 ? '' : 's'} onto ${branch}`));
       moved = true;
-    } catch {
+    } catch (err) {
       blocked = true;
-      console.log(C.yellow(`  ${branch} has diverged from its remote — resolve it by hand:`));
-      console.log(C.cyan(`    git pull --rebase origin ${branch}`));
+      explainRefusal(err, () => {
+        console.log(C.yellow(`  ${branch} has diverged from its remote — resolve it by hand:`));
+        console.log(C.cyan(`    git pull --rebase origin ${branch}`));
+      });
     }
   } else {
     console.log(C.dim(`  ${branch} is already up to date with its remote`));
@@ -123,7 +150,7 @@ let switched = null;
 if (suggestion && !blocked) {
   console.log(C.dim(`  ${suggestion.branch} is carrying ${suggestion.version || 'the newest build'} — switching to it…`));
   try {
-    git(['checkout', suggestion.branch], { stdio: ['ignore', 'pipe', 'inherit'] });
+    git(['checkout', suggestion.branch]);
     // A branch that already existed in this clone may itself be behind.
     if (tryGit(['rev-parse', '--abbrev-ref', '@{upstream}'])) {
       const behind = Number(tryGit(['rev-list', '--count', 'HEAD..@{upstream}']) || 0);
@@ -131,11 +158,13 @@ if (suggestion && !blocked) {
     }
     switched = suggestion.branch;
     moved = true;
-  } catch {
+  } catch (err) {
     blocked = true;
-    console.log(C.yellow('  Could not switch branches automatically. Do it by hand:'));
-    console.log(C.cyan(`    git checkout ${suggestion.branch}`));
-    console.log(C.cyan('    git pull'));
+    explainRefusal(err, () => {
+      console.log(C.yellow('  Could not switch branches automatically. Do it by hand:'));
+      console.log(C.cyan(`    git checkout ${suggestion.branch}`));
+      console.log(C.cyan('    git pull'));
+    });
   }
 }
 

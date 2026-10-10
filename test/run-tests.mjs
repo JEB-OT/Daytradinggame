@@ -1399,6 +1399,7 @@ function updaterFixture(branches, standOn) {
   const origin = join(dir, 'origin');
   mkdirSync(join(origin, 'src', 'engine'), { recursive: true });
   git(origin, 'init', '-q');
+  writeFileSync(join(origin, 'README.md'), 'a file the updates never touch\n');
   branches.forEach((b, i) => {
     git(origin, i === 0 ? 'checkout' : 'checkout', ...(i === 0 ? ['-q', '-B', b.name] : ['-q', '-b', b.name]));
     writeFileSync(join(origin, 'src/engine/version.js'), `export const VERSION = '${b.version}';\n`);
@@ -1424,11 +1425,13 @@ function updaterFixture(branches, standOn) {
   /** What `npm start` runs before serving: the exit code says whether the folder moved. */
   const auto = () => spawnSync(process.execPath, [join(clone, 'scripts/update.mjs'), '--auto'],
     { cwd: clone, encoding: 'utf8', timeout: 30000 });
-  /** Publish a newer build on the remote, after the clone was made. */
-  const publish = (branch, version) => {
+  /** Publish a newer build on the remote, after the clone was made — optionally adding files. */
+  const publish = (branch, version, files = {}) => {
     git(origin, 'checkout', '-q', branch);
     writeFileSync(join(origin, 'src/engine/version.js'), `export const VERSION = '${version}';\n`);
-    git(origin, 'commit', '-qam', `${version} on ${branch}`);
+    for (const [name, body] of Object.entries(files)) writeFileSync(join(origin, name), body);
+    git(origin, 'add', '-A');
+    git(origin, 'commit', '-qm', `${version} on ${branch}`);
   };
   const versionHere = () => readFileSync(join(clone, 'src/engine/version.js'), 'utf8').match(/'([^']+)'/)[1];
   return { dir, clone, origin, git, ask, auto, publish, versionHere, done: () => rmSync(dir, { recursive: true, force: true }) };
@@ -1520,9 +1523,54 @@ t('local changes are never pulled over, and the game still starts', () => {
   try {
     f.publish('main', 'v1.1.0');
     writeFileSync(join(f.clone, 'src/engine/version.js'), "export const VERSION = 'v1.0.0-mine';\n");
-    eq(f.auto().status, 0, 'a dirty tree should not stop the game starting');
+    const r = f.auto();
+    eq(r.status, 0, 'an edit in the way should not stop the game starting');
     eq(f.versionHere(), 'v1.0.0-mine', 'it pulled over local changes');
+    ok(/src\/engine\/version\.js/.test(r.stdout), 'it should name the file in the way');
+    ok(/git stash --include-untracked/.test(r.stdout), 'it should give a fix that also clears new files');
   } finally { f.done(); }
+});
+
+// The loop players were stuck in: `npm update` wrote a package-lock.json, the
+// updater called that "uncommitted changes", and neither fix it suggested
+// (`git stash`, `git checkout .`) removes an untracked file.
+t('a stray package-lock.json does not stop an update', () => {
+  const f = updaterFixture([{ name: 'main', version: 'v1.0.0' }], 'main');
+  try {
+    f.publish('main', 'v1.1.0');
+    writeFileSync(join(f.clone, 'package-lock.json'), '{"lockfileVersion":3}\n');
+    eq(f.auto().status, 10, 'an untracked file blocked the update');
+    eq(f.versionHere(), 'v1.1.0');
+    ok(existsSync(join(f.clone, 'package-lock.json')), 'it deleted a file of the player\'s');
+  } finally { f.done(); }
+});
+
+t('an edit the update does not touch is carried along, not a reason to stop', () => {
+  const f = updaterFixture([{ name: 'main', version: 'v1.0.0' }], 'main');
+  try {
+    f.publish('main', 'v1.1.0');
+    writeFileSync(join(f.clone, 'README.md'), 'my own notes\n');
+    eq(f.auto().status, 10);
+    eq(f.versionHere(), 'v1.1.0');
+    eq(readFileSync(join(f.clone, 'README.md'), 'utf8'), 'my own notes\n', 'it lost a local edit');
+  } finally { f.done(); }
+});
+
+t('a new file the update would overwrite is kept, and named', () => {
+  const f = updaterFixture([{ name: 'main', version: 'v1.0.0' }], 'main');
+  try {
+    f.publish('main', 'v1.1.0', { 'extra.txt': 'from the update\n' });
+    writeFileSync(join(f.clone, 'extra.txt'), 'mine\n');
+    const r = f.auto();
+    eq(r.status, 0);
+    eq(readFileSync(join(f.clone, 'extra.txt'), 'utf8'), 'mine\n', 'it overwrote an untracked file');
+    ok(/extra\.txt/.test(r.stdout) && /git stash --include-untracked/.test(r.stdout));
+  } finally { f.done(); }
+});
+
+t('npm is told not to write a lockfile, and git ignores one', () => {
+  ok(/^package-lock=false$/m.test(readFileSync(join(REPO_ROOT, '.npmrc'), 'utf8')), '.npmrc lost package-lock=false');
+  ok(/^package-lock\.json$/m.test(readFileSync(join(REPO_ROOT, '.gitignore'), 'utf8')), '.gitignore lost package-lock.json');
 });
 
 t('no connection is not a reason to refuse to start', () => {
