@@ -10,12 +10,15 @@ starting pieces, a shop full of things that break the rules, and a deadline that
 No build step and no dependencies — just Node and a browser.
 
 <!-- latest-version: the test suite checks this names the current VERSION, so a release can never leave the front page behind -->
-> **Latest version: v1.10.1 — Inked** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
+> **Latest version: v1.10.2 — Inked** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
 >
-> The whole interface is hand-inked to match the cards — wobbling pen outlines, cel shading,
-> hand lettering, candles as cream playing cards and a chart chalked onto a slate. And from
-> this version **`npm start` updates the game itself** before it opens, so a copy can no longer
-> sit on an old build without saying so.
+> Updating can no longer get stuck: a stray `package-lock.json` used to read as "uncommitted
+> changes" and stop every update. **`npm start` updates the game itself** before it opens. And
+> the whole interface is hand-inked to match the cards — pen outlines, cel shading, hand
+> lettering, candles as cream playing cards and a chart chalked onto a slate.
+>
+> **Stuck on `You have uncommitted changes, so nothing was pulled`?** Run
+> `git stash --include-untracked`, then `npm run update` — once. After that it looks after itself.
 
 ![The desk in v1.10: a hand-inked interface, candles as cream playing cards, the tape chalked onto a slate](docs/screenshot.jpg)
 
@@ -36,9 +39,10 @@ to stop.
 
 > **Already cloned it?** Just `npm start` — it updates the game to the newest version before it
 > opens it. If your copy is older than v1.10.1 it cannot do that yet, so run **`npm run update`**
-> once first. Note the `run`: **`npm update` is a different command** — npm's own dependency
-> updater — which never touches the game and always answers `up to date`. See
-> [Updating to the latest version](#updating-to-the-latest-version).
+> once first (if that says `You have uncommitted changes`, run `git stash --include-untracked`
+> and then `npm run update` again). Note the `run`: **`npm update` is a different command** —
+> npm's own dependency updater — which never touches the game and always answers `up to date`.
+> See [Updating to the latest version](#updating-to-the-latest-version).
 
 ### Prefer not to use a terminal?
 
@@ -69,6 +73,7 @@ In game: `?` for the rules, `Esc` for the menu, and hover **anything** to see ex
 | `port 8080 is busy, trying 8081…` | Something else is using the port | Nothing — it moves to the next free port on its own. Use the link it prints |
 | A screen that **looks** like the game but nothing responds | You opened `index.html` by double-clicking it | Browsers block a page loaded from disk from importing its own code. The game says so on screen. Use `npm start` instead |
 | The page is blank, or an old version keeps showing | Stale browser cache | Hard refresh: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (macOS) |
+| `npm run update` keeps saying `You have uncommitted changes, so nothing was pulled`, even after `git stash` or `git checkout .` | A file git does not know about is sitting in the folder — almost always `package-lock.json`, written there by `npm update`. Copies older than v1.10.2 counted it as a change, and neither suggested command removes a new file | Once: `git stash --include-untracked`, then `npm run update`. From v1.10.2 an extra file no longer stops an update, and `npm update` no longer writes one |
 | `npm update` says `up to date, audited 1 package` but the game has not changed | `npm update` is npm's own command for updating dependencies, and this game has none — it never runs the game's updater | `npm run update` (with `run`), or just `npm start` from v1.10.1 on |
 | `git pull` says `Already up to date` but the game has not changed | You are on a branch that does not have the new work | See [Updating](#if-the-game-has-not-changed-or-npm-run-update-does-not-exist) |
 | `npm error Missing script: "update"` | The update script is part of the update — you are still on the old branch | See [Updating](#if-the-game-has-not-changed-or-npm-run-update-does-not-exist) |
@@ -89,7 +94,7 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ```bash
 npm run update           # pull the latest version of the game (npm start does this too)
 npm run release          # tag and publish this version (maintainers)
-npm test                 # 217 assertions, no dependencies
+npm test                 # 221 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 ```
 
@@ -115,10 +120,11 @@ it, then starts that:
   Starting the new version…
 ```
 
-It never stands between you and a game: with no internet, no git, uncommitted changes of your own
-or a branch that has diverged, it says so in one line and starts the copy you have. It never pulls
-over local changes, and your save lives in the browser rather than the folder, so moving between
-versions does not touch your run. `MC_NO_UPDATE_CHECK=1 npm start` skips it.
+It never stands between you and a game: with no internet, no git, files of your own in the way or
+a branch that has diverged, it says so and starts the copy you have. It never overwrites anything
+local — git refuses to, and the updater tells you which files and how to set them aside — and your
+save lives in the browser rather than the folder, so moving between versions does not touch your
+run. `MC_NO_UPDATE_CHECK=1 npm start` skips it.
 
 **To update without starting the game**, or on a copy older than v1.10.1:
 
@@ -219,7 +225,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.10.1** — Inked | Everything below, plus: `npm start` updates the game itself before opening it |
+| **v1.10.2** — Inked | Everything below, plus: a stray `package-lock.json` no longer stops an update |
+| v1.10.1 — Inked | Everything below, plus: `npm start` updates the game itself before opening it |
 | v1.10.0 — Inked | Everything below, plus: the whole interface is hand-inked to match the cards, candles are cream playing cards, the lettering is hand-drawn, and the chart is chalked onto a slate |
 | v1.9.1 — Drawn by Hand | Everything below, plus: the card art is hand-inked — wobbling pen lines, cel highlights, cross-hatched shadows |
 | v1.9.0 — Drawn by Hand | Everything below, plus: every card is illustrated instead of an emoji, brokers wear a pip for what they do, and no formation cares what order you click candles in |
@@ -251,7 +258,7 @@ branch today.
 |---|---|
 | The newest version | `npm run update` — see [Updating](#updating-to-the-latest-version) |
 | One exact version, as a download | Take the source zip from [**Releases**](https://github.com/JEB-OT/Daytradinggame/releases) |
-| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.10.1` |
+| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.10.2` |
 
 Checking out a tag leaves you on a *detached HEAD*. That is normal, and the game runs fine like
 that — it just means you are standing on a fixed point rather than a branch that moves. Get back
@@ -262,8 +269,8 @@ to the moving branch with `git checkout -`.
 ### Publishing a version (maintainers)
 
 Bumping `VERSION` and merging the pull request is only half of shipping. Until a tag points at
-the commit, GitHub has no v1.10.1 — nothing under Releases, no source download, and nothing for
-`git checkout v1.10.1` to find. The code is up there and the version is still ungettable, which
+the commit, GitHub has no v1.10.2 — nothing under Releases, no source download, and nothing for
+`git checkout v1.10.2` to find. The code is up there and the version is still ungettable, which
 looks exactly like the update never landed.
 
 ```bash
@@ -803,12 +810,12 @@ src/game/
 src/ui/               canvas chart, particles/audio, candle components, overlays
   art.js              every card's illustration: the glyph library, frames and pips
 test/
-  run-tests.mjs       217 tests, no dependencies
+  run-tests.mjs       221 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
 ```
 
 ```bash
-npm test              # 217 assertions across formations, conviction, scoring, flow and content
+npm test              # 221 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 ```
 
