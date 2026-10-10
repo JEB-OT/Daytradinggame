@@ -7,7 +7,8 @@ import { FORMATIONS, FORMATION_KEYS, formationStats } from '../game/formations.j
 import { BOSSES, BOSS_KEYS } from '../game/bosses.js';
 import { LICENSES, LICENSE_KEYS } from '../game/licenses.js';
 import { artSvg, consumableArt } from './art.js';
-import { sfx } from './fx.js';
+import { sfx, toast } from './fx.js';
+import { BINDABLE, bindProblem, keyLabel } from '../engine/keys.js';
 import { VERSION, VERSION_NAME, CHANGELOG } from '../engine/version.js';
 
 const CAREER_KEY = 'margincall.career.v1';
@@ -505,6 +506,14 @@ export function settingsScreen(game, back) {
       <button class="set-row" id="s-motion"><b>AMBIENT MOTION</b><span id="s-motion-v">${game.reducedMotion ? 'OFF' : 'ON'}</span></button>
       <button class="set-row danger" id="s-wipe"><b>ERASE SAVED RUN &amp; STATS</b><span>&nbsp;</span></button>
     </div>
+    <h3>CONTROLS</h3>
+    <div class="settings">
+      ${Object.entries(BINDABLE).map(([action, b]) => `
+        <button class="set-row bind" data-bind="${action}">
+          <b>${b.label.toUpperCase()}<small>${b.blurb}</small></b><span class="keycap">${keyLabel(game.keys[action])}</span>
+        </button>`).join('')}
+      <div class="set-note">Click one, then press the key you want it on. <span class="keycap">Esc</span> cancels.</div>
+    </div>
     <div class="btn-row"><button class="btn" id="set-back">BACK</button></div>`,
     { dismissable: false, width: '560px' });
   sheet.querySelector('#s-sound').onclick = () => {
@@ -521,5 +530,40 @@ export function settingsScreen(game, back) {
     sfx.err();
     settingsScreen(game, back);
   };
-  sheet.querySelector('#set-back').onclick = () => (back ? back() : closeOverlay());
+  sheet.querySelector('#set-back').onclick = () => { stopListening(); (back ? back() : closeOverlay()); };
+
+  // Rebinding: the next key pressed goes to the row that is listening. It is
+  // caught on the way down, before the game's own key handler can act on it —
+  // otherwise pressing M to bind it would also mute the game.
+  let listening = null;
+  const capture = (e) => {
+    if (!listening || !sheet.isConnected) return stopListening();
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const key = e.key.toLowerCase();
+    const row = listening;
+    if (key === 'escape') return stopListening();
+    const problem = bindProblem(game.keys, row.dataset.bind, key);
+    if (problem) { sfx.err(); toast(problem, 'bad'); return; }
+    game.setKey(row.dataset.bind, key);
+    sfx.select();
+    stopListening();
+  };
+  function stopListening() {
+    window.removeEventListener('keydown', capture, true);
+    if (listening) {
+      listening.classList.remove('listening');
+      listening.querySelector('.keycap').textContent = keyLabel(game.keys[listening.dataset.bind]);
+    }
+    listening = null;
+  }
+  sheet.querySelectorAll('[data-bind]').forEach((row) => {
+    row.onclick = () => {
+      stopListening();
+      listening = row;
+      row.classList.add('listening');
+      row.querySelector('.keycap').textContent = 'PRESS A KEY…';
+      window.addEventListener('keydown', capture, true);
+    };
+  });
 }

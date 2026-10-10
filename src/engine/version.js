@@ -10,11 +10,21 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.10.2';
-export const VERSION_NAME = 'Inked';
+export const VERSION = 'v1.11.0';
+export const VERSION_NAME = 'Quick Hands';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.11.0',
+    name: 'Quick Hands',
+    notes: [
+      'Hold the mouse button and slide across candles to place every one you pass',
+      'Hover select (E): press over a candle, or hold it and sweep the mouse across several',
+      'Deselect all (X) empties your placement in one keypress',
+      'Both keys are yours to change in Settings → Controls — now in the in-game menu too',
+    ],
+  },
   {
     version: 'v1.10.2',
     name: 'Inked',
