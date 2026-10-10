@@ -16,11 +16,14 @@
 //           Volume, $ for cash, ↻ for an extra print, ⚙ for a rule change.
 //           Read off the broker's own definition, so it cannot drift from it.
 //
-// Every shape is drawn three times — colour, a shared light-to-shadow
-// gradient, and an ink outline — which is what gives the pictures their
-// weight. The gradient and patterns live once in the document (ensureArtDefs)
-// rather than in every picture, so a screen of 140 brokers is not 140 copies
-// of the same defs.
+// The finish is hand-inked rather than airbrushed: every shape is flat colour,
+// a hard-edged cel highlight, cross-hatched shadow on its lower side, and an
+// ink outline, and the whole picture then runs through a turbulence filter so
+// the lines wobble the way a pen's do. Metal — rims, gold — keeps polished cel
+// bands and no hatching, so frames stay clean and the texture lives in the
+// picture. The gradients, hatching and filter live once in the document
+// (ensureArtDefs) rather than in every picture, so a screen of 140 brokers is
+// not 140 copies of the same defs.
 // ---------------------------------------------------------------------------
 import { BROKERS } from '../game/brokers.js';
 import { CHARTS, CONTRACTS, RUMORS } from '../game/consumables.js';
@@ -44,6 +47,36 @@ const DEFS = `
   <stop offset=".7" stop-color="#000" stop-opacity=".12"/>
   <stop offset="1" stop-color="#000" stop-opacity=".5"/>
 </linearGradient>
+<linearGradient id="mcCel" x1=".1" y1="0" x2=".9" y2="1">
+  <stop offset="0" stop-color="#fff" stop-opacity=".46"/>
+  <stop offset=".27" stop-color="#fff" stop-opacity=".46"/>
+  <stop offset=".29" stop-color="#fff" stop-opacity="0"/>
+  <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+</linearGradient>
+<linearGradient id="mcCelMetal" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#fff" stop-opacity=".62"/>
+  <stop offset=".2" stop-color="#fff" stop-opacity=".62"/>
+  <stop offset=".22" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".44" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".46" stop-color="#fff" stop-opacity=".3"/>
+  <stop offset=".52" stop-color="#fff" stop-opacity=".3"/>
+  <stop offset=".54" stop-color="#fff" stop-opacity="0"/>
+</linearGradient>
+<pattern id="mcInkHatch" width="3.6" height="3.6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+  <rect width="3.6" height="3.6" fill="#000" fill-opacity=".14"/>
+  <path d="M.9 0V3.6" stroke="#0a0e1a" stroke-width="1.15" stroke-opacity=".62"/>
+</pattern>
+<linearGradient id="mcShadowRamp" x1=".15" y1="0" x2=".85" y2="1">
+  <stop offset=".56" stop-color="#000"/>
+  <stop offset=".6" stop-color="#fff"/>
+</linearGradient>
+<mask id="mcShadowMask" maskContentUnits="objectBoundingBox">
+  <rect width="1" height="1" fill="url(#mcShadowRamp)"/>
+</mask>
+<filter id="mcInk" x="-12%" y="-12%" width="124%" height="124%">
+  <feTurbulence type="fractalNoise" baseFrequency="0.042" numOctaves="2" seed="5" result="wobble"/>
+  <feDisplacementMap in="SourceGraphic" in2="wobble" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
+</filter>
 <radialGradient id="mcDisc" cx=".5" cy=".38" r=".62">
   <stop offset="0" stop-color="#fff" stop-opacity=".28"/>
   <stop offset=".6" stop-color="#fff" stop-opacity="0"/>
@@ -112,9 +145,17 @@ const CYAN = '#40d9ff';
  */
 function solid(tag, g, fill, o = {}) {
   const op = o.op != null ? ` opacity="${o.op}"` : '';
-  return `<${tag} ${g} fill="${fill}"${op}/>`
-    + (o.flat ? '' : `<${tag} ${g} fill="url(#${o.metal ? 'mcMetal' : 'mcShade'})"${op}/>`)
-    + (o.noStroke ? '' : `<${tag} ${g} fill="none" stroke="${o.stroke || INK}" stroke-width="${o.sw ?? 3}" stroke-linejoin="round" stroke-linecap="round"/>`);
+  let out = `<${tag} ${g} fill="${fill}"${op}/>`;
+  if (!o.flat) {
+    // Metal takes polished cel bands and no hatching: rims and gold stay clean
+    // and bright, so the hand-inked texture lives in the picture, not the frame.
+    out += `<${tag} ${g} fill="url(#${o.metal ? 'mcCelMetal' : 'mcCel'})"${op}/>`;
+    if (!o.metal) out += `<${tag} ${g} fill="url(#mcInkHatch)" mask="url(#mcShadowMask)"${op}/>`;
+  }
+  if (!o.noStroke) {
+    out += `<${tag} ${g} fill="none" stroke="${o.stroke || INK}" stroke-width="${(o.sw ?? 3) * 1.12}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+  return out;
 }
 const P = (d, fill, o) => solid('path', `d="${d}"`, fill, o);
 const C = (cx, cy, r, fill, o) => solid('circle', `cx="${cx}" cy="${cy}" r="${r}"`, fill, o);
@@ -498,7 +539,7 @@ export function artSvg(kind, key) {
     case 'bonus':    body = rosette(glyph, p); break;
     default:         body = medallion(glyph, p, spec[3] || 'common', null);
   }
-  const svg = `<svg class="art art-${kind}" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${body}</svg>`;
+  const svg = `<svg class="art art-${kind}" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g filter="url(#mcInk)">${body}</g></svg>`;
   cache.set(id, svg);
   return svg;
 }

@@ -7,6 +7,19 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.9.1 — Drawn by Hand
+
+*2026-10-10*
+
+- **The card art is hand-inked.** v1.9.0 replaced the emoji with illustrations, but they were
+  shaded with smooth airbrushed gradients and read as clip-art. Every shape is now flat colour with a
+  hard-edged cel highlight and cross-hatched shadow, outlined in ink, and each picture runs through a
+  turbulence filter so its lines wobble the way a pen's do — stylish and hand-made, still vector
+  rather than pixelated
+- Frames keep polished cel-banded metal with no hatching, so rims and gold stay crisp and the
+  drawing carries the texture
+- Same cost to draw: the 140-broker compendium renders in about the time it did before
+
 ## v1.9.0 — Drawn by Hand
 
 *2026-10-08*
@@ -115,6 +128,9 @@ checked out on its own: see [Getting a specific version](README.md#getting-a-spe
 - **The Fool** is now rare and **Stone Grip** uncommon. The clown keeps ×2 of a RED trade's P/L
   where the stone only stops the penalty, so the better card carries the higher rarity
 - **Shapeshifter** and **Hairline** are rare
+
+> Shipped in the same pull request as v1.7.0, so it has no tag of its own — `v1.7.0` is the first
+> tag that contains it.
 
 ## v1.5.0 — The Fine Print
 
