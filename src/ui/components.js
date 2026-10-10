@@ -2,6 +2,7 @@ import { SECTORS, ENHANCEMENTS, EDITIONS, STAMPS, candleName, baseVolume, candle
 import { BROKERS, RARITY, brokerText, brokerSellValue } from '../game/brokers.js';
 import { ALL_CONSUMABLES, consumableText, consumableDownside } from '../game/consumables.js';
 import { LICENSES } from '../game/licenses.js';
+import { artSvg, consumableArt } from './art.js';
 
 // ---------------------------------------------------------------------------
 // Candle tile — a real candlestick drawn to scale on a chart-panel background.
@@ -93,7 +94,7 @@ export function brokerEl(inst, state, opts = {}) {
   const ctr = counterText(inst);
   el.innerHTML = `
     <div class="bk-glow"></div>
-    <div class="bk-art">${d.art || '📌'}</div>
+    <div class="bk-art">${artSvg('broker', inst.key)}</div>
     <div class="bk-name">${d.name}</div>
     ${ctr ? `<div class="bk-ctr">${ctr}</div>` : ''}
     ${inst.editionSealed ? '<div class="bk-seal" aria-hidden="true">🔒</div>' : ''}
@@ -134,7 +135,7 @@ export function consumableEl(inst, state) {
   const el = document.createElement('div');
   el.className = `consumable family-${d.family}`;
   el.dataset.uid = inst.uid;
-  el.innerHTML = `<div class="cs-glow"></div><div class="cs-art">${d.art}</div><div class="cs-name">${d.name}</div>`;
+  el.innerHTML = `<div class="cs-glow"></div><div class="cs-art">${consumableArt(inst.key)}</div><div class="cs-name">${d.name}</div>`;
   attachTip(el, () => consumableTip(inst, state));
   return el;
 }

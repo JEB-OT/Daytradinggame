@@ -119,7 +119,7 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
   background: rgba(0,0,0,.3);
 }
 .deadline-card.boss .dl-tag { color: #ffd0d6; border-color: rgba(255,84,104,.6); background: rgba(255,84,104,.14); }
-.dl-art { font-size: 36px; margin: 6px 0 2px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.75)); }
+.dl-art { width: 60px; height: 60px; margin: 6px auto 2px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.6)); }
 .deadline-card.boss .dl-art { animation: bossPulse 2.4s ease-in-out infinite; }
 @keyframes bossPulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.09) } }
 .dl-quota-label { font-size: 9px; letter-spacing: .2em; color: var(--ink-faint); }
@@ -256,7 +256,7 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
 .broker:active { cursor: grabbing; }
 .bk-glow { position: absolute; inset: -40%; pointer-events: none; opacity: 0; transition: opacity .2s; }
 .broker:hover .bk-glow { opacity: 1; }
-.bk-art { font-size: 25px; line-height: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,.7)); }
+.bk-art { width: 46px; height: 46px; flex: 0 0 auto; }
 .bk-name { font-size: 8px; font-weight: 700; line-height: 1.15; color: #cbd9ee; letter-spacing: .01em; }
 .bk-ctr {
   position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
@@ -316,7 +316,7 @@ button:disabled { cursor: not-allowed; opacity: .38; filter: saturate(.35); }
 .consumable.family-contract .cs-glow { background: radial-gradient(circle, rgba(64,217,255,.28), transparent 60%); }
 .consumable.family-rumor { background: linear-gradient(170deg,#511642,#2a0c22); border-color: #b13f92; }
 .consumable.family-rumor .cs-glow { background: radial-gradient(circle, rgba(255,92,240,.3), transparent 60%); }
-.cs-art { font-size: 22px; line-height: 1; position: relative; filter: drop-shadow(0 2px 3px rgba(0,0,0,.7)); }
+.cs-art { width: 44px; height: 46px; flex: 0 0 auto; position: relative; }
 .cs-name { font-size: 7.5px; font-weight: 700; color: #cbd9ee; text-align: center; line-height: 1.15; position: relative; }
 .slot-empty {
   width: 76px; height: 82px; border-radius: var(--r-sm);
@@ -824,7 +824,7 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 .dl-choice.boss { border-color: rgba(255,84,104,.5); }
 .dl-choice.boss.current { border-color: var(--red); box-shadow: 0 5px 0 var(--lip), 0 0 34px rgba(255,84,104,.35), 0 10px 22px rgba(0,0,0,.5); }
 .dl-choice.done { opacity: .3; }
-.dl-choice .c-art { font-size: 44px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.7)); }
+.dl-choice .c-art { width: 78px; height: 78px; margin: 0 auto; filter: drop-shadow(0 4px 6px rgba(0,0,0,.6)); }
 .dl-choice .c-name { font-size: 12.5px; font-weight: 900; letter-spacing: .13em; margin: 7px 0 5px; text-shadow: var(--outline); }
 .dl-choice .c-quota { font-size: 27px; font-weight: 900; color: var(--red); font-variant-numeric: tabular-nums; text-shadow: var(--outline), 0 0 18px rgba(255,84,104,.4); }
 .dl-choice .c-reward { font-size: 10px; color: var(--gold); margin-top: 3px; font-weight: 700; }
@@ -874,7 +874,7 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 .shop-slot.kind-pack { border-color: #7150c4; background: linear-gradient(180deg,#2b1f4d,#150e28); }
 .shop-slot.kind-licence { border-color: var(--gold); background: linear-gradient(180deg,#3a2d10,#1a1408); box-shadow: 0 5px 0 var(--lip), 0 0 26px rgba(255,210,74,.25), 0 10px 20px rgba(0,0,0,.5); }
 .shop-slot .s-kind { font-size: 8.5px; font-weight: 700; letter-spacing: .16em; color: var(--ink-faint); }
-.shop-slot .s-art { font-size: 32px; line-height: 1.1; filter: drop-shadow(0 3px 5px rgba(0,0,0,.7)); }
+.shop-slot .s-art { width: 66px; height: 66px; margin: 2px auto; }
 .shop-slot .s-name { font-size: 11px; font-weight: 900; line-height: 1.25; min-height: 27px; text-shadow: var(--outline); }
 .shop-slot .s-desc { font-size: 11.5px; color: #dbe6f7; line-height: 1.45; flex: 1; }
 /* The cost the card charges you for its upside. Always red, everywhere a card
@@ -902,7 +902,7 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 /* ---- aiming a Chart at a candle ---------------------------------------- */
 .pick-card { display: flex; align-items: center; gap: 10px; max-width: 380px;
   padding: 8px 12px; background: var(--ink-hole); border: 2px solid var(--rim); border-radius: var(--r-md); }
-.pick-card .pk-art { font-size: 26px; }
+.pick-card .pk-art { width: 42px; height: 42px; flex: 0 0 auto; }
 .pick-card .pk-body { min-width: 0; }
 .pick-card .pk-body b { display: block; font-size: 12px; }
 .pick-card .pk-body small { display: block; font-size: 11px; color: #d5e2f4; line-height: 1.4; margin-top: 2px; }
@@ -931,7 +931,7 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
   font-size: 9px; font-weight: 800; letter-spacing: .1em; color: #ffe9ab; white-space: nowrap;
 }
 .floor-bar .broker, .floor-bar .consumable, .floor-bar .slot-empty { width: 58px; height: 64px; }
-.floor-bar .bk-art, .floor-bar .cs-art { font-size: 19px; }
+.floor-bar .bk-art, .floor-bar .cs-art { width: 36px; height: 36px; }
 .floor-bar .bk-name, .floor-bar .cs-name { font-size: 6.5px; }
 
 .pack-options { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; margin: 22px 0; }
@@ -1168,8 +1168,8 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
   #board-row { min-height: 114px; padding-top: 14px }
   #play-area { flex-basis: 114px }
   .broker, .consumable, .slot-empty { height: 74px }
-  .bk-art { font-size: 21px }
-  .cs-art { font-size: 19px }
+  .bk-art { width: 40px; height: 40px }
+  .cs-art { width: 38px; height: 40px }
 }
 
 /* ==========================================================================
@@ -1335,7 +1335,7 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
   background: var(--panel-2); border: 2px solid var(--rim); border-left: 5px solid var(--rc);
   border-radius: 9px; padding: 9px 11px;
 }
-.cl-art { font-size: 19px; }
+.cl-art { width: 38px; height: 38px; flex: 0 0 auto; }
 .cl-body { min-width: 0; }
 .cl-body b { display: block; font-size: 12px; }
 .cl-body small { display: block; font-size: 11.5px; color: #d5e2f4; line-height: 1.45; margin-top: 3px; }
@@ -1577,3 +1577,10 @@ body.no-motion .candle.filing { animation-duration: .14s; }
 .strip-cards .broker { cursor: grab; }
 .strip-cards .broker:active { cursor: grabbing; }
 .floor-bar .broker { cursor: grab; }
+
+/* ---------- illustrated art ----------
+   Every card picture is an inline SVG (src/ui/art.js) that fills whatever box
+   it is placed in, so each slot above only has to say how big it is. */
+.art { display: block; width: 100%; height: 100%; overflow: visible; }
+.bonus-art { width: 112px; height: 112px; margin: 0 auto; filter: drop-shadow(0 6px 10px rgba(0,0,0,.6)); }
+.ri-art { width: 28px; height: 28px; flex: 0 0 auto; }

@@ -8,6 +8,7 @@ import { BOSSES } from './game/bosses.js';
 import { sortCandles } from './game/candles.js';
 import { ChartView } from './ui/chart.js';
 import { candleEl, brokerEl, consumableEl, hideTip, showTip } from './ui/components.js';
+import { artSvg } from './ui/art.js';
 import * as FX from './ui/fx.js';
 import { sfx, toast, shake, popText, particles } from './ui/fx.js';
 import * as OV from './ui/overlays.js';
@@ -239,7 +240,7 @@ class Game {
     if (!s) {
       card.classList.remove('boss');
       $('dl-tag').textContent = 'BETWEEN BELLS';
-      $('dl-art').textContent = '🏙️';
+      $('dl-art').innerHTML = artSvg('slot', 'between');
       $('dl-quota').textContent = '—';
       $('dl-reward').innerHTML = 'Pick a deadline';
       $('dl-boss').hidden = true;
@@ -250,7 +251,7 @@ class Game {
     const boss = s.boss ? BOSSES[s.boss] : null;
     card.classList.toggle('boss', !!boss);
     $('dl-tag').textContent = (boss ? boss.name : s.slot.name).toUpperCase();
-    $('dl-art').textContent = boss ? boss.art : s.slot.art;
+    $('dl-art').innerHTML = boss ? artSvg('boss', s.boss) : artSvg('slot', s.slot.index);
     $('dl-quota').textContent = money(s.quota);
     $('dl-reward').innerHTML = `Clears for <b>$${s.slot.reward}</b>`;
     const bd = $('dl-boss');

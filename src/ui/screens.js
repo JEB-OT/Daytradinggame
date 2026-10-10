@@ -6,6 +6,7 @@ import { ALL_CONSUMABLES, CHARTS, CONTRACTS, RUMORS, consumableText, consumableD
 import { FORMATIONS, FORMATION_KEYS, formationStats } from '../game/formations.js';
 import { BOSSES, BOSS_KEYS } from '../game/bosses.js';
 import { LICENSES, LICENSE_KEYS } from '../game/licenses.js';
+import { artSvg, consumableArt } from './art.js';
 import { sfx } from './fx.js';
 import { VERSION, VERSION_NAME, CHANGELOG } from '../engine/version.js';
 
@@ -203,13 +204,13 @@ const TUTORIAL = [
     body: `<p>What your placed candles make is a <b>formation</b>, and it sets the starting Volume and
       Leverage. Matching bodies make Tweezers and Pillars. Consecutive bodies make a <b>Staircase</b>.
       One sector across five candles makes a <b>Cluster</b>.</p>
-      <p>Two formations read the <b>order you place them in</b>: three rising bulls print
-      <b>Three White Soldiers</b>, three falling bears print <b>Three Black Crows</b>. Press
-      <span class="k">A</span> to sort your placement instead of clicking them in order.</p>`,
+      <p>Three bulls on different bodies print <b>Three White Soldiers</b>; three bears on
+      different bodies print <b>Three Black Crows</b>. Click them in any order — no formation
+      cares what order you place candles in.</p>`,
     art: () => {
       const w = document.createElement('div');
       w.className = 'tut-row';
-      [[3, true], [7, true], [11, true]].forEach(([b, bull], i) => {
+      [[11, true], [3, true], [7, true]].forEach(([b, bull], i) => {
         const cell = document.createElement('div');
         cell.className = 'tut-cell';
         const el = candleEl(demoCandle('TECH', b, bull), { reveal: true, order: i + 1 });
@@ -218,7 +219,7 @@ const TUTORIAL = [
       });
       const cap = document.createElement('div');
       cap.className = 'tut-caption';
-      cap.innerHTML = 'Rising bull bodies, placed in order &rarr; <b>Three White Soldiers</b>';
+      cap.innerHTML = 'Three bulls on different bodies, in any order &rarr; <b>Three White Soldiers</b>';
       const wrap = document.createElement('div');
       wrap.appendChild(w); wrap.appendChild(cap);
       return wrap;
@@ -396,14 +397,14 @@ export function compendiumScreen(game, back, tab = 'candles', query = '') {
           const inst = makeBroker(k, null);
           const txt = typeof d.text === 'function' ? d.text(inst, st) : d.text;
           return `<div class="cl" style="--rc:${RARITY[r].color}">
-            <span class="cl-art">${d.art}</span>
+            <span class="cl-art">${artSvg('broker', k)}</span>
             <span class="cl-body"><b>${d.name}</b><small>${txt}</small></span>
             <span class="cl-cost">$${d.cost}</span></div>`;
         }).join('')}</div>`;
     }).join('') || '<div class="comp-note">Nothing matches that.</div>';
   } else if (tab === 'formations') {
-    body.innerHTML = `<div class="comp-note">Contracts level these permanently. Marches read the order you place
-      candles in; everything else reads the set.</div>
+    body.innerHTML = `<div class="comp-note">Contracts level these permanently. Every formation reads the
+      set of candles you place — the order you click them in never changes what prints.</div>
       <table class="pat-table"><tr><th>FORMATION</th><th>MADE OF</th><th>VOLUME</th><th>LEVERAGE</th></tr>
       ${FORMATION_KEYS.slice().reverse().filter((k) => hit(FORMATIONS[k].name, FORMATIONS[k].made)).map((k) => {
         const f = FORMATIONS[k]; const s = formationStats(k, 1);
@@ -416,7 +417,7 @@ export function compendiumScreen(game, back, tab = 'candles', query = '') {
       if (!list.length) return '';
       return `<h3>${label} · ${list.length}</h3><div class="comp-list">${list.map((d) => {
         const down = consumableDownside(d, game.state);
-        return `<div class="cl ${cls}"><span class="cl-art">${d.art}</span>
+        return `<div class="cl ${cls}"><span class="cl-art">${consumableArt(d.key)}</span>
           <span class="cl-body"><b>${d.name}</b><small>${consumableText(d, game.state)}</small>${
             down ? `<small class="cl-down">${down}</small>` : ''}</span>
           <span class="cl-cost">$${d.cost}</span></div>`;
@@ -427,12 +428,12 @@ export function compendiumScreen(game, back, tab = 'candles', query = '') {
   } else if (tab === 'bosses') {
     body.innerHTML = `<div class="comp-note">Every third deadline is a boss. Read the rule on the select screen and buy around it.</div>
       <div class="comp-list">${BOSS_KEYS.filter((k) => hit(BOSSES[k].name, BOSSES[k].blurb)).map((k) =>
-        `<div class="cl k-boss"><span class="cl-art">${BOSSES[k].art}</span>
+        `<div class="cl k-boss"><span class="cl-art">${artSvg('boss', k)}</span>
           <span class="cl-body"><b>${BOSSES[k].name}</b><small>${BOSSES[k].blurb}</small></span></div>`).join('')}</div>`;
   } else {
     body.innerHTML = `<div class="comp-note">Licences are permanent for the rest of a run, and come in two tiers.</div>
       <div class="comp-list">${LICENSE_KEYS.filter((k) => hit(LICENSES[k].name, LICENSES[k].text)).map((k) =>
-        `<div class="cl k-lic"><span class="cl-art">${LICENSES[k].art}</span>
+        `<div class="cl k-lic"><span class="cl-art">${artSvg('license', k)}</span>
           <span class="cl-body"><b>${LICENSES[k].name}</b><small>${LICENSES[k].text}</small></span>
           <span class="cl-cost">$${LICENSES[k].cost}</span></div>`).join('')}</div>`;
   }
@@ -468,7 +469,7 @@ const GLOSSARY = [
   ['Desk', 'Your broker slots. Five to start. Brokers trigger left to right.'],
   ['Print', 'What a candle does when it scores. Only candles inside the formation print, unless a broker says otherwise.'],
   ['Formation', 'What your placed candles make — Tweezer, Staircase, Cluster, Soldiers and so on. Sets the base Volume and Leverage.'],
-  ['March', 'Three White Soldiers or Three Black Crows. The only formations that care about the order you place candles in, and they must be contiguous.'],
+  ['March', 'Three White Soldiers or Three Black Crows: three or more candles of one colour, each on a different body. Placement order does not matter.'],
   ['Conviction', 'The bonus for your printed candles agreeing with the direction you called. All agreeing is ×1.5 Leverage, most agreeing is ×1.2.'],
   ['Green trade', 'You called the tape correctly. Full P/L.'],
   ['Red trade', 'You called it wrong. You keep 35% — unless a broker says otherwise.'],

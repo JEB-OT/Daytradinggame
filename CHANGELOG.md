@@ -7,6 +7,28 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.9.0 — Drawn by Hand
+
+*2026-10-08*
+
+- **Every card is illustrated.** All ~290 cards showed a bare emoji — a font glyph the size and
+  style of a chat message. Each now has its own vector illustration from a library of 195 hand-drawn
+  glyphs, every shape shaded and ink-outlined, set in a frame that says what kind of card it is: a
+  struck medallion for a broker (rimmed by rarity, Legendary in a gold sunburst), a tarot card for a
+  Chart, a sealed scroll for a Contract, a speech bubble for a Rumor, a shield for a licence, a
+  spiked crest for a boss, a foil wrapper for a pack
+- **Brokers wear a pip** for what they add to a trade — × multiplies, red + adds Leverage, blue +
+  adds Volume, $ pays cash, ↻ reprints, ⚙ changes a rule. It is read off each broker's own hooks
+  rather than written per card, so it cannot disagree with what the broker does, and it makes desk
+  order readable at a glance: the +s go left of the ×s
+- **Contracts draw their formation** — a Staircase Contract shows five rising candlesticks, a
+  Pillars Contract three and two
+- **No formation reads the order you click candles in.** Three White Soldiers and Three Black Crows
+  wanted their bodies placed rising (or falling) and unbroken, so 1-2-3-4-5 printed a march and
+  2-1-4-3-5 — the same five cards — printed nothing. A march is now three or more candles of one
+  colour on different bodies, however they were placed, and a candle of the other colour among them
+  no longer breaks it. Order still decides which candle prints first, which is where it belongs
+
 ## v1.8.1 — Compound Interest
 
 *2026-08-22*

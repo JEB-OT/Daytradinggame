@@ -2,16 +2,22 @@ import { matchesSector, hasBody, polarityOf, SECTOR_KEYS, SECTORS, bodyOf } from
 
 // ---------------------------------------------------------------------------
 // FORMATIONS — what your candles print when you commit them.
-// Body-matching formations work on the set; Soldiers and Crows read the
-// candles in the ORDER YOU PLACED THEM, which is why arrangement matters.
+//
+// Every formation is read off the SET of candles you place, never the order you
+// clicked them in. Soldiers and Crows used to be the exception: they wanted the
+// bodies placed rising (or falling) and unbroken, so 1-2-3-4-5 printed a march
+// and 2-1-4-3-5 — the very same five cards — printed nothing. That was a test
+// of clicking, not of building. Order still decides the order candles PRINT in,
+// which is where it belongs: it is how you put additive brokers ahead of
+// multipliers, and it is what Encore and Last Word read.
 // ---------------------------------------------------------------------------
 export const FORMATIONS = {
   tick:          { key: 'tick',          name: 'Single Tick',          made: 'one candle',                        volume: 5,   leverage: 1,  volInc: 10, levInc: 1, order: 0 },
   tweezer:       { key: 'tweezer',       name: 'Tweezer',              made: 'two matching bodies',               volume: 10,  leverage: 2,  volInc: 15, levInc: 1, order: 1 },
   doubleTweezer: { key: 'doubleTweezer', name: 'Double Tweezer',       made: 'two separate matching pairs',       volume: 20,  leverage: 2,  volInc: 20, levInc: 1, order: 2 },
   triple:        { key: 'triple',        name: 'Triple Tap',           made: 'three matching bodies',             volume: 30,  leverage: 3,  volInc: 20, levInc: 2, order: 3 },
-  soldiers:      { key: 'soldiers',      name: 'Three White Soldiers', made: '3+ bull candles, bodies rising',    volume: 30,  leverage: 4,  volInc: 25, levInc: 2, order: 4 },
-  crows:         { key: 'crows',         name: 'Three Black Crows',    made: '3+ bear candles, bodies falling',   volume: 30,  leverage: 4,  volInc: 25, levInc: 2, order: 4 },
+  soldiers:      { key: 'soldiers',      name: 'Three White Soldiers', made: '3+ bull candles, all different bodies', volume: 30,  leverage: 4,  volInc: 25, levInc: 2, order: 4 },
+  crows:         { key: 'crows',         name: 'Three Black Crows',    made: '3+ bear candles, all different bodies', volume: 30,  leverage: 4,  volInc: 25, levInc: 2, order: 4 },
   staircase:     { key: 'staircase',     name: 'Staircase',            made: 'five consecutive bodies',           volume: 35,  leverage: 4,  volInc: 30, levInc: 3, order: 5 },
   cluster:       { key: 'cluster',       name: 'Sector Cluster',       made: 'five candles from one sector',      volume: 40,  leverage: 4,  volInc: 15, levInc: 2, order: 6 },
   pillars:       { key: 'pillars',       name: 'Pillars',              made: 'three matching plus two matching',  volume: 45,  leverage: 4,  volInc: 25, levInc: 2, order: 7 },
@@ -69,23 +75,22 @@ function findStaircase(candles, need, shortcut) {
 }
 
 /**
- * Longest contiguous run in PLAYED ORDER of candles that share a polarity and
- * step the right way. `dir` is 'bull' (rising) or 'bear' (falling).
+ * A march: candles of one polarity, each on a different body. `dir` is 'bull'
+ * (Soldiers) or 'bear' (Crows).
+ *
+ * The march climbs (or falls) through whatever bodies you hold — the engine
+ * lines them up, you do not have to. A repeated body cannot be a second step,
+ * so each body counts once; everything else about the placement is irrelevant.
  */
-function findMarch(played, need, dir) {
-  const step = dir === 'bull' ? 1 : -1;
-  let best = null, run = [];
+function findMarch(candles, need, dir) {
   const fits = (c) => { const p = polarityOf(c); return p === dir || p === 'both'; };
-  for (const c of played) {
-    if (!hasBody(c) || !fits(c)) { run = []; continue; }
-    if (!run.length) { run = [c]; continue; }
-    const delta = (bodyOf(c) - bodyOf(run[run.length - 1])) * step;
-    if (delta > 0) run.push(c);
-    else run = [c];
-    if (run.length >= need && (!best || run.length > best.length)) best = run.slice();
+  const byBody = new Map();
+  for (const c of candles) {
+    if (hasBody(c) && fits(c) && !byBody.has(bodyOf(c))) byBody.set(bodyOf(c), c);
   }
-  if (!best && run.length >= need) best = run.slice();
-  return best;
+  if (byBody.size < need) return null;
+  const bodies = [...byBody.keys()].sort((a, b) => (dir === 'bull' ? a - b : b - a));
+  return bodies.map((b) => byBody.get(b));
 }
 
 function bodyGroups(candles) {
@@ -167,9 +172,8 @@ export function evaluate(played, opts = {}) {
 }
 
 /**
- * Best formation reachable from a board, used for the hint readout.
- * Marches depend on arrangement, so subsets are probed in their natural
- * rising and falling orders as well as as-dealt.
+ * Best formation reachable from a board, used for the hint readout. No
+ * formation reads placement order, so every subset only needs trying once.
  */
 export function bestFromBoard(board, opts = {}) {
   if (!board.length) return null;
@@ -186,12 +190,7 @@ export function bestFromBoard(board, opts = {}) {
   };
   const rec = (start, depth) => {
     if (depth > 0) {
-      const picked = idxs.map((i) => board[i]);
-      consider(picked);
-      if (picked.length >= 2) {
-        consider(picked.slice().sort((a, b) => bodyOf(a) - bodyOf(b)));
-        consider(picked.slice().sort((a, b) => bodyOf(b) - bodyOf(a)));
-      }
+      consider(idxs.map((i) => board[i]));
     }
     if (depth === limit) return;
     for (let i = start; i < n; i++) { idxs.push(i); rec(i + 1, depth + 1); idxs.pop(); }

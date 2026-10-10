@@ -76,7 +76,7 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ```bash
 npm run update           # pull the latest version of the game
 npm run release          # tag and publish this version (maintainers)
-npm test                 # 200 assertions, no dependencies
+npm test                 # 207 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 ```
 
@@ -200,7 +200,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.8.1** — Compound Interest | `npm run update` finds the newest build again, and moves you onto it |
+| **v1.9.0** — Drawn by Hand | Everything below, plus: every card is illustrated instead of an emoji, brokers wear a pip for what they do, and no formation cares what order you click candles in |
+| v1.8.1 — Compound Interest | `npm run update` finds the newest build again, and moves you onto it |
 | v1.8.0 — Compound Interest | Everything below, plus: the quota compounds past act 1 (week 15 asks e44, not e8), Today's Tape says whether you will make it, and Golden Parachute signs a Legendary for nothing |
 | v1.7.0 — The Long Game | Everything below, plus: acts past the first are far steeper, one boss per rule for weeks 1-8, a REROLL button that stays put, and rumors confined to Rumor Packs |
 | v1.6.0 — Every Copy | Everything below, plus: the book gives every copy of a candle its own card, a rumor's edition is sealed onto its broker, and eight more brokers multiply on every print |
@@ -228,7 +229,7 @@ branch today.
 |---|---|
 | The newest version | `npm run update` — see [Updating](#updating-to-the-latest-version) |
 | One exact version, as a download | Take the source zip from [**Releases**](https://github.com/JEB-OT/Daytradinggame/releases) |
-| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.8.1` |
+| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.9.0` |
 
 Checking out a tag leaves you on a *detached HEAD*. That is normal, and the game runs fine like
 that — it just means you are standing on a fixed point rather than a branch that moves. Get back
@@ -239,8 +240,8 @@ to the moving branch with `git checkout -`.
 ### Publishing a version (maintainers)
 
 Bumping `VERSION` and merging the pull request is only half of shipping. Until a tag points at
-the commit, GitHub has no v1.8.1 — nothing under Releases, no source download, and nothing for
-`git checkout v1.8.1` to find. The code is up there and the version is still ungettable, which
+the commit, GitHub has no v1.9.0 — nothing under Releases, no source download, and nothing for
+`git checkout v1.9.0` to find. The code is up there and the version is still ungettable, which
 looks exactly like the update never landed.
 
 ```bash
@@ -327,8 +328,9 @@ then you are in endless mode and the repeats are part of what makes it endless.
 
 A deadline gives you a cash **quota**, a handful of **trades** and some **sweeps**.
 
-1. Place **1–5 candles** from your board. **The order you place them is the order they print** —
-   a numbered badge appears on each one.
+1. Place **1–5 candles** from your board. The formation they make **does not depend on the order
+   you click them in** — the order only decides which prints first, shown by a numbered badge on
+   each one.
 2. What they print is a **formation**, which sets base **Volume** and **Leverage**.
 3. Call the tape: **LONG** or **SHORT**. The tick you called against **prints live** — the candle
    opens flat, wanders inside its own high and low, and settles on its close. About one in four
@@ -434,8 +436,8 @@ Fourteen of them. Most read the **set** of bodies you placed; two read the **ord
 | Tweezer | two matching bodies | 10 | ×2 |
 | Double Tweezer | two separate matching pairs | 20 | ×2 |
 | Triple Tap | three matching bodies | 30 | ×3 |
-| **Three White Soldiers** | 3+ bull candles, bodies rising | 30 | ×4 |
-| **Three Black Crows** | 3+ bear candles, bodies falling | 30 | ×4 |
+| **Three White Soldiers** | 3+ bull candles, all different bodies | 30 | ×4 |
+| **Three Black Crows** | 3+ bear candles, all different bodies | 30 | ×4 |
 | Staircase | five consecutive bodies | 35 | ×4 |
 | Sector Cluster | five candles from one sector | 40 | ×4 |
 | Pillars | three matching plus two matching | 45 | ×4 |
@@ -447,9 +449,13 @@ Fourteen of them. Most read the **set** of bodies you placed; two read the **ord
 
 The last three stay hidden until you first print one.
 
-**Soldiers and Crows must be contiguous in placement order.** The same three candles placed
-9-3-6 print nothing; placed 3-6-9 they print Soldiers. `ARRANGE` sorts your placement rising or
-falling in one click, so the mechanic is a decision rather than a chore.
+**No formation reads the order you place candles in.** Soldiers and Crows used to: the same three
+bulls placed 9-3-6 printed nothing, and placed 3-6-9 printed Soldiers — a test of clicking rather
+than of building. Now three bulls on different bodies are Soldiers however you click them, and a
+bear placed among them does not break the march. The engine lines the bodies up for you.
+
+Order still matters for what it should matter for: **which candle prints first.** That is how you
+put additive brokers ahead of multipliers, and it is what *Encore* and *Last Word* read.
 
 ---
 
@@ -486,8 +492,8 @@ candle or broker is worth more before a multiplying one. You control both.
 
 - **Click order.** The badge on each candle is its slot.
 - **Drag.** Pick a candle up and drop it anywhere on the board.
-- **`ARRANGE` / `A`** cycles five presets: **Rising ▲**, **Falling ▼** (the shapes the two marches
-  want), **Volume 1st**, **Leverage 1st**, and **Reverse**.
+- **`ARRANGE` / `A`** cycles five presets: **Rising ▲**, **Falling ▼**, **Volume 1st**,
+  **Leverage 1st**, and **Reverse** — all about print order; none changes the formation.
 
 **Moving a candle moves it in the print order.** Drag one, `ARRANGE`, or re-sort the board and the
 placement is re-derived from where the cards actually sit — so once you have rearranged anything,
@@ -504,10 +510,10 @@ redraw comes back in it, so you never have to press it again mid-deadline.
 | Layer | Count | What it does |
 |---|---:|---|
 | **Brokers** | 140 | Sit on your desk and trigger left to right. The combo engine. **One of each, ever** &mdash; see below. |
-| **Charts** | 29 | Reshape the candles in your book — bodies, sectors, polarity, enhancements. |
+| **Charts** | 32 | Reshape the candles in your book — bodies, sectors, polarity, enhancements. |
 | **Contracts** | 14 | Permanently level one formation. |
 | **Rumors** | 21 | High-risk power spikes with a real cost — bar one. **Rumor Packs only**, unless you employ *Insider Line*. |
-| **Licences** | 28 | Permanent run upgrades, in 14 two-tier chains. |
+| **Licences** | 29 | Permanent run upgrades, most in two-tier chains. |
 | **Bosses** | 29 | One rule each, and it's always the wrong one for your build. |
 | **Packs** | 15 | Every tile says exactly what is inside — "Keep 2 of 5 Brokers". The expensive Mega packs let you keep **two**. |
 | **Bonuses** | 12 | Paid out for skipping a non-boss deadline. |
@@ -516,6 +522,30 @@ redraw comes back in it, so you never have to press it again mid-deadline.
 want to sit before multiplying ones. Drag them around your desk &mdash; on the board, on the Floor,
 or inside a pack &mdash; to change the order. Mimic copies whatever is to its right, so where you
 drop *it* changes everything.
+
+### Every card is drawn
+
+Each of the ~290 cards has its own illustration rather than an emoji, and the frame tells you what
+kind of thing it is before you read a word: a **broker** is a struck medallion rimmed in its
+rarity's metal (steel, jade, magenta, and gold with a sunburst for Legendary), a **Chart** a tarot
+card, a **Contract** a sealed scroll that shows the formation it levels as actual candlesticks, a
+**Rumor** a speech bubble, a **licence** a shield with a stud per tier, a **boss** a spiked red
+crest, and a **pack** a foil wrapper with a star per size.
+
+Every broker also wears a **pip** in its corner saying what it adds to a trade:
+
+| Pip | Means |
+|---|---|
+| **×** red | multiplies Leverage or Volume |
+| **+** red | adds flat Leverage |
+| **+** blue | adds flat Volume |
+| **$** gold | pays cash |
+| **↻** violet | makes candles print again |
+| **⚙** grey | changes a rule rather than the score |
+
+The pip is read off the broker's own definition rather than written down per card, so it cannot
+disagree with what the broker does. That makes it the quickest way to check desk order: the **+**s
+want to sit to the left of the **×**s.
 
 ### One of each
 
@@ -656,7 +686,7 @@ a build; six is a printing press.
 ### Some builds that work
 
 - **The march** — *Marching Drum* drops Soldiers to two candles, *Drillmaster* multiplies them and
-  *Coattails* pays per candle in the run. Chart your book into rising bulls with *Greenwake*.
+  *Coattails* pays per candle in the run. Chart your book into bulls with *Greenwake*.
 - **All-in conviction** — an all-bull book plus *Zealot's Badge* and *The Convert* makes every
   LONG ×1.9, and *Sun Chaser* stacks on top.
 - **The two-faced book** — Janus candles count as *both* polarities, so *Janus Ledger*'s
@@ -730,7 +760,7 @@ src/main.js           controller: input, placement order, scoring animation, scr
 src/engine/           seeded RNG, formatting, event bus, the version stamp
 src/game/
   candles.js          candles: sector, body, polarity, enhancements, editions, stamps
-  formations.js       formation evaluation (set-based + order-based marches) and Conviction
+  formations.js       formation evaluation (all set-based) and Conviction
   scoring.js          the Volume × Leverage pipeline, step by step
   brokers.js          140 brokers
   consumables.js      charts, contracts, rumors
@@ -739,13 +769,14 @@ src/game/
   market.js           tape simulation, regimes, the signal
   state.js            run state, deadline flow, the deck/swept piles, the Floor, save/load
 src/ui/               canvas chart, particles/audio, candle components, overlays
+  art.js              every card's illustration: the glyph library, frames and pips
 test/
-  run-tests.mjs       200 tests, no dependencies
+  run-tests.mjs       207 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
 ```
 
 ```bash
-npm test              # 200 assertions across formations, conviction, scoring, flow and content
+npm test              # 207 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 ```
 
