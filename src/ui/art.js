@@ -76,7 +76,13 @@ const DEFS = `
 <filter id="mcInk" x="-12%" y="-12%" width="124%" height="124%">
   <feTurbulence type="fractalNoise" baseFrequency="0.042" numOctaves="2" seed="5" result="wobble"/>
   <feDisplacementMap in="SourceGraphic" in2="wobble" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
-</filter>
+</filter>${/* the same wobble for the interface's own outlines (styles.css, "THE INK"):
+   measured in CSS pixels rather than a 100-unit picture, with three seeds so
+   a row of identical boxes does not wobble identically */ ''}${[11, 23, 37].map((seed, i) => `
+<filter id="mcInkUi${i ? i + 1 : ''}" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB">
+  <feTurbulence type="fractalNoise" baseFrequency="0.028" numOctaves="2" seed="${seed}" result="wobble"/>
+  <feDisplacementMap in="SourceGraphic" in2="wobble" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+</filter>`).join('')}
 <radialGradient id="mcDisc" cx=".5" cy=".38" r=".62">
   <stop offset="0" stop-color="#fff" stop-opacity=".28"/>
   <stop offset=".6" stop-color="#fff" stop-opacity="0"/>

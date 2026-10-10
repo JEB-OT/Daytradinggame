@@ -34,6 +34,8 @@ const TYPES = {
   '.webp': 'image/webp',
   '.ico':  'image/x-icon',
   '.woff2': 'font/woff2',
+  '.ttf':  'font/ttf',
+  '.txt':  'text/plain; charset=utf-8',
 };
 
 function safePath(urlPath) {

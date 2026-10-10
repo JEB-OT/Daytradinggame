@@ -38,3 +38,19 @@ kind of card, and a pip on brokers. The look is hand-inked — wobbling ink line
 highlights, cross-hatched shadows — and stays vector rather than pixelated. New cards need an
 entry in the `ART` table (the tests fail without one), and new glyphs should be drawn with the
 same helpers so they pick up the same treatment.
+
+The interface is drawn in the same hand (see "THE INK" at the top of `src/styles.css`), and
+anything new should be too:
+
+- A new panel, button, chip or card goes into the `:where(...)` lists there. That gives it the ink
+  outline — a `::before` outside its border, through the `#mcInkUi` filters in `art.js` — plus the
+  cel band and hatching. Tune it with the custom properties (`--bw` its border width, `--bl` a
+  thicker left border, `--pw` pen width, `--cel`/`--cel-h`, `--hatch-h`/`--hatch-at`, `--lip-y`).
+- An inked surface must not clip (`overflow: hidden`) or scroll, or it cuts off its own outline.
+  Clip an inner layer instead; give a scroller a plain `box-shadow` ring. Sheets do not scroll —
+  the overlay behind them does.
+- Paint flat colour, not gradients; outline lettering with `var(--outline)` / `--outline-sm`.
+  Numbers, labels and buttons are `var(--display)` (Bangers), prose is `var(--hand)` (Patrick
+  Hand). The display font has one weight, so bold does nothing there.
+- The chart (`src/ui/chart.js`) wobbles from seeded hashes, never `Math.random`, so it holds still
+  between frames.

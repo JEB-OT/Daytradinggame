@@ -10,11 +10,22 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.9.1';
-export const VERSION_NAME = 'Drawn by Hand';
+export const VERSION = 'v1.10.0';
+export const VERSION_NAME = 'Inked';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.10.0',
+    name: 'Inked',
+    notes: [
+      'The whole interface is drawn like the cards: every panel, button, chip and tooltip in a wobbling pen line, lit with a hard cel band and hatched underneath',
+      'Candles are cream card stock with a ledger-paper window; an enhancement re-stocks the card in its own colour',
+      'Hand lettering throughout — punchy comic capitals for numbers and buttons, handwriting for reading',
+      'The chart is chalked onto a slate: a wavering grid, a hatched price area and inked candles',
+      'Multipliers no longer fly across the screen as x2.5600000000000005',
+    ],
+  },
   {
     version: 'v1.9.1',
     name: 'Drawn by Hand',

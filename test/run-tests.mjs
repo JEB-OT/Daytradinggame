@@ -249,6 +249,14 @@ t('a bare tweezer is volume x leverage', () => {
   const r = scoreWith([], [mk('TECH', 10), mk('CRYPTO', 10, false)]);
   eq(r.volume, 30); eq(r.leverage, 2); eq(r.pl, 60);
 });
+t('a compounded multiplier is labelled to two places, not as a float', () => {
+  // The Wolf multiplies once per Rare or Legendary on the desk — 1.6 * 1.6 is
+  // 2.5600000000000005, which used to fly across the screen in full.
+  const r = scoreWith(['theWolf', 'contrarian'], [mk('TECH', 10), mk('CRYPTO', 10, false)]);
+  const labels = r.steps.map((x) => x.text).filter((x) => /^x/.test(x));
+  ok(labels.length > 0, 'expected a multiplier step');
+  for (const l of labels) ok(!/\.\d{3}/.test(l), `label ${l} carries float noise`);
+});
 t('Sticky Note adds flat leverage', () => eq(scoreWith(['sticky'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).leverage, 6));
 t('Block Tick adds 30 volume', () => {
   eq(scoreWith([], [mk('TECH', 10, true, { enhancement: 'bullion' }), mk('CRYPTO', 10, false)]).volume, 60);

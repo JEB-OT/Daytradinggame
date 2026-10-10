@@ -8,7 +8,7 @@ import { BOSSES } from './game/bosses.js';
 import { sortCandles } from './game/candles.js';
 import { ChartView } from './ui/chart.js';
 import { candleEl, brokerEl, consumableEl, hideTip, showTip } from './ui/components.js';
-import { artSvg } from './ui/art.js';
+import { artSvg, ensureArtDefs } from './ui/art.js';
 import * as FX from './ui/fx.js';
 import { sfx, toast, shake, popText, particles } from './ui/fx.js';
 import * as OV from './ui/overlays.js';
@@ -1037,6 +1037,9 @@ class Game {
   }
 }
 
+// The interface's own ink outlines run through filters kept with the card art,
+// so they have to be in the page before the first frame, not the first picture.
+ensureArtDefs();
 const game = new Game();
 window.game = game;
 SC.homeScreen(game);

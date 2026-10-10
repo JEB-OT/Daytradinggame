@@ -76,7 +76,7 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ```bash
 npm run update           # pull the latest version of the game
 npm run release          # tag and publish this version (maintainers)
-npm test                 # 207 assertions, no dependencies
+npm test                 # 208 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 ```
 
@@ -200,7 +200,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.9.1** — Drawn by Hand | Everything below, plus: the card art is hand-inked — wobbling pen lines, cel highlights, cross-hatched shadows |
+| **v1.10.0** — Inked | Everything below, plus: the whole interface is hand-inked to match the cards, candles are cream playing cards, the lettering is hand-drawn, and the chart is chalked onto a slate |
+| v1.9.1 — Drawn by Hand | Everything below, plus: the card art is hand-inked — wobbling pen lines, cel highlights, cross-hatched shadows |
 | v1.9.0 — Drawn by Hand | Everything below, plus: every card is illustrated instead of an emoji, brokers wear a pip for what they do, and no formation cares what order you click candles in |
 | v1.8.1 — Compound Interest | `npm run update` finds the newest build again, and moves you onto it |
 | v1.8.0 — Compound Interest | Everything below, plus: the quota compounds past act 1 (week 15 asks e44, not e8), Today's Tape says whether you will make it, and Golden Parachute signs a Legendary for nothing |
@@ -230,7 +231,7 @@ branch today.
 |---|---|
 | The newest version | `npm run update` — see [Updating](#updating-to-the-latest-version) |
 | One exact version, as a download | Take the source zip from [**Releases**](https://github.com/JEB-OT/Daytradinggame/releases) |
-| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.9.1` |
+| One exact version, in a clone you already have | `git fetch --tags` then `git checkout v1.10.0` |
 
 Checking out a tag leaves you on a *detached HEAD*. That is normal, and the game runs fine like
 that — it just means you are standing on a fixed point rather than a branch that moves. Get back
@@ -241,8 +242,8 @@ to the moving branch with `git checkout -`.
 ### Publishing a version (maintainers)
 
 Bumping `VERSION` and merging the pull request is only half of shipping. Until a tag points at
-the commit, GitHub has no v1.9.1 — nothing under Releases, no source download, and nothing for
-`git checkout v1.9.1` to find. The code is up there and the version is still ungettable, which
+the commit, GitHub has no v1.10.0 — nothing under Releases, no source download, and nothing for
+`git checkout v1.10.0` to find. The code is up there and the version is still ungettable, which
 looks exactly like the update never landed.
 
 ```bash
@@ -534,6 +535,13 @@ card, a **Contract** a sealed scroll that shows the formation it levels as actua
 **Rumor** a speech bubble, a **licence** a shield with a stud per tier, a **boss** a spiked red
 crest, and a **pack** a foil wrapper with a star per size.
 
+The rest of the interface is drawn by the same hand. Every panel, button and chip is outlined in
+the same wobbling ink and painted flat, with a hard band of light along its top and pen hatching
+along its bottom; candles are cream playing cards with a ledger-paper window; the chart is chalked
+onto a slate; and the lettering is hand-drawn — [Bangers](https://github.com/googlefonts/bangers)
+for numbers and buttons, [Patrick Hand](https://fonts.google.com/specimen/Patrick+Hand) for
+reading. Both fonts ship in `src/fonts/` under the SIL Open Font License.
+
 Every broker also wears a **pip** in its corner saying what it adds to a trade:
 
 | Pip | Means |
@@ -757,7 +765,8 @@ scripts/update.mjs    `npm run update` — fetch, fast-forward, and find the new
 scripts/version-check.mjs  "is there a newer build?", shared by the updater and `npm start`
 scripts/release.mjs   `npm run release` — tag a version and push it so it can be downloaded
 scripts/release-notes.mjs  pulls one version's section out of CHANGELOG.md
-src/styles.css        the whole look
+src/styles.css        the whole look, and the ink outline every surface is drawn with
+src/fonts/            Bangers and Patrick Hand, with their OFL licences
 src/main.js           controller: input, placement order, scoring animation, screen flow
 src/engine/           seeded RNG, formatting, event bus, the version stamp
 src/game/
@@ -773,12 +782,12 @@ src/game/
 src/ui/               canvas chart, particles/audio, candle components, overlays
   art.js              every card's illustration: the glyph library, frames and pips
 test/
-  run-tests.mjs       207 tests, no dependencies
+  run-tests.mjs       208 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
 ```
 
 ```bash
-npm test              # 207 assertions across formations, conviction, scoring, flow and content
+npm test              # 208 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 ```
 
