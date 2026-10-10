@@ -7,6 +7,34 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.10.0 — Inked
+
+*2026-10-10*
+
+- **The whole interface is hand-inked to match the cards.** v1.9 drew the card art in a wobbling
+  pen line, but it sat inside flat neon panels that belonged to a different game. Every surface —
+  panels, sheets, buttons, the Volume and Leverage chips, tooltips, toasts, tabs, wells, tape rows,
+  shop tiles and deadline cards — is now outlined in the same ink, run through the same kind of
+  turbulence so the line wobbles, with flat paint, a hard-edged band of light along the top and pen
+  hatching along the bottom. Each surface keeps its coloured rim inside the ink, so rarity, bull or
+  bear, boss and the rest still read at a glance
+- **Candles are playing cards.** Each one is cream card stock with a ledger-paper window, the
+  candlestick inked in and filled flat with light down one side. An enhancement re-stocks the card in
+  its own colour, the way a steel or gold card does, and the back of a face-down card is a red
+  lattice
+- **Hand lettering.** Numbers, labels, headings and buttons are set in Bangers, a comic-book capital;
+  descriptions and rules in Patrick Hand. Both ship with the game under the SIL Open Font License
+  (`src/fonts/`), so nothing is fetched from the web
+- **The chart is chalked onto a slate** — a wavering grid, the area under the price hatched rather
+  than airbrushed, and every candle a flat body in an ink line. The waver is seeded per candle, so a
+  candle keeps its shape as the tape scrolls instead of shimmering
+- The background is shaded in at the corners with a pen, and the scanlines are now paper grain
+- Fixed: a multiplier built from other multipliers flew across the screen in full — `x2.5600000000000005
+  Lev` — instead of `x2.56 Lev`
+- The left column fits a 760px-tall screen with Today's Tape still showing; it used to spill off
+  the bottom
+- Same cost to draw: frame times on the desk and during a trade match v1.9.1
+
 ## v1.9.1 — Drawn by Hand
 
 *2026-10-10*

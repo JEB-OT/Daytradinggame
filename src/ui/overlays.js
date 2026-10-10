@@ -68,10 +68,10 @@ export function deadlineSelect(game) {
         <div class="c-boss">${boss ? boss.blurb : ''}</div>
         <div class="c-regime" style="color:${regime.color}">${regime.name} — ${regime.blurb}</div>
         <div class="c-actions">
-          ${done ? '<span style="font-size:11px;color:var(--ink-faint)">CLEARED</span>' :
+          ${done ? '<span class="c-state">CLEARED</span>' :
             current ? `<button class="btn primary" data-play="${i}">TRADE</button>
                        ${slot.boss ? '' : `<button class="btn ghost" data-skip="${i}">SKIP</button>`}` :
-            '<span style="font-size:11px;color:var(--ink-faint)">LOCKED</span>'}
+            '<span class="c-state">LOCKED</span>'}
         </div>
       </div>`;
   }).join('');
@@ -307,7 +307,7 @@ export function shopScreen(game) {
   const sheet = showOverlay(`
     <div class="sheet-head">
       <div><h2>THE FLOOR</h2><div class="sub" style="margin:0">Week ${st.week} · spend it before the bell</div></div>
-      <div data-cash-readout style="font-size:22px;color:var(--gold);font-weight:700">${money(st.cash)}</div>
+      <div data-cash-readout class="floor-cash">${money(st.cash)}</div>
     </div>
     <div class="floor-grid" style="margin-top:14px">${tiles.join('')}</div>
     <div class="floor-earn">
@@ -786,10 +786,10 @@ export function formationScreen(game, back) {
 export function runInfoScreen(game, back) {
   const st = game.state;
   const licHtml = st.licenses.length
-    ? st.licenses.map((k) => `<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(37,48,72,.4)">
+    ? st.licenses.map((k) => `<div class="ri-line">
         <span class="ri-art">${artSvg('license', k)}</span>
-        <span style="font-size:11px"><b>${LICENSES[k].name}</b> — <span style="color:var(--ink-dim)">${LICENSES[k].text}</span></span></div>`).join('')
-    : '<div style="font-size:11px;color:var(--ink-faint)">None yet.</div>';
+        <span><b>${LICENSES[k].name}</b> — <span style="color:var(--ink-dim)">${LICENSES[k].text}</span></span></div>`).join('')
+    : '<div class="ri-none">None yet.</div>';
   const m = st.mods;
   const sheet = showOverlay(`
     <h2>RUN INFO</h2>
@@ -836,7 +836,7 @@ export function gameOverScreen(game, won) {
         <div class="stat-box"><label>GREEN / RED</label><b>${st.stats.greens} / ${st.stats.reds}</b></div>
         <div class="stat-box"><label>BEST TRADE</label><b>$${bignum(st.stats.bestPL)}</b></div>
       </div>
-      <div style="font-size:11px;color:var(--ink-faint);margin-bottom:14px">SEED ${st.seed}</div>
+      <div class="go-seed">SEED ${st.seed}</div>
       <div class="title-actions">
         <button class="btn primary" id="go-again">NEW RUN</button>
         <button class="btn ghost" id="go-same">REPLAY SEED</button>

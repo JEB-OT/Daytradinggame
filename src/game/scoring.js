@@ -84,8 +84,10 @@ class Ctx {
   }
   addVolume(n, src, c) { if (!n) return; this.volume += n; this.step('volume', src, `+${Math.round(n)} Vol`, { candleUid: c?.uid, amount: n }); }
   addLeverage(n, src, c) { if (!n) return; this.leverage += n; this.step('leverage', src, `+${(+n.toFixed(2))} Lev`, { candleUid: c?.uid, amount: n }); }
-  xLeverage(n, src, c) { if (n === 1 || n == null) return; this.leverage *= n; this.step('xleverage', src, `x${n} Lev`, { candleUid: c?.uid, amount: n }); }
-  xVolume(n, src, c) { if (n === 1 || n == null) return; this.volume *= n; this.step('xvolume', src, `x${n} Vol`, { candleUid: c?.uid, amount: n }); }
+  // Multipliers are often products of other multipliers (1.6 * 1.6 is
+  // 2.5600000000000005), so their labels round the way the Leverage chip does.
+  xLeverage(n, src, c) { if (n === 1 || n == null) return; this.leverage *= n; this.step('xleverage', src, `x${+n.toFixed(2)} Lev`, { candleUid: c?.uid, amount: n }); }
+  xVolume(n, src, c) { if (n === 1 || n == null) return; this.volume *= n; this.step('xvolume', src, `x${+n.toFixed(2)} Vol`, { candleUid: c?.uid, amount: n }); }
   earn(n, src, c) { if (!n) return; this.money += n; this.step('money', src, `${n > 0 ? '+' : '-'}$${Math.abs(n)}`, { candleUid: c?.uid, amount: n }); }
 
   isSector(c, sector) { return !c.debuffed && matchesSector(c, sector); }
