@@ -17,8 +17,18 @@ No build step and no dependencies — just Node and a browser.
 > the whole interface is hand-inked to match the cards — pen outlines, cel shading, hand
 > lettering, candles as cream playing cards and a chart chalked onto a slate.
 >
-> **Stuck on `You have uncommitted changes, so nothing was pulled`?** Run
-> `git stash --include-untracked`, then `npm run update` — once. After that it looks after itself.
+> **Stuck on `You have uncommitted changes, so nothing was pulled`?** That is an old copy's updater
+> tripping over a stray file. Stop the game, then in the game folder run these three, once:
+>
+> ```
+> git fetch origin
+> git reset --hard origin/claude/roguelike-day-trading-game-vy5qsg
+> npm start
+> ```
+>
+> That puts the folder exactly on the newest build whatever was in the way — your save lives in the
+> browser, so it is kept; only edits to the game's own files, if you made any, are discarded. From
+> then on `npm start` keeps it up to date by itself.
 
 ![The desk in v1.10: a hand-inked interface, candles as cream playing cards, the tape chalked onto a slate](docs/screenshot.jpg)
 
@@ -39,8 +49,8 @@ to stop.
 
 > **Already cloned it?** Just `npm start` — it updates the game to the newest version before it
 > opens it. If your copy is older than v1.10.1 it cannot do that yet, so run **`npm run update`**
-> once first (if that says `You have uncommitted changes`, run `git stash --include-untracked`
-> and then `npm run update` again). Note the `run`: **`npm update` is a different command** —
+> once first (if that says `You have uncommitted changes`, see the three commands at the top of
+> this page). Note the `run`: **`npm update` is a different command** —
 > npm's own dependency updater — which never touches the game and always answers `up to date`.
 > See [Updating to the latest version](#updating-to-the-latest-version).
 
@@ -73,7 +83,7 @@ In game: `?` for the rules, `Esc` for the menu, and hover **anything** to see ex
 | `port 8080 is busy, trying 8081…` | Something else is using the port | Nothing — it moves to the next free port on its own. Use the link it prints |
 | A screen that **looks** like the game but nothing responds | You opened `index.html` by double-clicking it | Browsers block a page loaded from disk from importing its own code. The game says so on screen. Use `npm start` instead |
 | The page is blank, or an old version keeps showing | Stale browser cache | Hard refresh: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (macOS) |
-| `npm run update` keeps saying `You have uncommitted changes, so nothing was pulled`, even after `git stash` or `git checkout .` | A file git does not know about is sitting in the folder — almost always `package-lock.json`, written there by `npm update`. Copies older than v1.10.2 counted it as a change, and neither suggested command removes a new file | Once: `git stash --include-untracked`, then `npm run update`. From v1.10.2 an extra file no longer stops an update, and `npm update` no longer writes one |
+| `npm run update` keeps saying `You have uncommitted changes, so nothing was pulled`, even after `git stash` or `git checkout .` | A file git does not know about is sitting in the folder — almost always `package-lock.json`, written there by `npm update`. Copies older than v1.10.2 counted it as a change, and neither suggested command removes a new file | Once: `git fetch origin`, then `git reset --hard origin/claude/roguelike-day-trading-game-vy5qsg`, then `npm start` (keeps your save; discards edits to the game's own files). From v1.10.2 an extra file no longer stops an update, and `npm update` no longer writes one |
 | `npm update` says `up to date, audited 1 package` but the game has not changed | `npm update` is npm's own command for updating dependencies, and this game has none — it never runs the game's updater | `npm run update` (with `run`), or just `npm start` from v1.10.1 on |
 | `git pull` says `Already up to date` but the game has not changed | You are on a branch that does not have the new work | See [Updating](#if-the-game-has-not-changed-or-npm-run-update-does-not-exist) |
 | `npm error Missing script: "update"` | The update script is part of the update — you are still on the old branch | See [Updating](#if-the-game-has-not-changed-or-npm-run-update-does-not-exist) |
