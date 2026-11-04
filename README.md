@@ -10,12 +10,12 @@ starting pieces, a shop full of things that break the rules, and a deadline that
 No build step and no dependencies — just Node and a browser.
 
 <!-- latest-version: the test suite checks this names the current VERSION, so a release can never leave the front page behind -->
-> **Latest version: v1.12.0 — Showtime** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
+> **Latest version: v1.13.0 — Fast Lane** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
 >
-> **A new look, and everything moves.** Heavier ink, punchier colour and bigger card art, each
-> chosen head to head in the [Art Lab](docs/art-ab.md), over a marbled backdrop that answers your
-> trades. Cards lean toward the pointer and catch the light, bought cards fly to your desk, the P/L
-> catches fire when a placement would clear the quota, and verdicts are stamped on.
+> **Run it your way.** Settings → Performance has **Graphics** (HIGH / MEDIUM / LOW — the lower two
+> can double the frame rate on a weak machine), **Game speed** up to **8×** (also the new button in
+> the top bar), **Animations** (FULL / REDUCED / OFF, where every trade resolves at once) and an FPS
+> counter. All of it on top of v1.12's new look, chosen in the [Art Lab](docs/art-ab.md).
 >
 > **Stuck on `You have uncommitted changes, so nothing was pulled`?** That is an old copy's updater
 > tripping over a stray file. Stop the game, then in the game folder run these three, once:
@@ -104,7 +104,7 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ```bash
 npm run update           # pull the latest version of the game (npm start does this too)
 npm run release          # tag and publish this version (maintainers)
-npm test                 # 235 assertions, no dependencies
+npm test                 # 238 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 npm run fuzz             # 600 seeded runs of random play, checked against the engine's invariants
 ```
@@ -236,7 +236,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.12.0** — Showtime | Everything below, plus: a marbled backdrop behind the desk, bigger card art, cards that lean toward the pointer, and the P/L on fire when a placement clears the quota |
+| **v1.13.0** — Fast Lane | Everything below, plus: Graphics HIGH / MEDIUM / LOW, game speed up to 8× (button in the top bar), Animations FULL / REDUCED / OFF, and an FPS counter |
+| v1.12.0 — Showtime | Everything below, plus: a marbled backdrop behind the desk, bigger card art, cards that lean toward the pointer, and the P/L on fire when a placement clears the quota |
 | v1.11.1 — Quick Hands | Everything below, plus: a reload mid-deadline comes back to the same board; no more frozen boards; Mimic copies any broker |
 | v1.11.0 — Quick Hands | Everything below, plus: slide across candles to place them all, `E` hover select, `X` deselect all — both rebindable in Settings |
 | v1.10.2 — Inked | Everything below, plus: a stray `package-lock.json` no longer stops an update |
@@ -614,7 +615,18 @@ Cards lean toward the pointer and catch the light. Buttons give under the finger
 their cards in, bought cards fly to the desk, sold ones spin away, and reorders glide. Brokers ring
 in the colour of what they add as they fire. The projected P/L catches fire when the placement
 would clear the quota. Behind it all, a marbled ink backdrop drifts and takes the mood of the room.
-Settings → Ambient Motion (or the system's reduced-motion setting) turns all of it off.
+Settings → Animations (or the system's reduced-motion setting) turns all of it off.
+
+### Running slow? Running too slow?
+
+**Settings → Performance** has four switches, all saved on your device:
+
+| Setting | Values | What it does |
+|---|---|---|
+| **Graphics** | HIGH · MEDIUM · LOW | MEDIUM holds the backdrop still and drops the paper grain and the blur behind screens. LOW also drops the ink wobble on outlines and the backdrop, and lets ambient motion play once and stop. On a machine without a GPU the desk went from 30 fps on HIGH to 60 fps on MEDIUM and LOW |
+| **Game speed** | 1× · 2× · 4× · 8× | Trades, deals, sweeps and payouts play out faster. Also the speed button in the top bar |
+| **Animations** | FULL · REDUCED · OFF | REDUCED stops the ambient motion. OFF stops everything and resolves each trade at once |
+| **Show FPS** | ON · OFF | A frame-rate counter in the bottom-right corner |
 
 ### One of each
 
@@ -838,7 +850,7 @@ src/fonts/            Bangers and Patrick Hand, with their OFL licences
 docs/screenshot.jpg   the picture at the top of this page
 docs/art-ab.md        the Art Lab's rounds: what was compared, what won, with pictures
 src/main.js           controller: input, placement order, scoring animation, screen flow
-src/engine/           seeded RNG, formatting, event bus, the version stamp, rebindable keys
+src/engine/           seeded RNG, formatting, event bus, the version stamp, rebindable keys, settings
 src/game/
   candles.js          candles: sector, body, polarity, enhancements, editions, stamps
   formations.js       formation evaluation (all set-based) and Conviction
@@ -853,9 +865,10 @@ src/ui/               canvas chart, particles/audio, candle components, overlays
   art.js              every card's illustration: the glyph library, frames and pips
   artstyle.js         the look as knobs, and every style the Art Lab has judged
   backdrop.js         the marbled ink backdrop (a small WebGL shader)
-  motion.js           lean and glint, presses, deal-ins, flights, stamps, confetti
+  motion.js           lean and glint, presses, deal-ins, flights, stamps, confetti, the FPS counter
+  tempo.js            the game speed setting, applied to every wait and one-shot animation
 test/
-  run-tests.mjs       235 tests, no dependencies
+  run-tests.mjs       238 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
   fuzz.mjs            random play against the engine's invariants, saves included
 tools/
@@ -865,7 +878,7 @@ tools/
 ```
 
 ```bash
-npm test              # 235 assertions across formations, conviction, scoring, flow and content
+npm test              # 238 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 npm run fuzz          # 600 runs of random play; a failure prints the SEED= that replays it
 ```

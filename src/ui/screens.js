@@ -10,6 +10,7 @@ import { artSvg, consumableArt } from './art.js';
 import { sfx, toast } from './fx.js';
 import * as M from './motion.js';
 import { BINDABLE, bindProblem, keyLabel } from '../engine/keys.js';
+import { QUALITIES, SPEEDS, ANIMATIONS } from '../engine/settings.js';
 import { VERSION, VERSION_NAME, CHANGELOG } from '../engine/version.js';
 
 const CAREER_KEY = 'margincall.career.v1';
@@ -70,7 +71,7 @@ export function homeScreen(game) {
           </button>
           <button class="home-card" id="h-settings">
             <span class="hc-art">🎛️</span>
-            <span class="hc-body"><b>SETTINGS</b><small>Sound and motion</small></span>
+            <span class="hc-body"><b>SETTINGS</b><small>Sound, speed and graphics</small></span>
           </button>
         </nav>
       </div>
@@ -510,14 +511,40 @@ export function glossaryScreen(game, back) {
 // ---------------------------------------------------------------------------
 // SETTINGS
 // ---------------------------------------------------------------------------
+/** The performance rows of the settings screen: each click steps to the next value. */
+const PERF_ROWS = [
+  { key: 'quality', label: 'GRAPHICS', values: QUALITIES, show: (v) => v.toUpperCase(),
+    notes: {
+      high: 'Everything: the moving backdrop, ink wobble, paper grain',
+      medium: 'A still backdrop, no grain or blur — smoother on a laptop',
+      low: 'Plain outlines, no backdrop, ambient motion plays once — fastest',
+    } },
+  { key: 'speed', label: 'GAME SPEED', values: SPEEDS, show: (v) => v + '×',
+    notes: { 1: 'Trades, deals and payouts at their own pace', 2: 'Twice as fast', 4: 'Four times as fast', 8: 'Eight times as fast' } },
+  { key: 'animations', label: 'ANIMATIONS', values: ANIMATIONS, show: (v) => v.toUpperCase(),
+    notes: {
+      full: 'Everything moves',
+      reduced: 'No ambient motion; trades still play out',
+      off: 'Nothing moves — every trade resolves at once',
+    } },
+  { key: 'fps', label: 'SHOW FPS', values: [false, true], show: (v) => (v ? 'ON' : 'OFF'),
+    notes: { false: 'A frame-rate counter in the corner', true: 'Bottom right: frames a second, and the slowest frame' } },
+];
+
 export function settingsScreen(game, back) {
   const sheet = showOverlay(`
     <h2>SETTINGS</h2>
     <div class="sub">Saved on this device.</div>
     <div class="settings">
       <button class="set-row" id="s-sound"><b>SOUND</b><span id="s-sound-v">${game.muted ? 'OFF' : 'ON'}</span></button>
-      <button class="set-row" id="s-motion"><b>AMBIENT MOTION</b><span id="s-motion-v">${game.reducedMotion ? 'OFF' : 'ON'}</span></button>
       <button class="set-row danger" id="s-wipe"><b>ERASE SAVED RUN &amp; STATS</b><span>&nbsp;</span></button>
+    </div>
+    <h3>PERFORMANCE</h3>
+    <div class="settings">
+      ${PERF_ROWS.map((r) => `
+        <button class="set-row perf" data-perf="${r.key}">
+          <b>${r.label}<small data-perf-note>${r.notes[game.settings[r.key]] || ''}</small></b><span data-perf-v>${r.show(game.settings[r.key])}</span>
+        </button>`).join('')}
     </div>
     <h3>CONTROLS</h3>
     <div class="settings">
@@ -533,10 +560,14 @@ export function settingsScreen(game, back) {
     game.toggleMute();
     sheet.querySelector('#s-sound-v').textContent = game.muted ? 'OFF' : 'ON';
   };
-  sheet.querySelector('#s-motion').onclick = () => {
-    game.toggleMotion();
-    sheet.querySelector('#s-motion-v').textContent = game.reducedMotion ? 'OFF' : 'ON';
-  };
+  sheet.querySelectorAll('[data-perf]').forEach((row) => row.onclick = () => {
+    const r = PERF_ROWS.find((x) => x.key === row.dataset.perf);
+    game.cycleSetting(r.key, r.values);
+    const v = game.settings[r.key];
+    row.querySelector('[data-perf-v]').textContent = r.show(v);
+    row.querySelector('[data-perf-note]').textContent = r.notes[v] || '';
+    sfx.select();
+  });
   sheet.querySelector('#s-wipe').onclick = () => {
     game.clearSave();
     try { localStorage.removeItem(CAREER_KEY); } catch {}

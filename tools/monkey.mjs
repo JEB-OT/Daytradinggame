@@ -6,6 +6,9 @@
 //
 //   node tools/monkey.mjs [sessions] [steps] [startSeed]
 //
+// MC_SETTINGS (JSON) plays every session with those settings — game speed,
+// graphics quality, animations — since timing bugs hide at 1× and show at 8×.
+//
 // Needs a running server (MC_NO_UPDATE_CHECK=1 NO_OPEN=1 node server.js) and
 // Playwright, which the game itself does not depend on; PLAYWRIGHT_CHROMIUM may
 // point at a Chromium binary. Every session is seeded, so a problem it reports
@@ -44,7 +47,8 @@ for (let n = START; n < START + SESSIONS; n++) {
   page.on('console', (m) => { if (m.type() === 'error' && !/favicon/.test(m.text())) note('CONSOLE', m.text(), where()); });
   await page.goto(URL, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => window.game != null);
-  await page.evaluate(() => localStorage.clear());
+  // MC_SETTINGS='{"speed":8,"quality":"low"}' plays every session with those settings.
+  await page.evaluate((st) => { localStorage.clear(); if (st) localStorage.setItem('margincall.settings', st); }, process.env.MC_SETTINGS || null);
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForFunction(() => window.game != null);
   // quieter, faster: no first-run coaching toasts

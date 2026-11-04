@@ -11,13 +11,15 @@ import { ChartView } from './ui/chart.js';
 import { candleEl, brokerEl, consumableEl, hideTip, showTip } from './ui/components.js';
 import { artSvg, ensureArtDefs } from './ui/art.js';
 import { applyStyleFlags, STYLE } from './ui/artstyle.js';
-import { initBackdrop, setBackdropStill, backdropMood, backdropStir } from './ui/backdrop.js';
+import { initBackdrop, setBackdropStill, setBackdropQuality, backdropMood, backdropStir } from './ui/backdrop.js';
 import * as M from './ui/motion.js';
 import * as FX from './ui/fx.js';
 import { sfx, toast, shake, popText, particles } from './ui/fx.js';
 import * as OV from './ui/overlays.js';
 import * as SC from './ui/screens.js';
 import { loadKeys, saveKeys } from './engine/keys.js';
+import { loadSettings, saveSettings, cycle, tempoOf, SPEEDS } from './engine/settings.js';
+import { setTempo, installTempo, wait, dur } from './ui/tempo.js';
 
 const $ = (id) => document.getElementById(id);
 /**
@@ -32,7 +34,8 @@ function setNum(el, v, k = 1) {
   el.textContent = t;
   if (had) M.bump(el, k);
 }
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Game time: at 2× a wait is half as long, with animations off it is a tick.
+const sleep = wait;
 const SORT_MODES = ['body', 'sector', 'polarity'];
 const SORT_LABEL = { body: 'BODY', sector: 'SECTOR', polarity: 'BULL/BEAR' };
 
@@ -52,8 +55,9 @@ class Game {
     this.paint = null;
     this.arrangeMode = 'rising';
     this.arrangeIndex = 0;
-    this.reducedMotion = localStorage.getItem('margincall.motion') === '0';
-    this.applyMotion();
+    /** Graphics quality, game speed, animations, FPS counter — see engine/settings.js. */
+    this.settings = loadSettings();
+    this.applySettings();
     this.coach = new Set();
     this.bindGlobal();
   }
@@ -88,14 +92,35 @@ class Game {
     saveKeys(this.keys);
   }
 
-  applyMotion() {
-    document.body.classList.toggle('no-motion', this.reducedMotion);
-    setBackdropStill(this.reducedMotion);
+  /** Ambient motion is off unless animations are at FULL. */
+  get reducedMotion() { return this.settings.animations !== 'full'; }
+
+  /** Change one setting, save it, and put it into effect. */
+  setSetting(key, value) {
+    this.settings = { ...this.settings, [key]: value };
+    saveSettings(this.settings);
+    this.applySettings();
   }
-  toggleMotion() {
-    this.reducedMotion = !this.reducedMotion;
-    localStorage.setItem('margincall.motion', this.reducedMotion ? '0' : '1');
-    this.applyMotion();
+
+  /** Step a setting to its next value (the settings rows and the speed button). */
+  cycleSetting(key, list) { this.setSetting(key, cycle(list, this.settings[key])); }
+
+  applySettings() {
+    const s = this.settings;
+    document.body.classList.toggle('no-motion', this.reducedMotion);
+    document.documentElement.dataset.quality = s.quality;
+    setTempo(tempoOf(s));
+    // The backdrop costs the most, so quality decides it first: animated on
+    // HIGH, one still frame on MEDIUM, not there at all on LOW.
+    if (s.quality !== 'low' && STYLE.flags.includes('marble')) initBackdrop();
+    setBackdropQuality(s.quality);
+    setBackdropStill(this.reducedMotion);
+    const sp = $('btn-speed');
+    if (sp) {
+      sp.textContent = s.animations === 'off' ? 'INSTANT' : s.speed + '×';
+      sp.classList.toggle('fast', s.speed > 1 || s.animations === 'off');
+    }
+    M.fpsMeter(s.fps);
   }
 
   /**
@@ -277,7 +302,7 @@ class Game {
     sfx.fail(); shake(true); this.clearSave();
     $('app').classList.add('liquidated');
     backdropMood('loss', { stir: 0.8 });
-    setTimeout(() => OV.gameOverScreen(this, false, reason), 700);
+    setTimeout(() => OV.gameOverScreen(this, false, reason), dur(700));
   }
 
   /** Back to an ordinary room after a run's verdict: colour, and a calm backdrop. */
@@ -402,6 +427,7 @@ class Game {
   }
 
   renderMarket() {
+    this.chart.invalidate();
     const st = this.state, s = st?.session;
     if (!s) {
       $('ticker-sym').textContent = '—';
@@ -666,7 +692,7 @@ class Game {
       if (!el) continue;
       this.aimAt(el, 'draw-pile');
       el.classList.add('dealing');
-      el.style.animationDelay = (n * 55) + 'ms';
+      el.style.animationDelay = dur(n * 55) + 'ms';
       n++;
     }
     if (n) this.kickPile('draw-pile');
@@ -1119,7 +1145,7 @@ class Game {
     // than from nowhere in particular. Each chip gets half the spray, aimed up
     // and to the right so it crosses the table instead of the sidebar edge.
     this.cashFrom(['sc-volume', 'sc-leverage'], power);
-    for (let i = 0; i < Math.round(2 + power * 6); i++) setTimeout(() => sfx.coin(i), 120 + i * 90);
+    for (let i = 0; i < Math.round(2 + power * 6); i++) setTimeout(() => sfx.coin(i), dur(120 + i * 90));
     FX.burst('QUOTA MET', 'CLOSE THE BOOKS', 'gold');
     backdropMood('bigwin', { stir: 1, fade: 3.5 });
     M.ringAround($('dl-progress'), '#ffd24a', 1.3);
@@ -1243,6 +1269,12 @@ class Game {
     $('btn-arrange').onclick = () => this.arrange();
     $('btn-sort').onclick = () => this.sortBoard();
     $('btn-help').onclick = () => OV.helpScreen(this);
+    // Game speed, one click away: 1× → 2× → 4× → 8× and round again.
+    $('btn-speed').onclick = () => {
+      if (this.settings.animations === 'off') this.setSetting('animations', 'full');
+      else this.cycleSetting('speed', SPEEDS);
+      toast(`Game speed ${this.settings.speed}×`, '', 'speed');
+    };
     $('btn-menu').onclick = () => (this.state ? OV.menuScreen(this) : this.toHome());
     $('btn-book').onclick = () => this.openBook('all');
     $('btn-formations').onclick = () => this.state && OV.formationScreen(this, () => OV.closeOverlay());
@@ -1314,9 +1346,9 @@ class Game {
 // so they have to be in the page before the first frame, not the first picture.
 applyStyleFlags();
 ensureArtDefs();
-if (STYLE.flags.includes('marble')) initBackdrop();
 M.initTilt();
 M.initPress();
+installTempo();
 const game = new Game();
 window.game = game;
 SC.homeScreen(game);

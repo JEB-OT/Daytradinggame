@@ -1591,8 +1591,8 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 .set-row span { color: var(--green); }
 .set-row.danger { background: #4a1828; border-color: #ff8a97; } .set-row.danger b { color: #ffd0d6; }
 /* a rebindable key: the action and what it does on the left, its key on the right */
-.set-row.bind { text-align: left; gap: 14px; }
-.set-row.bind b small {
+.set-row:is(.bind, .perf) { text-align: left; gap: 14px; }
+.set-row:is(.bind, .perf) b small {
   display: block; margin-top: 1px; font-family: var(--hand); font-size: 14px; letter-spacing: 0;
   color: var(--ink-dim); text-shadow: none; text-transform: none;
 }
@@ -1686,6 +1686,43 @@ html[data-art~="bigart"] .floor-bar :is(.bk-art, .cs-art) { width: 44px; height:
 /* the run is over: the desk behind the verdict drains of colour */
 .app.liquidated { filter: grayscale(.85) brightness(.6); transition: filter 1.2s ease; }
 .app.cashed-out { filter: saturate(1.25) brightness(1.08); transition: filter 1.2s ease; }
+
+/* ==========================================================================
+   GRAPHICS QUALITY (Settings → Graphics; html[data-quality])
+   --------------------------------------------------------------------------
+   HIGH    everything.
+   MEDIUM  the backdrop holds one still frame (backdrop.js); the full-screen
+           layers that cost the compositor the most go: the paper grain,
+           the drifting glow, the blur behind overlays.
+   LOW     all of that, and the ink wobble too — every outline is drawn
+           through an SVG turbulence filter, the single largest cost on a weak
+           GPU — plus ambient loops play once and stop, and the cards no
+           longer lean (motion.js). Signals that mean something keep pulsing.
+   ========================================================================== */
+html:is([data-quality="medium"], [data-quality="low"]) #crt { display: none; }
+html:is([data-quality="medium"], [data-quality="low"]) body::before { display: none; }
+html:is([data-quality="medium"], [data-quality="low"]) .overlay { backdrop-filter: none; background: rgba(5,9,20,.9); }
+html[data-quality="low"] body::after { display: none; }
+html[data-quality="low"] *::before,
+html[data-quality="low"] :is(.slot-empty, .strip-divider, .ink-ring) { filter: none !important; }
+html[data-quality="low"] svg [filter] { filter: none !important; }
+html[data-quality="low"] #backdrop { display: none; }
+html[data-quality="low"] *,
+html[data-quality="low"] *::before,
+html[data-quality="low"] *::after { animation-iteration-count: 1 !important; }
+html[data-quality="low"] :is(.res b.zero, .res b.hot, .pl-readout.clears b) { animation-iteration-count: infinite !important; }
+html[data-quality="low"] :is(.candle, .broker, .consumable, .shop-slot, .dl-choice)::after { display: none; }
+
+/* the game speed button in the top bar: lit when the game is running fast */
+.mini.speed { min-width: 44px; font-variant-numeric: tabular-nums; }
+.mini.speed.fast { color: var(--gold); background: #4a3a12; border-color: var(--gold); }
+
+#fps-meter {
+  position: fixed; right: 8px; bottom: 6px; z-index: 9600; pointer-events: none;
+  font: 12px/1 var(--mono); padding: 3px 7px; border-radius: 5px;
+  background: rgba(5,9,20,.82); color: var(--ink-dim); border: 1px solid #2a3654;
+}
+#fps-meter.good { color: var(--green); } #fps-meter.ok { color: var(--amber); } #fps-meter.bad { color: var(--red); }
 
 /* The marbled backdrop (src/ui/backdrop.js) sits under everything, the
    stylesheet's own background showing through only if it could not start. */

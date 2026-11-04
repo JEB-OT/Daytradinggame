@@ -1,3 +1,4 @@
+import { dur as gameMs } from './tempo.js';
 // Animated candlestick tape. Pure canvas, no deps.
 //
 // Drawn the way the rest of the interface is: chalk on a slate. Grid lines
@@ -47,6 +48,10 @@ export class ChartView {
     this.t = 0;
     this.flash = 0;
     this.flashUp = true;
+    // Redrawn only when something on it changes — a still chart costs nothing.
+    this.dirty = true;
+    this.lastFrame = 0;
+    this.lastDraw = 0;
     this.dpr = Math.min(2, window.devicePixelRatio || 1);
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -62,6 +67,7 @@ export class ChartView {
     this.canvas.height = this.h * this.dpr;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.grid = null;   // redrawn at the new size on the next frame
+    this.dirty = true;
   }
 
   /**
@@ -95,8 +101,10 @@ export class ChartView {
     return c;
   }
 
-  setMarket(m) { this.market = m; this.t = 0; this.forming = null; }
-  pulse(up) { this.flash = 1; this.flashUp = up; }
+  setMarket(m) { this.market = m; this.t = 0; this.forming = null; this.dirty = true; }
+  /** Something about the market changed outside the chart (a trade, a Chart card). */
+  invalidate() { this.dirty = true; }
+  pulse(up) { this.flash = 1; this.flashUp = up; this.dirty = true; }
 
   /**
    * Print the freshest candle live instead of having it appear finished.
@@ -120,8 +128,10 @@ export class ChartView {
     const range = candle.high - candle.low;
     for (let i = 0; i < legs; i++) pts.push(candle.low + Math.random() * range);
     pts.push(candle.close);
-    const dur = 0.34 + legs * 0.16;
+    // at the game's speed; with animations off it prints in a single frame
+    const dur = Math.max(0.001, gameMs((0.34 + legs * 0.16) * 1000) / 1000);
     this.forming = { candle, pts, t: 0, dur, hi: candle.open, lo: candle.open };
+    this.dirty = true;
     return Math.round(dur * 1000);
   }
 
@@ -135,17 +145,28 @@ export class ChartView {
     return f.pts[seg] + (f.pts[seg + 1] - f.pts[seg]) * e;
   }
 
-  loop() {
-    this.t += 1 / 60;
-    if (this.flash > 0) this.flash = Math.max(0, this.flash - 0.02);
+  loop(now = performance.now()) {
+    // Real elapsed time, not frames: a print takes the time it said it would
+    // on a machine running at 20 fps as much as on one at 144.
+    const dt = this.lastFrame ? Math.min(0.1, (now - this.lastFrame) / 1000) : 1 / 60;
+    this.lastFrame = now;
+    this.t += dt;
+    const moving = this.forming || this.flash > 0;
+    if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 1.2);
     if (this.forming) {
-      this.forming.t += 1 / 60;
+      this.forming.t += dt;
       const live = this.livePrice(this.forming);
       this.forming.hi = Math.max(this.forming.hi, live);
       this.forming.lo = Math.min(this.forming.lo, live);
       if (this.forming.t >= this.forming.dur) this.forming = null;
     }
-    this.draw();
+    // A safety redraw twice a second covers anything that changed the market
+    // without saying so.
+    if (moving || this.dirty || now - this.lastDraw > 500) {
+      this.draw();
+      this.dirty = false;
+      this.lastDraw = now;
+    }
     requestAnimationFrame(this.loop);
   }
 
@@ -233,7 +254,7 @@ export class ChartView {
       // the same hard lip in pen every card and panel stands on
       if (big) { ctx.save(); ctx.translate(0, 2.5); body(); ctx.fillStyle = PEN; ctx.fill(); ctx.restore(); }
       body();
-      if (isLast) { ctx.shadowColor = col; ctx.shadowBlur = f && f.candle === c ? 20 : 12; }
+      if (isLast && document.documentElement.dataset.quality !== 'low') { ctx.shadowColor = col; ctx.shadowBlur = f && f.candle === c ? 20 : 12; }
       ctx.fillStyle = col; ctx.fill();
       ctx.shadowBlur = 0;
       if (bw >= 5 && bh >= 4) {
