@@ -90,7 +90,9 @@ let raf = 0, last = 0, clock = 0, running = false;
 // held still by the player (motion off) or by the hardware (no GPU, or the
 // governor ran out of steps); either one stops the animation
 let userStill = false, forcedStill = false;
-const still = () => userStill || forcedStill;
+// Graphics quality: HIGH animates, MEDIUM holds one still frame, LOW hides it.
+let quality = 'high';
+const still = () => userStill || forcedStill || quality !== 'high';
 // mood: the tint drifts toward a target, and a stir speeds the water up for a moment
 const mood = { tint: [0, 0, 0], target: [0, 0, 0], amt: 0, targetAmt: 0, stir: 0, base: null };
 // Render below the screen's resolution — it is soft shapes and one line
@@ -226,6 +228,14 @@ export function initBackdrop(seed = Math.random() * 100) {
   resize();
   start();
   return true;
+}
+
+/** Graphics quality decides whether the paper moves, holds still, or is not there. */
+export function setBackdropQuality(q) {
+  quality = q;
+  if (!canvas) return;
+  canvas.style.display = q === 'low' ? 'none' : '';
+  if (still()) { stop(); if (gl && q !== 'low') { resize(); draw(); } } else start();
 }
 
 /** Motion off: hold the paper still on its current frame. */

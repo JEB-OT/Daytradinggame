@@ -77,8 +77,14 @@ anything new should be too:
 Movement lives in `src/ui/motion.js` (lean and glint, presses, deal-ins, flights, stamps,
 confetti), with the scoring spectacle in `src/ui/fx.js` and the backdrop's moods in
 `src/ui/backdrop.js`. Motion is decoration over state that has already changed: never make game
-logic wait on an animation, and keep every effect a no-op under `M.calm()` (Settings → Ambient Motion off,
+logic wait on an animation, and keep every effect a no-op under `M.calm()` (Settings → Animations not FULL,
 or the system's reduced-motion setting). Animate the independent `translate` / `rotate` / `scale`
 properties with Web Animations wherever an element may also have a CSS animation or a hover
 transform, so the two compose instead of fighting. Hover rules fold in the lean as
 `perspective(...) rotateX(var(--rx)) rotateY(var(--ry))`, so a new hoverable card should too.
+
+Game time runs through `src/ui/tempo.js`: wait with `sleep`/`wait` and size durations with `dur()`
+so the speed setting (1×–8×, or instant with animations off) reaches them, and pass a gameplay Web
+Animation through `paced()`. One-shot CSS animations are sped up automatically; infinite ones
+(ambient) are left alone. Anything costly to draw needs a cheaper path under
+`html[data-quality="medium"|"low"]` (see GRAPHICS QUALITY in `styles.css`).

@@ -1,4 +1,10 @@
 import { bignum, money } from '../engine/util.js';
+import { PARTICLES } from '../engine/settings.js';
+import { paced, dur } from './tempo.js';
+const gameDur = dur;
+
+/** How many of a burst's particles the graphics quality can afford. */
+const afford = (n) => Math.max(1, Math.round(n * (PARTICLES[document.documentElement.dataset.quality] ?? 1)));
 
 const root = () => document.getElementById('app');
 
@@ -84,6 +90,7 @@ export function burst(text, sub, kind) {
 export function particles(x, y, color, n = 18, spread = 120) {
   const layer = document.getElementById('fx-layer');
   if (!layer) return;
+  n = afford(n);
   const r = layer.getBoundingClientRect();
   for (let i = 0; i < n; i++) {
     const p = document.createElement('div');
@@ -95,12 +102,12 @@ export function particles(x, y, color, n = 18, spread = 120) {
     const dist = 20 + Math.random() * spread;
     const dx = Math.cos(ang) * dist;
     const dy = Math.sin(ang) * dist - 30;
-    p.animate([
+    paced(p.animate([
       { transform: 'translate(0,0) scale(1)', opacity: 1 },
       { transform: `translate(${dx}px,${dy}px) scale(0)`, opacity: 0 },
-    ], { duration: 600 + Math.random() * 500, easing: 'cubic-bezier(.2,.8,.3,1)' });
+    ], { duration: 600 + Math.random() * 500, easing: 'cubic-bezier(.2,.8,.3,1)' }));
     layer.appendChild(p);
-    setTimeout(() => p.remove(), 1150);
+    setTimeout(() => p.remove(), dur(1150));
   }
 }
 
@@ -126,7 +133,7 @@ export function moneyBurst(x, y, power = 0, opts = {}) {
   const calm = document.body.classList.contains('no-motion');
   const scale = opts.scale ?? 1;
   const aim = opts.aim ?? 0;
-  const n = Math.max(1, Math.round((calm ? 3 + k * 7 : 7 + k * 45) * scale));
+  const n = afford(Math.max(1, Math.round((calm ? 3 + k * 7 : 7 + k * 45) * scale)));
   const r = layer.getBoundingClientRect();
   // Notes are heavier and rarer than loose dollar signs, so the spray reads as
   // money rather than as confetti that happens to be green.
@@ -150,18 +157,18 @@ export function moneyBurst(x, y, power = 0, opts = {}) {
     const spin = (Math.random() - 0.5) * (540 + k * 720);
     const dur = calm ? 320 : 950 + Math.random() * (500 + k * 700);
     last = Math.max(last, dur);
-    el.animate([
+    paced(el.animate([
       { transform: 'translate(-50%,-50%) translate(0,0) rotate(0deg) scale(.5)', opacity: 0 },
       { transform: `translate(-50%,-50%) translate(${dx * 0.35}px,${rise * 0.55}px) rotate(${spin * 0.3}deg) scale(1)`,
         opacity: 1, offset: 0.18 },
       { transform: `translate(-50%,-50%) translate(${dx * 0.8}px,${rise + fall * 0.18}px) rotate(${spin * 0.7}deg) scale(1)`,
         opacity: 1, offset: 0.6 },
       { transform: `translate(-50%,-50%) translate(${dx}px,${rise + fall}px) rotate(${spin}deg) scale(.85)`, opacity: 0 },
-    ], { duration: dur, delay: Math.random() * (120 + k * 260), easing: 'cubic-bezier(.16,.62,.4,1)' });
+    ], { duration: dur, delay: Math.random() * (120 + k * 260), easing: 'cubic-bezier(.16,.62,.4,1)' }));
     layer.appendChild(el);
-    setTimeout(() => el.remove(), dur + 500);
+    setTimeout(() => el.remove(), gameDur(dur + 500));
   }
-  return last;
+  return gameDur(last);
 }
 
 // ---------------------------------------------------------------------------
@@ -339,12 +346,12 @@ export function flyTo(fromEl, toEl, text, kind = 'volume') {
   const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
   const dy = (b.top + b.height / 2) - (a.top + a.height * 0.32);
   const lift = -Math.max(30, Math.min(90, Math.abs(dx) * 0.28 + 30));
-  const anim = el.animate([
+  const anim = paced(el.animate([
     { transform: 'translate(-50%,-50%) scale(.6)', opacity: 0 },
     { transform: 'translate(-50%,-50%) scale(1.18)', opacity: 1, offset: 0.16 },
     { transform: `translate(calc(-50% + ${dx * 0.55}px), calc(-50% + ${dy * 0.5 + lift}px)) scale(1.02)`, opacity: 1, offset: 0.62 },
     { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.5)`, opacity: 0 },
-  ], { duration: 400, easing: 'cubic-bezier(.34,.65,.35,1)' });
+  ], { duration: 400, easing: 'cubic-bezier(.34,.65,.35,1)' }));
   return anim.finished.then(() => el.remove()).catch(() => el.remove());
 }
 
@@ -352,17 +359,18 @@ export function flyTo(fromEl, toEl, text, kind = 'volume') {
 export function impact(el, strength = 1) {
   if (!el) return;
   const k = Math.max(1, Math.min(3, strength));
-  el.animate([
+  paced(el.animate([
     { transform: 'scale(1)', filter: 'brightness(1)' },
     { transform: `scale(${1 + 0.09 * k}) rotate(${(Math.random() - 0.5) * 2.4 * k}deg)`, filter: `brightness(${1 + 0.35 * k})`, offset: 0.34 },
     { transform: 'scale(1)', filter: 'brightness(1)' },
-  ], { duration: 220 + 40 * k, easing: 'cubic-bezier(.2,.9,.3,1)' });
+  ], { duration: 220 + 40 * k, easing: 'cubic-bezier(.2,.9,.3,1)' }));
 }
 
 /** Roll a number up rather than snapping it. */
 export function countUp(el, from, to, ms, fmt = (v) => String(Math.round(v))) {
   if (!el) return Promise.resolve();
-  if (from === to) { el.textContent = fmt(to); return Promise.resolve(); }
+  ms = dur(ms);
+  if (from === to || ms < 16) { el.textContent = fmt(to); return Promise.resolve(); }
   const t0 = performance.now();
   return new Promise((done) => {
     const tick = (now) => {

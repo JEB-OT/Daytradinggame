@@ -10,11 +10,22 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.12.0';
-export const VERSION_NAME = 'Showtime';
+export const VERSION = 'v1.13.0';
+export const VERSION_NAME = 'Fast Lane';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.13.0',
+    name: 'Fast Lane',
+    notes: [
+      'Graphics: HIGH, MEDIUM or LOW in Settings — MEDIUM and LOW can double the frame rate on a weak machine',
+      'Game speed up to 8×: the speed button in the top bar, or Settings',
+      'Animations: FULL, REDUCED (no ambient motion) or OFF (every trade resolves at once)',
+      'Show FPS: a frame-rate counter in the corner',
+      'The chart only redraws when something on it changes, and prints in real time on a slow machine',
+    ],
+  },
   {
     version: 'v1.12.0',
     name: 'Showtime',

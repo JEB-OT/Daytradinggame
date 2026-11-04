@@ -21,6 +21,8 @@ import { sfx } from './fx.js';
 const reduceQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 /** True when motion should stand down. */
 export const calm = () => document.body.classList.contains('no-motion') || !!reduceQuery?.matches;
+/** LOW graphics: the cards stop leaning, so nothing redraws under a moving pointer. */
+const lowQuality = () => document.documentElement.dataset.quality === 'low';
 
 const layer = () => {
   let l = document.getElementById('motion-layer');
@@ -67,7 +69,7 @@ export function initTilt() {
       untilt();
       if (el && !el.closest('.bk-cell, .fly-ghost')) sfx.hover();
     }
-    if (!el || calm() || el.closest('.bk-cell, .fly-ghost')) return;
+    if (!el || calm() || lowQuality() || el.closest('.bk-cell, .fly-ghost')) return;
     const r = el.getBoundingClientRect();
     if (!r.width) return;
     const px = Math.max(-0.5, Math.min(0.5, (e.clientX - r.left) / r.width - 0.5));
@@ -386,4 +388,40 @@ export function wipe(onCovered, color = '#0a0e1a') {
   ], { duration: 560, easing: 'cubic-bezier(.6,0,.4,1)' });
   setTimeout(() => onCovered?.(), 250);
   if (a) a.onfinish = () => w.remove(); else w.remove();
+}
+
+// ---------------------------------------------------------------- the FPS counter
+let fpsEl = null, fpsRaf = 0;
+/**
+ * A frame-rate counter in the corner (Settings → Show FPS), so the effect of
+ * the graphics quality setting can be seen rather than guessed. Counts real
+ * frames over half-second windows and shows the slowest frame too, because a
+ * smooth average can hide a stutter.
+ */
+export function fpsMeter(on) {
+  if (!on) {
+    cancelAnimationFrame(fpsRaf);
+    fpsEl?.remove();
+    fpsEl = null;
+    return;
+  }
+  if (fpsEl) return;
+  fpsEl = document.createElement('div');
+  fpsEl.id = 'fps-meter';
+  fpsEl.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(fpsEl);
+  let frames = 0, from = performance.now(), last = from, worst = 0;
+  const tick = (now) => {
+    frames++;
+    worst = Math.max(worst, now - last);
+    last = now;
+    if (now - from >= 500) {
+      const fps = Math.round((frames * 1000) / (now - from));
+      fpsEl.textContent = `${fps} FPS · ${Math.round(worst)} ms`;
+      fpsEl.className = fps >= 50 ? 'good' : fps >= 28 ? 'ok' : 'bad';
+      frames = 0; from = now; worst = 0;
+    }
+    fpsRaf = requestAnimationFrame(tick);
+  };
+  fpsRaf = requestAnimationFrame(tick);
 }

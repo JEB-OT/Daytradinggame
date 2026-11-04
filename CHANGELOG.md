@@ -7,6 +7,44 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.13.0 — Fast Lane
+
+*2026-11-04*
+
+The game can now be made to run faster, in both senses: fewer frames' worth of work on a weak
+machine, and less waiting on a fast one. Everything is in **Settings → Performance** and is saved
+on your device.
+
+- **Graphics: HIGH, MEDIUM or LOW.**
+  - **HIGH** is everything.
+  - **MEDIUM** holds the marbled backdrop still and drops the three effects that cost the
+    compositor the most: the paper grain over the screen, the drifting glow behind it, and the blur
+    behind every open screen.
+  - **LOW** also drops the ink wobble on every outline (each one runs through an SVG turbulence
+    filter, the biggest single cost on a weak GPU) and the backdrop altogether. Ambient loops such
+    as breathing brokers and glowing legendaries play once and stop, and cards no longer lean
+    toward the pointer. Bursts throw fewer particles. Signals that mean something (a placement on
+    fire, a trade count at zero) keep pulsing.
+  - Measured on a machine without a GPU, the desk ran at 30 fps on HIGH and 60 fps on MEDIUM and
+    LOW.
+- **Game speed: 1×, 2×, 4× or 8×.** It speeds up everything that plays out over time: the waits in
+  a trade's resolution, the chart printing its candle, values flying to the chips, numbers counting
+  up, the deal, the sweep and the payout. Ambient motion keeps its own pace, because 8× is for the
+  game and not for making the desk twitch. A trade that takes 4.7 s at 1× takes 0.7 s at 8×. The
+  new speed button in the top bar steps through the speeds in one click, and lights up gold when
+  the game is running fast
+- **Animations: FULL, REDUCED or OFF.**
+  - **REDUCED** is the old *Ambient Motion: off*, and a player who had that switched off keeps it.
+  - **OFF** stops everything moving and resolves every trade at once (0.2 s).
+- **Show FPS** puts a frame-rate counter in the corner, with the slowest frame of each half-second
+  beside it, so the effect of a setting can be seen rather than guessed
+- **The chart only redraws when something on it changes.** It used to repaint every frame even
+  when nothing on it was moving. Its print animation now runs on real time rather than counting
+  frames, so on a slow machine a candle prints in the time it should, instead of taking twice as
+  long
+- **For anyone hacking on the game:** `MC_SETTINGS='{"speed":8}' node tools/monkey.mjs` plays the
+  interface monkey with chosen settings, since timing bugs hide at 1× and show at 8×
+
 ## v1.12.0 — Showtime
 
 *2026-11-04*

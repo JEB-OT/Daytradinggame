@@ -13,6 +13,7 @@ import { notesFor, versionsInChangelog } from '../scripts/release-notes.mjs';
 import { compareVersions } from '../scripts/version-check.mjs';
 import { artSvg, artKeys, hasGlyph, brokerEffect } from '../src/ui/art.js';
 import { DEFAULT as STYLE_DEFAULT, STYLES } from '../src/ui/artstyle.js';
+import { loadSettings, saveSettings, cleanSettings, cycle, tempoOf, DEFAULT_SETTINGS, SPEEDS, QUALITIES, ANIMATIONS, SETTINGS_KEY } from '../src/engine/settings.js';
 import { LICENSES as LIC_ALL } from '../src/game/licenses.js';
 import { BONUSES as BONUS_ALL, PACKS as PACK_ALL } from '../src/game/state.js';
 import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
@@ -2143,6 +2144,38 @@ t('every picture the README shows is in the repo', () => {
     if (/^https?:/.test(src)) continue;
     ok(existsSync(join(REPO_ROOT, src)), `README.md shows ${src}, which does not exist`);
   }
+});
+
+t('settings: defaults, bad values, and the old motion switch carried across', () => {
+  const store = (init = {}) => { const m = new Map(Object.entries(init)); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), m }; };
+  eq(JSON.stringify(loadSettings(store())), JSON.stringify(DEFAULT_SETTINGS), 'a first run gets the defaults');
+  eq(loadSettings(store({ 'margincall.motion': '0' })).animations, 'reduced', 'Ambient Motion: off must survive the upgrade');
+  eq(loadSettings(store({ 'margincall.motion': '1' })).animations, 'full');
+  eq(loadSettings(store({ [SETTINGS_KEY]: '{not json' })).quality, 'high', 'a corrupt record falls back');
+  const odd = cleanSettings({ quality: 'ultra', speed: 3, animations: 'some', fps: 'yes' });
+  eq(odd.quality, 'high'); eq(odd.speed, 1); eq(odd.animations, 'full'); eq(odd.fps, false);
+  eq(cleanSettings({ speed: '8' }).speed, 8, 'a speed saved as text still counts');
+  const st = store();
+  saveSettings({ quality: 'low', speed: 4, animations: 'off', fps: true }, st);
+  const back = loadSettings(st);
+  eq(back.quality, 'low'); eq(back.speed, 4); eq(back.animations, 'off'); eq(back.fps, true);
+});
+
+t('settings: cycling steps through every value and wraps', () => {
+  for (const list of [QUALITIES, SPEEDS, ANIMATIONS, [false, true]]) {
+    let v = list[0];
+    const seen = [];
+    for (let i = 0; i < list.length; i++) { seen.push(v); v = cycle(list, v); }
+    eq(v, list[0], 'a full cycle comes back to the start');
+    eq(new Set(seen).size, list.length, 'and visits every value once');
+  }
+  eq(SPEEDS[SPEEDS.length - 1], 8, 'the game goes up to 8×');
+});
+
+t('settings: animations off makes the game instant, otherwise the speed is the speed', () => {
+  eq(tempoOf({ speed: 4, animations: 'full' }).speed, 4);
+  ok(!tempoOf({ speed: 4, animations: 'reduced' }).instant);
+  ok(tempoOf({ speed: 1, animations: 'off' }).instant);
 });
 
 t('every art style only turns knobs that exist', () => {
