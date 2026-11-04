@@ -10,11 +10,21 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.14.0';
-export const VERSION_NAME = 'Going Live';
+export const VERSION = 'v1.15.0';
+export const VERSION_NAME = 'Ring the Bell';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.15.0',
+    name: 'Ring the Bell',
+    notes: [
+      'Meeting a quota is a real moment now: the verdict slams onto a ribbon in the middle of the table',
+      'A fountain of money bursts out from behind it, and a big win makes it rain across the screen',
+      'It grows with how far you beat the quota: QUOTA MET, QUOTA SMASHED, OVERKILL, TOTAL OVERKILL',
+      'The money is drawn in the game\'s own ink, not emoji',
+    ],
+  },
   {
     version: 'v1.14.0',
     name: 'Going Live',

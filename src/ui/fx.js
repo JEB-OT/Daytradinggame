@@ -111,66 +111,6 @@ export function particles(x, y, color, n = 18, spread = 120) {
   }
 }
 
-/**
- * Cash erupting out of a number that beat its quota.
- *
- * @param power 0 for scraping the quota, 1 for burying it. Scales the count,
- *              the spread, the size and how long it hangs in the air, so just
- *              clearing gives a modest handful and a blowout buries the screen.
- * @param opts.scale  fraction of the usual count, for splitting one burst
- *                    across several emitters.
- * @param opts.aim    radians added to the upward fan, to throw it away from a
- *                    screen edge rather than straight into one.
- */
-export function moneyBurst(x, y, power = 0, opts = {}) {
-  // Its own layer: the emitters are chips in the sidebar, and #fx-layer is
-  // inside the chart panel, which clips anything leaving it.
-  const layer = document.getElementById('cash-layer') || document.getElementById('fx-layer');
-  if (!layer) return 0;
-  const k = Math.max(0, Math.min(1, power));
-  // Web Animations are not touched by the `no-motion` stylesheet rule, so the
-  // reduced-motion setting has to be honoured here by hand.
-  const calm = document.body.classList.contains('no-motion');
-  const scale = opts.scale ?? 1;
-  const aim = opts.aim ?? 0;
-  const n = afford(Math.max(1, Math.round((calm ? 3 + k * 7 : 7 + k * 45) * scale)));
-  const r = layer.getBoundingClientRect();
-  // Notes are heavier and rarer than loose dollar signs, so the spray reads as
-  // money rather than as confetti that happens to be green.
-  const notes = ['💵', '💸', '🤑'];
-  let last = 0;
-  for (let i = 0; i < n; i++) {
-    const isNote = Math.random() < 0.22 + k * 0.2;
-    const el = document.createElement('div');
-    el.className = 'cashbit' + (isNote ? ' note' : '');
-    el.textContent = isNote ? notes[Math.floor(Math.random() * notes.length)] : '$';
-    el.style.left = (x - r.left) + 'px';
-    el.style.top = (y - r.top) + 'px';
-    el.style.fontSize = (13 + Math.random() * (10 + k * 16)) + 'px';
-
-    // Fire mostly upward in a fan, then let gravity take it.
-    const ang = -Math.PI / 2 + aim + (Math.random() - 0.5) * (1.5 + k * 1.1);
-    const speed = 90 + Math.random() * (110 + k * 260);
-    const dx = Math.cos(ang) * speed;
-    const rise = Math.sin(ang) * speed;
-    const fall = 320 + Math.random() * 260;
-    const spin = (Math.random() - 0.5) * (540 + k * 720);
-    const dur = calm ? 320 : 950 + Math.random() * (500 + k * 700);
-    last = Math.max(last, dur);
-    paced(el.animate([
-      { transform: 'translate(-50%,-50%) translate(0,0) rotate(0deg) scale(.5)', opacity: 0 },
-      { transform: `translate(-50%,-50%) translate(${dx * 0.35}px,${rise * 0.55}px) rotate(${spin * 0.3}deg) scale(1)`,
-        opacity: 1, offset: 0.18 },
-      { transform: `translate(-50%,-50%) translate(${dx * 0.8}px,${rise + fall * 0.18}px) rotate(${spin * 0.7}deg) scale(1)`,
-        opacity: 1, offset: 0.6 },
-      { transform: `translate(-50%,-50%) translate(${dx}px,${rise + fall}px) rotate(${spin}deg) scale(.85)`, opacity: 0 },
-    ], { duration: dur, delay: Math.random() * (120 + k * 260), easing: 'cubic-bezier(.16,.62,.4,1)' }));
-    layer.appendChild(el);
-    setTimeout(() => el.remove(), gameDur(dur + 500));
-  }
-  return gameDur(last);
-}
-
 // ---------------------------------------------------------------------------
 // Synth kit. No assets — every sound is generated, so the scoring sequence can
 // climb in pitch step by step the way a good slot machine does.
@@ -298,6 +238,13 @@ export const sfx = {
   tick:   () => voice({ freq: 1200, dur: 0.02, type: 'square', gain: 0.02 }),
   /** The projected P/L would clear the quota: a match struck. */
   ignite: () => { noise({ from: 2400, to: 700, dur: 0.16, gain: 0.035, q: 0.6 }); voice({ freq: 660, slideTo: 990, dur: 0.14, type: 'triangle', gain: 0.03, delay: 0.04 }); },
+  /** The till: a bright two-note cha-ching with the drawer sliding under it. */
+  register: () => {
+    noise({ from: 3000, to: 900, dur: 0.18, gain: 0.04, q: 0.9 });
+    voice({ freq: 1568, dur: 0.12, type: 'triangle', gain: 0.06, delay: 0.02 });
+    voice({ freq: 2093, dur: 0.22, type: 'triangle', gain: 0.06, delay: 0.1 });
+    voice({ freq: 3136, dur: 0.18, type: 'sine', gain: 0.025, delay: 0.1 });
+  },
   /** A rubber stamp hitting the desk. */
   stamp:  () => { noise({ type: 'lowpass', from: 900, to: 90, dur: 0.22, gain: 0.09, q: 0.7 }); voice({ freq: 90, slideTo: 50, dur: 0.18, type: 'sine', gain: 0.09 }); },
   /** The pointer coming onto a card: a paper tick, barely there. */

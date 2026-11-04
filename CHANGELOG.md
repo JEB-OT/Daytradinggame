@@ -7,6 +7,40 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.15.0 — Ring the Bell
+
+*2026-11-04*
+
+Meeting a deadline's quota is the biggest beat in a run, and it now plays like one. It used to
+throw a spray of dollar signs out of the two score chips in the left sidebar, aimed off to the
+side, with a small *QUOTA MET* in the play area. Now it takes the middle of the table:
+
+- **A hit-stop.** The desk flares for a breath, with a thud, before anything else happens.
+- **The verdict slams in** onto a ribbon of ink that wipes across the screen, over a sunburst of
+  hard gold rays, and lands with a shockwave and a shake. A line above it names the deadline you
+  cleared, or the boss you beat.
+- **A fountain of money** bursts out from behind the ribbon, straight up and out to both sides,
+  and falls back down across the whole screen. Bills flutter over and coins spin. They are drawn in
+  flat colour and the same pen as the cards, not emoji.
+- **What you booked counts up** under the title, beside how many times over the quota it was,
+  with a cash-register *cha-ching* and coins ringing out.
+- **It grows with the overkill:**
+
+  | You booked | The verdict |
+  |---|---|
+  | Under 1.5× the quota | **QUOTA MET** |
+  | 1.5× or more | **QUOTA SMASHED**: more money, and it rains from the top as well |
+  | 3× or more | **OVERKILL**: in orange, with a heavy shake |
+  | 10× or more | **TOTAL OVERKILL**: in magenta, a money storm |
+
+- **The money keeps falling** over the payout as it comes up, so the moment carries into the
+  cash-out.
+- **It follows your settings:**
+  - **Game speed** speeds it up (about 0.3 s at 8×).
+  - **Graphics** MEDIUM and LOW throw fewer pieces, and LOW drops the rays.
+  - **Animations** REDUCED shows the verdict alone, with nothing flying.
+  - **Animations** OFF goes straight to the payout.
+
 ## v1.14.0 — Going Live
 
 *2026-11-04*
