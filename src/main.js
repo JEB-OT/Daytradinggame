@@ -5,11 +5,14 @@ import { previewTrade } from './game/scoring.js';
 import { convictionOf, FORMATIONS, CONVICTION } from './game/formations.js';
 import { BROKERS, brokerSellValue } from './game/brokers.js';
 import { BOSSES } from './game/bosses.js';
+import { ALL_CONSUMABLES } from './game/consumables.js';
 import { sortCandles } from './game/candles.js';
 import { ChartView } from './ui/chart.js';
 import { candleEl, brokerEl, consumableEl, hideTip, showTip } from './ui/components.js';
 import { artSvg, ensureArtDefs } from './ui/art.js';
-import { applyStyleFlags } from './ui/artstyle.js';
+import { applyStyleFlags, STYLE } from './ui/artstyle.js';
+import { initBackdrop, setBackdropStill, backdropMood, backdropStir } from './ui/backdrop.js';
+import * as M from './ui/motion.js';
 import * as FX from './ui/fx.js';
 import { sfx, toast, shake, popText, particles } from './ui/fx.js';
 import * as OV from './ui/overlays.js';
@@ -17,6 +20,18 @@ import * as SC from './ui/screens.js';
 import { loadKeys, saveKeys } from './engine/keys.js';
 
 const $ = (id) => document.getElementById(id);
+/**
+ * Write a number into the HUD, and bump it if it changed — the eye goes to
+ * whatever just moved. First paint and identical values stay still.
+ */
+function setNum(el, v, k = 1) {
+  if (!el) return;
+  const t = String(v);
+  if (el.textContent === t) return;
+  const had = el.textContent !== '';
+  el.textContent = t;
+  if (had) M.bump(el, k);
+}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const SORT_MODES = ['body', 'sector', 'polarity'];
 const SORT_LABEL = { body: 'BODY', sector: 'SECTOR', polarity: 'BULL/BEAR' };
@@ -48,7 +63,7 @@ class Game {
   save() { if (this.state) { try { localStorage.setItem(S.SAVE_KEY, S.serialize(this.state)); } catch {} } }
   clearSave() { localStorage.removeItem(S.SAVE_KEY); }
 
-  toHome() { this.state = null; SC.homeScreen(this); }
+  toHome() { this.calmRoom(); this.state = null; SC.homeScreen(this); }
   openCompendium(back) { SC.compendiumScreen(this, back); }
   /**
    * The book, on a given tab. It comes back to whatever it interrupted: the
@@ -73,7 +88,10 @@ class Game {
     saveKeys(this.keys);
   }
 
-  applyMotion() { document.body.classList.toggle('no-motion', this.reducedMotion); }
+  applyMotion() {
+    document.body.classList.toggle('no-motion', this.reducedMotion);
+    setBackdropStill(this.reducedMotion);
+  }
   toggleMotion() {
     this.reducedMotion = !this.reducedMotion;
     localStorage.setItem('margincall.motion', this.reducedMotion ? '0' : '1');
@@ -107,6 +125,8 @@ class Game {
   }
 
   startRun(seed) {
+    this.calmRoom();
+    this.weekShown = null;
     this.state = S.newRun(seed);
     this.lastCash = null;             // no delta for the money you start with
     this.clearSave();
@@ -117,6 +137,7 @@ class Game {
   }
 
   continueRun() {
+    this.calmRoom();
     try {
       this.state = S.deserialize(localStorage.getItem(S.SAVE_KEY));
       this.lastCash = null;           // nor for the balance a save comes back with
@@ -151,6 +172,8 @@ class Game {
     this.render();
     this.renderBoard(st.session.board.map((c) => c.uid));
     this.save();
+    backdropMood(st.session.boss ? 'boss' : 'calm', { stir: 0.4 });
+    if (st.session.boss) { M.stamp($('dl-tag')); M.ringAround($('dl-art'), '#ff5468', 2.2); }
     this.checkDeadEnd();
   }
 
@@ -192,6 +215,7 @@ class Game {
 
   openFloor() {
     S.openShop(this.state);
+    backdropMood('floor', { stir: 0.3 });
     this.render();
     OV.shopScreen(this);
     this.hint('floor', 'Brokers trigger left to right — drag them on your desk to change the order.');
@@ -207,6 +231,7 @@ class Game {
       st.declaredWin = true;
       return this.winScreen();
     }
+    backdropMood('calm');
     OV.deadlineSelect(this);
     this.save();
   }
@@ -239,22 +264,34 @@ class Game {
           <button class="btn ghost" id="w-new">NEW RUN</button>
         </div>
       </div>`, { dismissable: false, width: '600px' });
-    sheet.querySelector('#w-endless').onclick = () => { OV.closeOverlay(); OV.deadlineSelect(this); };
+    $('app').classList.add('cashed-out');
+    backdropMood('bigwin', { stir: 1 });
+    M.stamp(sheet.querySelector('.go-title'));
+    M.confetti(150);
+    sheet.querySelector('#w-endless').onclick = () => { this.calmRoom(); OV.closeOverlay(); OV.deadlineSelect(this); };
     sheet.querySelector('#w-new').onclick = () => this.startRun(null);
   }
 
   gameOver(reason = null) {
     this.recordCareer();
     sfx.fail(); shake(true); this.clearSave();
+    $('app').classList.add('liquidated');
+    backdropMood('loss', { stir: 0.8 });
     setTimeout(() => OV.gameOverScreen(this, false, reason), 700);
+  }
+
+  /** Back to an ordinary room after a run's verdict: colour, and a calm backdrop. */
+  calmRoom() {
+    $('app').classList.remove('liquidated', 'cashed-out');
+    backdropMood('calm');
   }
 
   // ---------------------------------------------------------------- rendering
   render() {
     const st = this.state;
     if (!st) return;
-    $('t-week').textContent = st.week;
-    $('t-deadline').textContent = `${Math.min(3, st.deadlineIndex + 1)} / 3`;
+    setNum($('t-week'), st.week, 1.3);
+    setNum($('t-deadline'), `${Math.min(3, st.deadlineIndex + 1)} / 3`);
     const cashEl = $('t-cash');
     const cashTxt = money(st.cash);
     if (cashEl.textContent !== cashTxt) {
@@ -266,7 +303,7 @@ class Game {
     // without any of them having to remember to.
     if (this.lastCash != null && st.cash !== this.lastCash) FX.cashDelta(st.cash - this.lastCash);
     this.lastCash = st.cash;
-    $('t-slots').textContent = `${S.slotsUsed(st)}/${st.mods.slots}`;
+    setNum($('t-slots'), `${S.slotsUsed(st)}/${st.mods.slots}`);
 
     this.renderDeadlineCard();
     this.renderBrokers();
@@ -304,18 +341,19 @@ class Game {
       bd.innerHTML = `<b>BOSS RULE</b>${boss.blurb}${s.bossGraceLeft > 0 ? '<br><span style="color:var(--green)">(waived this trade)</span>' : ''}`;
     } else bd.hidden = true;
     $('dl-progress-fill').style.width = Math.min(100, (s.profit / s.quota) * 100) + '%';
-    $('dl-profit').textContent = '$' + bignum(s.profit);
+    setNum($('dl-profit'), '$' + bignum(s.profit), 1.2);
   }
 
   renderResources() {
     const st = this.state, s = st?.session;
-    const set = (id, v, warn) => { const el = $(id); el.textContent = v; el.classList.toggle('zero', !!warn && v === 0); };
+    const set = (id, v, warn) => { const el = $(id); setNum(el, v); el.classList.toggle('zero', !!warn && v === 0); };
     set('r-trades', s ? s.tradesLeft : st.mods.trades, true);
     set('r-sweeps', s ? s.discardsLeft : st.mods.discards, true);
     set('r-greens', s ? s.greens : 0);
     set('r-streak', s ? s.greenStreak : 0);
-    $('r-book').textContent = st.book.length;
-    $('r-draw').textContent = s ? s.drawPile.length : st.book.length;
+    $('r-streak').classList.toggle('hot', !!s && s.greenStreak >= 3);
+    setNum($('r-book'), st.book.length);
+    setNum($('r-draw'), s ? s.drawPile.length : st.book.length, 0.6);
   }
 
   /**
@@ -396,6 +434,7 @@ class Game {
   renderBrokers() {
     const st = this.state;
     const row = $('broker-row');
+    const before = M.positions(row);
     row.innerHTML = '';
     $('broker-count').textContent = `${S.slotsUsed(st)}/${st.mods.slots}`;
     st.brokers.forEach((b) => {
@@ -430,8 +469,10 @@ class Game {
       el.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         const name = BROKERS[b.key].name;
+        const snap = M.snapshot(el);
         const r = S.sellBroker(st, b.uid);
-        if (r.ok) { sfx.cash(); toast(`Sold ${name} for $${r.value}`, 'good'); this.render(); this.save(); }
+        if (r.ok) { sfx.cash(); toast(`Sold ${name} for $${r.value}`, 'good'); this.render(); this.save(); M.spinAway(snap); }
+        else M.nope(el);
       });
       row.appendChild(el);
     });
@@ -439,6 +480,7 @@ class Game {
       const e = document.createElement('div'); e.className = 'slot-empty';
       e.style.setProperty('--i', i); row.appendChild(e);
     }
+    M.glide(row, before);
   }
 
   renderConsumables() {
@@ -451,7 +493,9 @@ class Game {
       el.style.setProperty('--i', st.consumables.indexOf(c));
       el.onclick = () => this.useConsumable(c);
       el.addEventListener('contextmenu', (e) => {
-        e.preventDefault(); S.sellConsumable(st, c.uid); sfx.cash(); this.render(); this.save();
+        e.preventDefault();
+        const snap = M.snapshot(el);
+        S.sellConsumable(st, c.uid); sfx.cash(); this.render(); this.save(); M.spinAway(snap);
       });
       row.appendChild(el);
     });
@@ -463,6 +507,7 @@ class Game {
   renderBoard(animateNew = []) {
     const st = this.state, s = st?.session;
     const row = $('board-row');
+    const before = M.positions(row);
     row.innerHTML = '';
     this.renderPiles();
     if (!s) return;
@@ -521,6 +566,7 @@ class Game {
     });
     this.fitBoard();
     if (animateNew.length) this.dealIn(row, animateNew);
+    else M.glide(row, before);
   }
 
   /**
@@ -640,6 +686,18 @@ class Game {
     this.kickPile('swept-pile');
   }
 
+  /**
+   * The placement on the board would clear the quota if the call is right: the
+   * projected P/L catches fire. It is the one number worth knowing before you
+   * press the button, so it should not have to be worked out.
+   */
+  markClears(on) {
+    const el = $('sc-pl')?.parentElement;
+    if (!el || el.classList.contains('clears') === on) return;
+    el.classList.toggle('clears', on);
+    if (on) { M.bump($('sc-pl'), 1.3); sfx.ignite(); }
+  }
+
   updatePreview() {
     const st = this.state, s = st?.session;
     const sel = s ? S.selectedCandles(st) : [];
@@ -649,6 +707,7 @@ class Game {
       $('sc-volume').textContent = '0';
       $('sc-leverage').textContent = '0';
       $('sc-pl').textContent = '$0';
+      this.markClears(false);
       $('conviction-label').innerHTML = '<span style="color:var(--ink-faint)">place candles to read conviction</span>';
       this.updateActions();
       return;
@@ -660,6 +719,7 @@ class Game {
     this.setChip('sc-volume', bignum(pv.volume));
     this.setChip('sc-leverage', bignum(pv.leverage));
     $('sc-pl').textContent = '$' + bignum(pv.pl);
+    this.markClears(pv.pl >= s.quota - s.profit);
 
     if (st.mods.noConviction) {
       $('conviction-label').innerHTML = '<span style="color:var(--red)">CONVICTION SUPPRESSED</span>';
@@ -722,6 +782,8 @@ class Game {
     want ? sfx.select() : sfx.deselect();
     this.renderBoard();
     this.updatePreview();
+    const el = $('board-row').querySelector(`[data-uid="${uid}"]`);
+    if (want) { M.pop(el); if (s.selected.length === 5) M.ringAround(el, '#40d9ff', 1.2); } else M.dip(el);
     return true;
   }
 
@@ -809,6 +871,7 @@ class Game {
     this.busy = true;
     this.updateActions();
     hideTip();
+    backdropStir(0.25);
 
     // Throw the doomed candles onto the swept pile before the replacements
     // deal in off the deck, so the board is visibly emptied and refilled.
@@ -849,9 +912,16 @@ class Game {
       return OV.bookScreen(this, () => OV.closeOverlay(), 'all',
         { inst, onDone: () => { OV.closeOverlay(); this.render(); this.save(); } });
     }
+    const card = $('consumable-row').querySelector(`[data-uid="${inst.uid}"]`);
+    const snap = M.snapshot(card);
     const r = S.useConsumable(st, inst.uid, selected);
-    if (r.ok) { sfx.buy(); toast(r.msg, 'good'); this.render(); this.save(); this.checkDeadEnd(); }
-    else { sfx.err(); toast(r.msg, 'bad'); }
+    if (r.ok) {
+      sfx.buy(); toast(r.msg, 'good'); this.render(); this.save();
+      const fam = ALL_CONSUMABLES[inst.key]?.family;
+      M.spend(snap, selected.length ? $('board-row') : $('broker-row'),
+        fam === 'contract' ? '#40d9ff' : fam === 'rumor' ? '#ff5cf0' : '#a98bff');
+      this.checkDeadEnd();
+    } else { sfx.err(); M.nope(card); toast(r.msg, 'bad'); }
   }
 
   // ---------------------------------------------------------------- the trade
@@ -914,6 +984,10 @@ class Game {
         anchor.classList.remove('scoring', 'trigger');
         void anchor.offsetWidth;
         anchor.classList.add(step.brokerUid ? 'trigger' : 'scoring');
+        if (step.brokerUid) {
+          const mult = step.kind === 'xleverage' || step.kind === 'xvolume';
+          M.ringAround(anchor, step.kind === 'money' ? '#ffd24a' : mult ? '#ff5cf0' : step.kind.includes('olume') ? '#40d9ff' : '#ff5468', mult ? 1.9 : 1.4);
+        }
       }
 
       const isVol = VOL_KINDS.includes(step.kind);
@@ -976,6 +1050,7 @@ class Game {
       res.correct ? 'green' : 'red');
     sfx.crescendo(tier);
     if (tier >= 2) shake(tier >= 3);
+    backdropMood(!res.correct ? 'loss' : tier >= 3 ? 'bigwin' : 'win', { stir: res.correct ? 0.35 + tier * 0.16 : 0.5, fade: 2.6 });
     {
       const r = $('play-area').getBoundingClientRect();
       particles(r.left + r.width / 2, r.top + r.height / 2,
@@ -1046,6 +1121,9 @@ class Game {
     this.cashFrom(['sc-volume', 'sc-leverage'], power);
     for (let i = 0; i < Math.round(2 + power * 6); i++) setTimeout(() => sfx.coin(i), 120 + i * 90);
     FX.burst('QUOTA MET', 'CLOSE THE BOOKS', 'gold');
+    backdropMood('bigwin', { stir: 1, fade: 3.5 });
+    M.ringAround($('dl-progress'), '#ffd24a', 1.3);
+    M.bump($('dl-profit'), 1.4);
     await sleep(900);
     const payout = S.finishDeadline(this.state);
     this.render();
@@ -1236,6 +1314,9 @@ class Game {
 // so they have to be in the page before the first frame, not the first picture.
 applyStyleFlags();
 ensureArtDefs();
+if (STYLE.flags.includes('marble')) initBackdrop();
+M.initTilt();
+M.initPress();
 const game = new Game();
 window.game = game;
 SC.homeScreen(game);

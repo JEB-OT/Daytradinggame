@@ -211,21 +211,28 @@ export class ChartView {
 
       const col = up ? UP : DOWN;
       const lit = up ? UP_LIT : DOWN_LIT;
-      ctx.globalAlpha = isLast ? 1 : 0.5 + 0.5 * (i / view.length);
+      ctx.globalAlpha = isLast ? 1 : 0.62 + 0.38 * (i / view.length);
+      const big = bw >= 6;
 
-      // wick: a slightly crooked stroke in the candle's own light colour
-      const wx = x + (hash(seed) - 0.5) * 0.8;
-      ctx.strokeStyle = lit; ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.moveTo(wx, yOf(high)); ctx.lineTo(x + (hash(seed + 1) - 0.5) * 0.8, yOf(low)); ctx.stroke();
+      // wick: a slightly crooked line inked in pen, its own light colour inside
+      const wx = x + (hash(seed) - 0.5) * 0.8, wx2 = x + (hash(seed + 1) - 0.5) * 0.8;
+      ctx.beginPath(); ctx.moveTo(wx, yOf(high)); ctx.lineTo(wx2, yOf(low));
+      if (big) { ctx.strokeStyle = PEN; ctx.lineWidth = 3.6; ctx.stroke(); }
+      ctx.strokeStyle = lit; ctx.lineWidth = 1.6; ctx.stroke();
 
       // body: four corners each nudged a hair, so no two are quite square
       const yo = yOf(open), yc = yOf(close);
       const top = Math.min(yo, yc), bh = Math.max(2, Math.abs(yc - yo));
       const j = (k) => (hash(seed + k) - 0.5) * Math.min(1.4, bw * 0.12);
       const l = x - bw / 2, r = x + bw / 2, b = top + bh;
-      ctx.beginPath();
-      ctx.moveTo(l + j(2), top + j(3)); ctx.lineTo(r + j(4), top + j(5));
-      ctx.lineTo(r + j(6), b + j(7)); ctx.lineTo(l + j(8), b + j(9)); ctx.closePath();
+      const body = () => {
+        ctx.beginPath();
+        ctx.moveTo(l + j(2), top + j(3)); ctx.lineTo(r + j(4), top + j(5));
+        ctx.lineTo(r + j(6), b + j(7)); ctx.lineTo(l + j(8), b + j(9)); ctx.closePath();
+      };
+      // the same hard lip in pen every card and panel stands on
+      if (big) { ctx.save(); ctx.translate(0, 2.5); body(); ctx.fillStyle = PEN; ctx.fill(); ctx.restore(); }
+      body();
       if (isLast) { ctx.shadowColor = col; ctx.shadowBlur = f && f.candle === c ? 20 : 12; }
       ctx.fillStyle = col; ctx.fill();
       ctx.shadowBlur = 0;
@@ -233,7 +240,18 @@ export class ChartView {
         ctx.fillStyle = 'rgba(255,255,255,.38)';
         ctx.fillRect(l + 1, top + 1, Math.max(1, bw * 0.26), bh - 2);
       }
-      ctx.strokeStyle = PEN; ctx.lineWidth = bw >= 6 ? 1.6 : 1;
+      // a tall body takes pen hatching across its foot, like the card art
+      if (big && bh >= 14) {
+        ctx.save(); ctx.clip();
+        ctx.strokeStyle = 'rgba(10,14,26,.34)'; ctx.lineWidth = 1.1;
+        const hy = b - Math.min(bh * 0.34, 18);
+        ctx.beginPath();
+        for (let hx = l - bh; hx < r + 4; hx += 3.6) { ctx.moveTo(hx, b + 1); ctx.lineTo(hx + (b - hy) + 2, hy - 1); }
+        ctx.stroke();
+        ctx.restore();
+        body();
+      }
+      ctx.strokeStyle = PEN; ctx.lineWidth = big ? 2.3 : 1;
       ctx.stroke();
     });
     ctx.globalAlpha = 1;

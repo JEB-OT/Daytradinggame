@@ -8,6 +8,7 @@ import { BOSSES, BOSS_KEYS } from '../game/bosses.js';
 import { LICENSES, LICENSE_KEYS } from '../game/licenses.js';
 import { artSvg, consumableArt } from './art.js';
 import { sfx, toast } from './fx.js';
+import * as M from './motion.js';
 import { BINDABLE, bindProblem, keyLabel } from '../engine/keys.js';
 import { VERSION, VERSION_NAME, CHANGELOG } from '../engine/version.js';
 
@@ -24,6 +25,10 @@ export function saveCareer(patch) {
 // ---------------------------------------------------------------------------
 // HOME — the hub. Everything is reachable without starting a run.
 // ---------------------------------------------------------------------------
+/** The wordmark, one letter to a box, so each can bob on its own beat. */
+const letters = (word, from) => [...word].map((ch, i) => `<i style="--k:${from + i}">${ch}</i>`).join('');
+let titleShown = false;
+
 export function homeScreen(game) {
   const hasSave = game.hasSave();
   const c = career();
@@ -33,7 +38,7 @@ export function homeScreen(game) {
     <div class="home">
       <div class="home-hero">
         <div class="home-tape" id="home-tape" aria-hidden="true"></div>
-        <div class="wordmark">MARGIN<em>CALL</em></div>
+        <div class="wordmark">${letters('MARGIN', 0)}<em>${letters('CALL', 6)}</em></div>
         <div class="home-tag">HIT THE QUOTA OR GET LIQUIDATED</div>
       </div>
 
@@ -81,6 +86,13 @@ export function homeScreen(game) {
       <div class="home-version" id="home-version" title="Click for what changed">
         <b>${VERSION}</b> &middot; ${VERSION_NAME}</div>
     </div>`, { dismissable: false, width: '900px' });
+  // The first time the title comes up, the wordmark is lettered in one stroke at a time.
+  if (!titleShown && !M.calm()) {
+    sheet.querySelectorAll('.wordmark i').forEach((el, k) => el.animate([
+      { scale: '0', opacity: 0 }, { scale: '1.35', opacity: 1, offset: 0.6 }, { scale: '1', opacity: 1 },
+    ], { duration: 420, delay: 140 + k * 48, easing: 'cubic-bezier(.3,.8,.3,1.2)', fill: 'backwards' }));
+  }
+  titleShown = true;
 
   // a slow idle tape of candles behind the wordmark
   const tape = sheet.querySelector('#home-tape');

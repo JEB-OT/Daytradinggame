@@ -7,6 +7,77 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.12.0 — Showtime
+
+*2026-11-04*
+
+The game gets a new coat of ink and learns to move. Every change to the look won a head-to-head
+round in the new Art Lab against what was there before. The whole record, with the pictures, is in
+[docs/art-ab.md](docs/art-ab.md).
+
+### The look
+
+- **Heavier ink.** The card art's pen line is a third heavier, with less wobble and a stronger cel
+  band, so a broker still reads at desk size. Chosen over thin ink, a rim light, halftone and flat
+  shadow
+- **Punchier colour.** Every palette is a little more saturated and a touch lighter. Chosen over
+  the palette as drawn and a muted, print-like version
+- **Bigger pictures.** The art fills the card: 60 px on the desk (was 46), 100 px on the Floor
+  (was 70)
+- **A marbled backdrop.** Behind the desk is a sheet of marbled endpaper, flat bands of navy ink
+  with a pen line wherever two meet, drifting like ink on water. It answers the game without ever
+  getting loud: a winning trade stirs it and warms it green, a losing one cools it red, a boss
+  tints it, the Floor turns it violet. It is a small shader capped at 30 fps that stops when the
+  tab is hidden or motion is off, and it never costs the game its frame rate. Without a real GPU
+  (hardware acceleration off) it is drawn once and held still. With one, it watches the page's
+  frame rate and steps itself down (fewer pixels, then fewer frames, then still) the moment the
+  page starts to struggle
+- **Inked chart candles.** The candles on the chart now stand on the same hard ink lip as every
+  card and panel, with pen-inked wicks and hatching across the foot of tall bodies
+
+### The motion
+
+- **Cards lean toward the pointer** and a hard cel glint slides across them: candles, brokers,
+  Charts, pack cards, the Floor's stock, deadline cards, the piles. Each card also makes a tiny
+  paper tick as the pointer reaches it
+- **Buttons give when pressed**, squashing and springing back with a ring of ink where you pressed
+- **Placing a candle** makes it jump and land with a squash; taking it out makes it dip. The fifth
+  candle rings
+- **Screens deal their cards in** one after another instead of appearing all at once. A screen
+  redrawn in place (a buy, a sell, a reroll) stays put and keeps its scroll position, and a closed
+  screen fades and drops away
+- **Bought cards fly to your desk** along an arc and land with a ring. Pack picks do the same, and
+  a picked candle flies to the book
+- **Sold cards spin away**, shedding a ring of gold
+- **Rerolling the Floor** turns its stock over, card by card
+- **Using a Chart** makes it lift, turn over and dive into the candles it acts on
+- **Sorting, arranging and reordering glide.** Cards slide to their new places instead of jumping
+  there, on the board and on the desk
+- **Dealt candles flip over** as they fly out of the deck
+- **Brokers ring when they fire**: cyan for Volume, red for Leverage, magenta for a multiplier,
+  gold for cash
+- **The projected P/L catches fire** when the placement on the board would clear the quota, with a
+  struck-match sound. A streak of three greens burns the same way
+- **Every number bumps when it changes**: week, deadline, desk, trades, sweeps, greens, streak,
+  book, deck and profit. The quota bar fills with a little overshoot
+- **The payout counts up**: each line lands with a coin, then the total rolls up to what you are
+  owed
+- **Verdicts are stamped on.** LIQUIDATED and CASHED OUT slam onto the sheet with a thud, the desk
+  behind a lost run drains of colour, and a won run rains hand-cut confetti. A boss deadline's
+  name is stamped onto the deadline card, and a new week's number onto the week screen
+- **The wordmark is lettered in** on the title screen, one letter at a time, and then bobs in a
+  wave
+- **Tooltips spring open** from the side they point at
+- Everything above stands down when motion is switched off in Settings or by the system's reduced
+  motion setting
+
+### Fixes
+
+- **Pack cards answer the pointer.** They were enlarged with an inline transform, which outranked
+  the hover rule, so they never grew or leaned on hover
+- **Nothing falls off a short window.** At about 700 px tall the left column ran 23 px past the
+  bottom edge and cut BOOK / TO DEAL in half. Below 760 px it now steps down one more size
+
 ## v1.11.1 — Quick Hands
 
 *2026-11-04*

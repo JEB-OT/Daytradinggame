@@ -10,11 +10,23 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.11.1';
-export const VERSION_NAME = 'Quick Hands';
+export const VERSION = 'v1.12.0';
+export const VERSION_NAME = 'Showtime';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.12.0',
+    name: 'Showtime',
+    notes: [
+      'A new look, picked head to head in the Art Lab: heavier ink, punchier colour, bigger card art',
+      'A marbled ink backdrop that drifts behind the desk and answers your trades',
+      'Cards lean toward the pointer and catch the light; buttons give when you press them',
+      'Screens deal their cards in; bought cards fly to your desk, sold ones spin away',
+      'The projected P/L catches fire when your placement would clear the quota',
+      'Plus: inked chart candles, stamped verdicts, confetti, gliding reorders and much more',
+    ],
+  },
   {
     version: 'v1.11.1',
     name: 'Quick Hands',

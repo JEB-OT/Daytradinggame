@@ -10,12 +10,12 @@ starting pieces, a shop full of things that break the rules, and a deadline that
 No build step and no dependencies — just Node and a browser.
 
 <!-- latest-version: the test suite checks this names the current VERSION, so a release can never leave the front page behind -->
-> **Latest version: v1.11.1 — Quick Hands** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
+> **Latest version: v1.12.0 — Showtime** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
 >
-> **A bug-hunting patch.** A reload mid-deadline now comes back to the same board, trade count and
-> tape instead of re-dealing it; a board no trade can be made from ends the run with the reason
-> instead of freezing; Mimic can copy any broker without turning the trade into `NaN`. Slide across
-> candles to place them all, and `npm start` keeps the game up to date by itself.
+> **A new look, and everything moves.** Heavier ink, punchier colour and bigger card art, each
+> chosen head to head in the [Art Lab](docs/art-ab.md), over a marbled backdrop that answers your
+> trades. Cards lean toward the pointer and catch the light, bought cards fly to your desk, the P/L
+> catches fire when a placement would clear the quota, and verdicts are stamped on.
 >
 > **Stuck on `You have uncommitted changes, so nothing was pulled`?** That is an old copy's updater
 > tripping over a stray file. Stop the game, then in the game folder run these three, once:
@@ -30,7 +30,7 @@ No build step and no dependencies — just Node and a browser.
 > browser, so it is kept; only edits to the game's own files, if you made any, are discarded. From
 > then on `npm start` keeps it up to date by itself.
 
-![The desk in v1.10: a hand-inked interface, candles as cream playing cards, the tape chalked onto a slate](docs/screenshot.jpg)
+![The desk in v1.12: a hand-inked interface over a marbled ink backdrop, candles as cream playing cards, the projected P/L on fire](docs/screenshot.jpg)
 
 ## Quick start
 
@@ -104,7 +104,7 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ```bash
 npm run update           # pull the latest version of the game (npm start does this too)
 npm run release          # tag and publish this version (maintainers)
-npm test                 # 233 assertions, no dependencies
+npm test                 # 235 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 npm run fuzz             # 600 seeded runs of random play, checked against the engine's invariants
 ```
@@ -236,7 +236,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.11.1** — Quick Hands | Everything below, plus: a reload mid-deadline comes back to the same board; no more frozen boards; Mimic copies any broker |
+| **v1.12.0** — Showtime | Everything below, plus: a marbled backdrop behind the desk, bigger card art, cards that lean toward the pointer, and the P/L on fire when a placement clears the quota |
+| v1.11.1 — Quick Hands | Everything below, plus: a reload mid-deadline comes back to the same board; no more frozen boards; Mimic copies any broker |
 | v1.11.0 — Quick Hands | Everything below, plus: slide across candles to place them all, `E` hover select, `X` deselect all — both rebindable in Settings |
 | v1.10.2 — Inked | Everything below, plus: a stray `package-lock.json` no longer stops an update |
 | v1.10.1 — Inked | Everything below, plus: `npm start` updates the game itself before opening it |
@@ -599,6 +600,22 @@ The pip is read off the broker's own definition rather than written down per car
 disagree with what the broker does. That makes it the quickest way to check desk order: the **+**s
 want to sit to the left of the **×**s.
 
+### Chosen head to head
+
+Every change to the look in v1.12 won a round in the **Art Lab** against what was there before.
+The lab draws the real game twice, side by side, in two art styles, staged into the same moment,
+and you pick the better one. The rounds and their pictures are in [docs/art-ab.md](docs/art-ab.md).
+Open the lab yourself at `http://localhost:8080/tools/artlab.html` while the game is running, or
+put `?artstyle=classic` on the game's address to play in the v1.11 look.
+
+### Everything moves
+
+Cards lean toward the pointer and catch the light. Buttons give under the finger. Screens deal
+their cards in, bought cards fly to the desk, sold ones spin away, and reorders glide. Brokers ring
+in the colour of what they add as they fire. The projected P/L catches fire when the placement
+would clear the quota. Behind it all, a marbled ink backdrop drifts and takes the mood of the room.
+Settings → Ambient Motion (or the system's reduced-motion setting) turns all of it off.
+
 ### One of each
 
 You can never employ the same broker twice, and the Floor never shows you the same broker twice
@@ -819,6 +836,7 @@ scripts/release-notes.mjs  pulls one version's section out of CHANGELOG.md
 src/styles.css        the whole look, and the ink outline every surface is drawn with
 src/fonts/            Bangers and Patrick Hand, with their OFL licences
 docs/screenshot.jpg   the picture at the top of this page
+docs/art-ab.md        the Art Lab's rounds: what was compared, what won, with pictures
 src/main.js           controller: input, placement order, scoring animation, screen flow
 src/engine/           seeded RNG, formatting, event bus, the version stamp, rebindable keys
 src/game/
@@ -833,8 +851,11 @@ src/game/
   state.js            run state, deadline flow, the deck/swept piles, the Floor, save/load
 src/ui/               canvas chart, particles/audio, candle components, overlays
   art.js              every card's illustration: the glyph library, frames and pips
+  artstyle.js         the look as knobs, and every style the Art Lab has judged
+  backdrop.js         the marbled ink backdrop (a small WebGL shader)
+  motion.js           lean and glint, presses, deal-ins, flights, stamps, confetti
 test/
-  run-tests.mjs       233 tests, no dependencies
+  run-tests.mjs       235 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
   fuzz.mjs            random play against the engine's invariants, saves included
 tools/
@@ -844,7 +865,7 @@ tools/
 ```
 
 ```bash
-npm test              # 233 assertions across formations, conviction, scoring, flow and content
+npm test              # 235 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 npm run fuzz          # 600 runs of random play; a failure prints the SEED= that replays it
 ```
