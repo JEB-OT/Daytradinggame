@@ -1,6 +1,6 @@
 {
   "name": "margin-call",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "private": true,
   "description": "MARGIN CALL \u2014 a 2D roguelike day-trading deckbuilder. Hit the daily quota or get liquidated.",
   "type": "module",
@@ -13,7 +13,8 @@
     "notes": "node scripts/release-notes.mjs",
     "test": "node test/run-tests.mjs",
     "sim": "node test/sim.mjs 200",
-    "fuzz": "node test/fuzz.mjs 600"
+    "fuzz": "node test/fuzz.mjs 600",
+    "hosted": "node server/hosted.mjs"
   },
   "keywords": [
     "roguelike",

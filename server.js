@@ -51,6 +51,13 @@ function safePath(urlPath) {
 }
 
 const server = createServer(async (req, res) => {
+  // The game asks whether it is the hosted version (server/hosted.mjs), which
+  // has leaderboards. This is the local one: say so, rather than answer 404.
+  if ((req.url || '').split('?')[0] === '/api/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ ok: true, game: 'margin-call', hosted: false }));
+    return;
+  }
   const file = safePath(req.url || '/');
   if (!file) { res.writeHead(403).end('Forbidden'); return; }
   try {

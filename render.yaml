@@ -1,0 +1,28 @@
+# Render Blueprint for the hosted version of MARGIN CALL (with leaderboards).
+#
+# Step-by-step setup: docs/hosting-on-render.md
+#
+# Render builds from this repository and redeploys by itself every time the
+# branch it watches changes — so each version merged here goes live on its own.
+# The leaderboards live in an Upstash Redis database (free), outside the
+# machine Render rebuilds, so a deploy never touches them.
+services:
+  - type: web
+    name: margin-call
+    runtime: node
+    plan: free
+    # The game has no dependencies and no build step.
+    buildCommand: echo "Nothing to build"
+    startCommand: node server/hosted.mjs
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Render makes up a long random value; it unlocks /api/admin/* (remove, ban, backup).
+      - key: ADMIN_TOKEN
+        generateValue: true
+      # Paste these from your Upstash database when Render asks (sync: false = you fill it in).
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false

@@ -10,12 +10,12 @@ starting pieces, a shop full of things that break the rules, and a deadline that
 No build step and no dependencies — just Node and a browser.
 
 <!-- latest-version: the test suite checks this names the current VERSION, so a release can never leave the front page behind -->
-> **Latest version: v1.13.0 — Fast Lane** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
+> **Latest version: v1.14.0 — Going Live** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
 >
-> **Run it your way.** Settings → Performance has **Graphics** (HIGH / MEDIUM / LOW — the lower two
-> can double the frame rate on a weak machine), **Game speed** up to **8×** (also the new button in
-> the top bar), **Animations** (FULL / REDUCED / OFF, where every trade resolves at once) and an FPS
-> counter. All of it on top of v1.12's new look, chosen in the [Art Lab](docs/art-ab.md).
+> **Play it online, with leaderboards.** The game can now be hosted on Render for free, with three
+> boards everyone can see: THE CAMPAIGN, ENDLESS and OVERKILL. Each trader holds one place per
+> board, and every update redeploys it without touching the scores. Set it up in 15 minutes with
+> [docs/hosting-on-render.md](docs/hosting-on-render.md).
 >
 > **Stuck on `You have uncommitted changes, so nothing was pulled`?** That is an old copy's updater
 > tripping over a stray file. Stop the game, then in the game folder run these three, once:
@@ -99,14 +99,31 @@ In game: `?` for the rules, `Esc` for the menu, and hover **anything** to see ex
 npm start -- 3000        # or:  PORT=3000 npm start
 ```
 
+### Play online, with leaderboards
+
+The same game can be put on the internet with **online leaderboards**. Render runs it for free
+and redeploys it on every update. An Upstash database keeps the scores safe through those
+updates. The whole setup, click by click, is in **[docs/hosting-on-render.md](docs/hosting-on-render.md)**.
+
+| Board | Ranks |
+|---|---|
+| **THE CAMPAIGN** | The biggest single trade booked in weeks 1–8 |
+| **ENDLESS** | The biggest single trade booked from week 9 on |
+| **OVERKILL** | The most a quota was ever buried by (profit ÷ quota in one deadline) |
+
+Every trader holds **one place per board**. Beating your best moves it up, and never adds a
+second. To try the hosted version on your own computer, run `npm run hosted` and open
+http://localhost:10000.
+
 ### Other commands
 
 ```bash
 npm run update           # pull the latest version of the game (npm start does this too)
 npm run release          # tag and publish this version (maintainers)
-npm test                 # 238 assertions, no dependencies
+npm test                 # 249 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
 npm run fuzz             # 600 seeded runs of random play, checked against the engine's invariants
+npm run hosted           # the hosted version, with leaderboards, at http://localhost:10000
 ```
 
 ---
@@ -236,7 +253,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.13.0** — Fast Lane | Everything below, plus: Graphics HIGH / MEDIUM / LOW, game speed up to 8× (button in the top bar), Animations FULL / REDUCED / OFF, and an FPS counter |
+| **v1.14.0** — Going Live | Everything below, plus: a hosted version for Render with online leaderboards (CAMPAIGN, ENDLESS, OVERKILL), one place per trader per board |
+| v1.13.0 — Fast Lane | Everything below, plus: Graphics HIGH / MEDIUM / LOW, game speed up to 8× (button in the top bar), Animations FULL / REDUCED / OFF, and an FPS counter |
 | v1.12.0 — Showtime | Everything below, plus: a marbled backdrop behind the desk, bigger card art, cards that lean toward the pointer, and the P/L on fire when a placement clears the quota |
 | v1.11.1 — Quick Hands | Everything below, plus: a reload mid-deadline comes back to the same board; no more frozen boards; Mimic copies any broker |
 | v1.11.0 — Quick Hands | Everything below, plus: slide across candles to place them all, `E` hover select, `X` deselect all — both rebindable in Settings |
@@ -849,6 +867,12 @@ src/styles.css        the whole look, and the ink outline every surface is drawn
 src/fonts/            Bangers and Patrick Hand, with their OFL licences
 docs/screenshot.jpg   the picture at the top of this page
 docs/art-ab.md        the Art Lab's rounds: what was compared, what won, with pictures
+docs/hosting-on-render.md  putting the game online with leaderboards, step by step
+render.yaml           the Render Blueprint for the hosted version
+server/
+  hosted.mjs          the hosted server: the game plus the leaderboard API
+  leaderboard.mjs     the boards and their rules (one place per trader per board)
+  store.mjs           where they are kept: Upstash, a disk, or a local file
 src/main.js           controller: input, placement order, scoring animation, screen flow
 src/engine/           seeded RNG, formatting, event bus, the version stamp, rebindable keys, settings
 src/game/
@@ -861,6 +885,7 @@ src/game/
   bosses.js           29 boss rules
   market.js           tape simulation, regimes, the signal
   state.js            run state, deadline flow, the deck/swept piles, the Floor, save/load
+src/net/online.js     the game's side of the leaderboards: finding the server, your trader, posting bests
 src/ui/               canvas chart, particles/audio, candle components, overlays
   art.js              every card's illustration: the glyph library, frames and pips
   artstyle.js         the look as knobs, and every style the Art Lab has judged
@@ -868,9 +893,10 @@ src/ui/               canvas chart, particles/audio, candle components, overlays
   motion.js           lean and glint, presses, deal-ins, flights, stamps, confetti, the FPS counter
   tempo.js            the game speed setting, applied to every wait and one-shot animation
 test/
-  run-tests.mjs       238 tests, no dependencies
+  run-tests.mjs       249 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
   fuzz.mjs            random play against the engine's invariants, saves included
+  hosted-tests.mjs    the leaderboards, the stores and the hosted server, end to end
 tools/
   monkey.mjs          drives the real game in a browser at random (needs Playwright)
   artlab.html         the Art Lab: the game twice, in two art styles, to pick between
@@ -878,7 +904,7 @@ tools/
 ```
 
 ```bash
-npm test              # 238 assertions across formations, conviction, scoring, flow and content
+npm test              # 249 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
 npm run fuzz          # 600 runs of random play; a failure prints the SEED= that replays it
 ```

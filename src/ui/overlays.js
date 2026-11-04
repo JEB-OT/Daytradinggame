@@ -1019,6 +1019,7 @@ export function menuScreen(game, back) {
         <button class="btn wide ghost" id="m-run">RUN INFO</button>
         <button class="btn wide ghost" id="m-comp">COMPENDIUM</button>
         <button class="btn wide ghost" id="m-gloss">GLOSSARY</button>
+        ${document.documentElement.dataset.online ? '<button class="btn wide ghost" id="m-lb">LEADERBOARDS</button>' : ''}
         <button class="btn wide ghost" id="m-settings">SETTINGS &amp; KEYS</button>
         <button class="btn wide ghost" id="m-mute">${game.muted ? 'UNMUTE' : 'MUTE'}</button>
         <button class="btn wide danger" id="m-quit">ABANDON RUN</button>
@@ -1031,6 +1032,7 @@ export function menuScreen(game, back) {
   sheet.querySelector('#m-comp').onclick = () => game.openCompendium(() => menuScreen(game, back));
   sheet.querySelector('#m-gloss').onclick = () => game.openGlossary(() => menuScreen(game, back));
   sheet.querySelector('#m-settings').onclick = () => game.openSettings(() => menuScreen(game, back));
+  sheet.querySelector('#m-lb')?.addEventListener('click', () => game.openLeaderboards(() => menuScreen(game, back)));
   sheet.querySelector('#m-mute').onclick = () => { game.toggleMute(); menuScreen(game, back); };
   sheet.querySelector('#m-quit').onclick = () => game.toHome();
 }

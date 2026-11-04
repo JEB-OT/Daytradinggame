@@ -7,3 +7,5 @@ shots/
 # The game has no dependencies, but `npm update` / `npm install` still write a
 # lockfile — which used to read as a local change and stop every update.
 package-lock.json
+# Leaderboards kept by `npm run hosted` on your own computer (server/store.mjs).
+data/
