@@ -7,6 +7,49 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.11.1 — Quick Hands
+
+*2026-11-04*
+
+A bug-hunting patch. The engine was played by a fuzzer for over 20,000 runs and 8 million actions
+(normal play, random brokers and editions, and runs forced as deep as week 34), and the interface
+by a monkey that clicks, types, paints, drags, resizes and reloads the real game at random. Every
+crash, freeze and wrong number it turned up is fixed here.
+
+- **Reloading mid-deadline no longer re-deals it.** A save now holds the deadline in progress —
+  board, draw pile, placement, trades and sweeps left, profit, streaks, the tape and the chart — so
+  a reload comes back to exactly where you were. It used to drop you at the deadline list with a
+  fresh board and every trade back, which was both lost progress and a free re-roll
+- **Reloading after a payout comes back to the Floor.** A save made between the payout and the
+  Floor used to skip the Floor entirely. The Floor is seeded, so it comes back with the same stock
+- **No more frozen boards.** Two ways to be stranded with trades still in hand — a book thin enough
+  that the board runs empty, and a boss whose rule forbids every trade the board can make once your
+  sweeps are gone — used to leave nothing clickable. The run now ends, and the game-over screen
+  says why
+- **Mimic can copy any broker.** Copying a broker that keeps a running count (Guttering Flame and
+  the other stacking brokers) read a count Mimic does not have and turned the whole trade into
+  `NaN`. The copy now reads the original's count without ticking it a second time, and the tape
+  credits Mimic by name
+- **A big board fans in.** More candles than the table is wide (a +board broker, a fat Chart) used
+  to push the right side of the desk past the edge of the window, taking the swept pile and
+  **GO SHORT** with it. The cards now overlap like a hand of cards, only as much as they must, and
+  the one under the pointer comes up on top
+- **No more stuck tooltips.** Hover a candle and play the trade without moving the mouse, and its
+  tooltip used to stay on screen through the payout and the whole Floor — the card had left the
+  page under a still pointer, so nothing ever told the tooltip to go. It now goes with its card,
+  and whenever a new screen opens
+- **A deadline can no longer be cleared twice.** A trade key pressed during the "quota met" beat
+  played another trade on a deadline that was already won, and the second payout crashed the game
+- **Cards made right after a reload could share an id** with a card already in your book, so
+  selecting, moving or destroying one could act on the other. Ids now carry on from the save
+- **The Floor's board is gone once the deadline is.** Board-only Rumors used on the Floor could act
+  on the last deadline's leftover board
+- **Fixed a crash** from pressing Sweep's key on the title screen after closing the changelog with
+  `Esc`; `Esc` with nothing open now always comes back to the title
+- **For anyone hacking on the game:** `npm run fuzz` plays hundreds of seeded runs against the
+  engine's invariants (cash, ids, the board, saves that reload to the same game), and
+  `tools/monkey.mjs` drives the real game in a browser at random
+
 ## v1.11.0 — Quick Hands
 
 *2026-10-10*

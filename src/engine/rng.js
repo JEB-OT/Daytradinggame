@@ -62,6 +62,16 @@ export class RNG {
     const child = new RNG(this.seedString + '|' + tag + '|' + this.calls);
     return child;
   }
+
+  /** Everything needed to carry on from exactly this point after a reload. */
+  snapshot() { return { seed: this.seedString, state: this.state, calls: this.calls }; }
+
+  static restore(snap) {
+    const r = new RNG(snap.seed);
+    r.state = snap.state >>> 0;
+    r.calls = snap.calls | 0;
+    return r;
+  }
 }
 
 export function randomSeedString(len = 8) {

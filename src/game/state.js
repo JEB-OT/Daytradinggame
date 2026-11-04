@@ -7,7 +7,7 @@ import { LICENSES, availableLicenses } from './licenses.js';
 import { BOSSES, pickBoss } from './bosses.js';
 import { Market, pickRegime } from './market.js';
 import { scoreTrade } from './scoring.js';
-import { clamp } from '../engine/util.js';
+import { clamp, reserveIds } from '../engine/util.js';
 
 export const SAVE_KEY = 'margincall.save.v2';
 
@@ -561,7 +561,52 @@ export function playTrade(state, direction) {
 
   res.cleared = s.profit >= s.quota;
   res.busted = !res.cleared && s.tradesLeft <= 0;
+  res.deadEnd = res.cleared || res.busted ? null : deadEnd(state);
+  if (res.deadEnd) res.busted = true;
   return res;
+}
+
+/** Every way to place 1..max of these candles, smallest placements first. */
+function* placements(board, max) {
+  const n = board.length;
+  for (let k = 1; k <= Math.min(max, n); k++) {
+    const idx = Array.from({ length: k }, (_, i) => i);
+    while (true) {
+      yield idx.map((i) => board[i]);
+      let i = k - 1;
+      while (i >= 0 && idx[i] === n - k + i) i--;
+      if (i < 0) break;
+      idx[i]++;
+      for (let j = i + 1; j < k; j++) idx[j] = idx[j - 1] + 1;
+    }
+  }
+}
+
+/**
+ * Why this deadline can no longer be won, or null while the player still has a
+ * move.
+ *
+ * Two ways to be stranded with trades in hand, both of which used to leave the
+ * game sitting there with nothing clickable and no way out but abandoning the
+ * run: a book thin enough that the board runs empty (The Pyre, brokers that
+ * burn cards), and a boss rule that forbids every trade the board can make once
+ * the sweeps are gone. A boss check is only exhaustive in that last case — with
+ * a sweep left, sweeping is a move.
+ */
+export function deadEnd(state) {
+  const s = state.session;
+  if (!s || s.profit >= s.quota || s.tradesLeft <= 0) return null;
+  if (!s.board.length) return 'Your book ran dry — there is nothing left on the board to trade';
+  const bossDef = s.boss ? BOSSES[s.boss] : null;
+  if (s.discardsLeft > 0 || !bossDef?.beforeTrade || s.bossGraceLeft > 0) return null;
+  const keep = s.selected;
+  try {
+    for (const pick of placements(s.board, 5)) {
+      s.selected = pick.map((c) => c.uid);
+      if (!checkTradeLegal(state, 'LONG') || !checkTradeLegal(state, 'SHORT')) return null;
+    }
+  } finally { s.selected = keep; }
+  return `${bossDef.name} forbids every trade this board can make, and you have no sweeps left`;
 }
 
 export function sweepSelected(state) {
@@ -585,7 +630,7 @@ export function sweepSelected(state) {
   for (const b of state.brokers) BROKERS[b.key]?.discarded?.(state, candles, b);
   s.selected = [];
   refillBoard(state);
-  return { swept: candles.length, created };
+  return { swept: candles.length, created, deadEnd: deadEnd(state) };
 }
 
 /**
@@ -693,6 +738,14 @@ export function finishDeadline(state) {
   slot.done = true;
   const payout = { total: cash, lines, profit: s.profit, quota: s.quota, greens: s.greens, reds: s.reds, bestStreak: s.bestStreak };
   state.lastPayout = payout;
+  // The deadline is over, so its board is gone. Leaving the session alive
+  // until the Floor closed let board-only Rumors act on an invisible leftover
+  // board from the shop, and the book still split itself into deck / board /
+  // swept as if a deadline were running.
+  state.session = null;
+  // Between the payout and the Floor. A save made here comes back to the Floor
+  // (openShop is seeded, so it is the same Floor) instead of skipping it.
+  state.phase = 'payout';
   computeMods(state);
   return payout;
 }
@@ -1083,6 +1136,46 @@ export function useConsumable(state, uid, selectedUids = []) {
 }
 
 // ---------------------------------------------------------------------------
+const SESSION_FIELDS = ['boss', 'quota', 'profit', 'tradesLeft', 'discardsLeft', 'tradeIndex', 'greens', 'reds',
+  'greenStreak', 'bestStreak', 'lastDirection', 'lastFormation', 'stopLossUsed', 'earnedThisDeadline',
+  'bossGraceLeft', 'history', 'sortMode'];
+
+/**
+ * A deadline in progress, as plain data. Candles are saved as uids — every one
+ * on the board, in the deck or swept is a book candle, and the book is saved
+ * in full — so they come back as the very same objects.
+ */
+function packSession(s) {
+  const out = { slotIndex: s.slot.index };
+  for (const k of SESSION_FIELDS) out[k] = s[k];
+  out.board = s.board.map((c) => c.uid);
+  out.drawPile = s.drawPile.map((c) => c.uid);
+  out.swept = s.swept.map((c) => c.uid);
+  out.selected = s.selected.slice();
+  out.rng = s.rng.snapshot();
+  out.market = s.market.snapshot();
+  return out;
+}
+
+/** The inverse, or null if the save does not describe a session this book can hold. */
+function unpackSession(state, d) {
+  const slot = state.upcoming?.[d.slotIndex];
+  if (!slot || slot.done) return null;
+  const byUid = new Map(state.book.map((c) => [c.uid, c]));
+  const take = (ids) => (ids || []).map((u) => byUid.get(u));
+  const board = take(d.board), drawPile = take(d.drawPile), swept = take(d.swept);
+  if ([...board, ...drawPile, ...swept].some((c) => !c)) return null;
+  const s = { slot };
+  for (const k of SESSION_FIELDS) s[k] = d[k];
+  Object.assign(s, {
+    board, drawPile, swept,
+    selected: (d.selected || []).filter((u) => board.some((c) => c.uid === u)),
+    rng: RNG.restore(d.rng), market: Market.restore(d.market),
+    history: d.history || [], sortMode: d.sortMode || 'body',
+  });
+  return s;
+}
+
 export function serialize(state) {
   // The shop is plain data apart from its RNG, which is re-forked on load.
   const shop = state.shop ? { ...state.shop, rng: undefined } : null;
@@ -1093,6 +1186,10 @@ export function serialize(state) {
     formations: state.formations, discoveredFormations: state.discoveredFormations, permanent: state.permanent,
     seenBosses: state.seenBosses, pendingBonuses: state.pendingBonuses, stats: state.stats,
     upcoming: state.upcoming?.map((u) => ({ ...u })),
+    // A deadline in progress is saved too. Without it a reload restarted the
+    // deadline from nothing — the same deal against the same tape, so a bad
+    // trade could be undone by refreshing the page.
+    session: state.session && state.phase === 'trading' ? packSession(state.session) : null,
   });
 }
 
@@ -1109,11 +1206,26 @@ export function deserialize(json) {
   });
   if (typeof raw.rngState === 'number') { state.rng.state = raw.rngState; state.rng.calls = raw.rngCalls || 0; }
   state.session = null;
+  // Candles made from here on must not reuse a uid the save already holds.
+  reserveIds([
+    ...(state.book || []).map((c) => c.uid),
+    ...(raw.shop?.pack?.options || []).map((o) => o.candle?.uid),
+  ]);
 
+  const session = raw.phase === 'trading' && raw.session ? unpackSession(state, raw.session) : null;
   // A run saved on the Floor comes back to the Floor, with the same stock.
   if (raw.phase === 'shop' && raw.shop) {
     state.shop = { ...raw.shop, rng: state.rng.fork('shop-resume') };
     state.phase = 'shop';
+  } else if (session) {
+    // Mid-deadline: back to the same board, the same tape and the same count.
+    state.session = session;
+    state.shop = null;
+    state.phase = 'trading';
+  } else if (raw.phase === 'payout' && state.upcoming?.[state.deadlineIndex]?.done) {
+    // Paid out but not yet on the Floor: the caller opens it.
+    state.shop = null;
+    state.phase = 'payout';
   } else {
     state.shop = null;
     state.phase = 'select';

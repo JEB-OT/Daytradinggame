@@ -33,6 +33,22 @@ export function id() {
   return 'x' + id._n.toString(36);
 }
 
+/**
+ * Make sure id() never hands out a uid that is already taken.
+ *
+ * The counter lives in the page, so a reload starts it from nothing — while the
+ * save being loaded is full of candles numbered by the page before. Without
+ * this, the first candle a pack or a Chart made after loading got a uid some
+ * card in the book already had, and the game finds cards by uid: selecting,
+ * moving or destroying one could act on the other.
+ */
+export function reserveIds(uids) {
+  for (const u of uids) {
+    const m = /^x([0-9a-z]+)$/.exec(u || '');
+    if (m) id._n = Math.max(id._n || 0, parseInt(m[1], 36));
+  }
+}
+
 export function deepCopy(v) {
   return JSON.parse(JSON.stringify(v));
 }

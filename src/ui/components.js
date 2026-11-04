@@ -179,9 +179,23 @@ export function attachTip(el, htmlFn) {
   el.addEventListener('mousedown', hideTip);
 }
 
+// The card a tooltip is about can leave the page under a still pointer — a
+// trade files the placement away, a redraw replaces the board — and then no
+// mouseleave ever comes, so the tooltip used to sit there through the payout
+// and the whole Floor. While one is up, check its card is still there.
+let tipAnchor = null, tipWatch = 0;
+function watchTip() {
+  clearInterval(tipWatch);
+  tipWatch = setInterval(() => {
+    if (!tipAnchor || !tipAnchor.isConnected || !tipAnchor.getClientRects().length) hideTip();
+  }, 200);
+}
+
 export function showTip(anchor, html) {
   tipEl = tipEl || document.getElementById('tooltip');
   if (!tipEl) return;
+  tipAnchor = anchor;
+  watchTip();
   tipEl.innerHTML = html;
   tipEl.hidden = false;
   const a = anchor.getBoundingClientRect();
@@ -196,4 +210,6 @@ export function showTip(anchor, html) {
 export function hideTip() {
   tipEl = tipEl || document.getElementById('tooltip');
   if (tipEl) tipEl.hidden = true;
+  tipAnchor = null;
+  clearInterval(tipWatch);
 }
