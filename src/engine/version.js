@@ -10,11 +10,21 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.13.0';
-export const VERSION_NAME = 'Fast Lane';
+export const VERSION = 'v1.14.0';
+export const VERSION_NAME = 'Going Live';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.14.0',
+    name: 'Going Live',
+    notes: [
+      'A hosted version, for Render: the same game on the internet, with online leaderboards',
+      'Three boards — THE CAMPAIGN, ENDLESS and OVERKILL — and one place per trader on each',
+      'Bests post the moment they happen; rename yourself, or carry your trader to another device',
+      'The hosted game redeploys itself with every update, and the leaderboards survive it',
+    ],
+  },
   {
     version: 'v1.13.0',
     name: 'Fast Lane',

@@ -9,6 +9,7 @@ import { LICENSES, LICENSE_KEYS } from '../game/licenses.js';
 import { artSvg, consumableArt } from './art.js';
 import { sfx, toast } from './fx.js';
 import * as M from './motion.js';
+import * as Online from '../net/online.js';
 import { BINDABLE, bindProblem, keyLabel } from '../engine/keys.js';
 import { QUALITIES, SPEEDS, ANIMATIONS } from '../engine/settings.js';
 import { VERSION, VERSION_NAME, CHANGELOG } from '../engine/version.js';
@@ -69,6 +70,10 @@ export function homeScreen(game) {
             <span class="hc-art">📔</span>
             <span class="hc-body"><b>GLOSSARY</b><small>Every term the game uses</small></span>
           </button>
+          ${Online.online.ready ? `<button class="home-card online" id="h-leaderboards">
+            <span class="hc-art">🏆</span>
+            <span class="hc-body"><b>LEADERBOARDS</b><small>Every trader's best, on three boards</small></span>
+          </button>` : ''}
           <button class="home-card" id="h-settings">
             <span class="hc-art">🎛️</span>
             <span class="hc-body"><b>SETTINGS</b><small>Sound, speed and graphics</small></span>
@@ -119,6 +124,7 @@ export function homeScreen(game) {
   sheet.querySelector('#h-rules').onclick = () => { sfx.select(); helpScreen(game, false, () => homeScreen(game)); };
   sheet.querySelector('#h-compendium').onclick = () => { sfx.select(); compendiumScreen(game, () => homeScreen(game)); };
   sheet.querySelector('#h-glossary').onclick = () => { sfx.select(); glossaryScreen(game, () => homeScreen(game)); };
+  sheet.querySelector('#h-leaderboards')?.addEventListener('click', () => game.openLeaderboards(() => homeScreen(game)));
   sheet.querySelector('#h-settings').onclick = () => { sfx.select(); settingsScreen(game, () => homeScreen(game)); };
   sheet.querySelector('#home-version').onclick = () => { sfx.select(); changelogScreen(game, () => homeScreen(game)); };
 }

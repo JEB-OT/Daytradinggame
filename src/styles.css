@@ -115,7 +115,7 @@ body::after {
 :where(#topbar, .panel, .strip, #chart-wrap, .sheet, .tooltip, .toast, .dl-choice, .shop-slot,
        .home-play, .home-card, .comp-card, .cl, .cm, .gl, .set-row, .floor-earn, .pick-card,
        .cl-entry, .cl-note, .bk-row, #regime-badge, #signal-box, .strip-label, .fb-title, .act-badge,
-       .pack-lead, .pack-warn, .dl-boss, .go-reason,
+       .pack-lead, .pack-warn, .dl-boss, .go-reason, .lb-me, .lb-list, .update-banner,
        .btn, .act, .mini, .bk-tab, .comp-tab,
        .candle, .broker, .consumable, .pile-face,
        .chip, .dl-tag, .formation-level, .cd-order, .cd-tag, .cl-head i, .fly, .tape-row, .tape-call, .s-yield,
@@ -128,7 +128,7 @@ body::after {
 :where(#topbar, .panel, .strip, #chart-wrap, .sheet, .tooltip, .toast, .dl-choice, .shop-slot,
        .home-play, .home-card, .comp-card, .cl, .cm, .gl, .set-row, .floor-earn, .pick-card,
        .cl-entry, .cl-note, .bk-row, #regime-badge, #signal-box, .strip-label, .fb-title, .act-badge,
-       .pack-lead, .pack-warn, .dl-boss, .go-reason,
+       .pack-lead, .pack-warn, .dl-boss, .go-reason, .lb-me, .lb-list, .update-banner,
        .btn, .act, .mini, .bk-tab, .comp-tab,
        .candle, .broker, .consumable, .pile-face,
        .chip, .dl-tag, .formation-level, .cd-order, .cd-tag, .cl-head i, .fly, .tape-row, .tape-call, .s-yield,
@@ -162,7 +162,7 @@ body::after {
 }
 /* wells are cut into the surface, so the rim shades the top of the floor */
 :where(.res, .dl-progress, .floor-bar, .bk-total, .bk-base, .bk-tally, .bk-where, .stat-box, .hs, .tq-bar,
-       .tut-math, .tut-quota, .tc-side, .tape-call) {
+       .tut-math, .tut-quota, .tc-side, .tape-call, .lb-list) {
   --cel: transparent; --cel-h: 0px; --hatch-at: top; --hatch-h: 6px; --lip-y: 0px;
 }
 :where(.sheet) { --bw: 3px; --pw: 4px; --lip-y: 8px; --cel-h: 8px; --hatch-h: 14px; }
@@ -1723,6 +1723,52 @@ html[data-quality="low"] :is(.candle, .broker, .consumable, .shop-slot, .dl-choi
   background: rgba(5,9,20,.82); color: var(--ink-dim); border: 1px solid #2a3654;
 }
 #fps-meter.good { color: var(--green); } #fps-meter.ok { color: var(--amber); } #fps-meter.bad { color: var(--red); }
+
+/* ==========================================================================
+   LEADERBOARDS (src/ui/leaderboards.js) — the hosted version only
+   ========================================================================== */
+.lb-blurb { font-size: 15.5px; color: var(--ink-dim); margin: -6px 0 10px; }
+.lb-list { background: var(--ink-hole); border: 2px solid var(--rim); border-radius: var(--r-md); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.lb-row {
+  display: grid; grid-template-columns: 46px 1fr auto 60px; align-items: center; gap: 10px;
+  padding: 5px 10px 4px; border-radius: var(--r-sm); background: #15223d; font-size: 16px;
+}
+.lb-row:nth-child(odd) { background: #192a4a; }
+.lb-rank { font-family: var(--display); font-size: 20px; color: var(--ink-faint); text-shadow: var(--outline-sm); text-align: center; }
+.lb-who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-who i { font-style: normal; font-family: var(--display); font-size: 12px; letter-spacing: .1em; color: var(--pen); background: var(--cyan); border-radius: 4px; padding: 1px 5px 0; margin-left: 6px; }
+.lb-val { font-family: var(--display); font-size: 20px; color: var(--gold); text-shadow: var(--outline-sm); letter-spacing: .03em; }
+.lb-week { font-size: 13.5px; color: var(--ink-faint); text-align: right; }
+.lb-row.podium .lb-rank { font-size: 24px; }
+.lb-row.p1 .lb-rank { color: var(--gold); } .lb-row.p2 .lb-rank { color: #d9e4f5; } .lb-row.p3 .lb-rank { color: #e0965a; }
+.lb-row.you { background: #1d4a6a; box-shadow: inset 0 0 0 2px var(--cyan); }
+.lb-empty { padding: 18px 12px; text-align: center; color: var(--ink-dim); font-size: 16px; }
+.lb-empty.bad { color: #ff9aa6; }
+.lb-you { margin: 8px 2px 0; font-size: 15.5px; color: var(--ink-dim); }
+.lb-you b { color: #fff; font-family: var(--display); letter-spacing: .04em; font-weight: 400; }
+.lb-me { background: #1d2c4c; border: 2px solid var(--rim); border-radius: var(--r-md); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.lb-me-line { font-size: 17px; }
+.lb-me-line b { font-family: var(--display); font-weight: 400; font-size: 22px; letter-spacing: .05em; color: var(--cyan); text-shadow: var(--outline-sm); margin-left: 4px; }
+.lb-form { display: flex; gap: 10px; }
+.lb-form input {
+  flex: 1; min-width: 0; background: var(--ink-hole); border: 2px solid var(--rim); border-radius: var(--r-sm); color: var(--ink);
+  font-family: var(--hand); font-size: 17px; padding: 6px 10px 5px; box-shadow: 0 0 0 3px var(--pen);
+}
+.lb-form input:focus { outline: none; border-color: var(--cyan); }
+.lb-code summary { cursor: pointer; color: var(--ink-dim); font-size: 15.5px; }
+.lb-code-body { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; font-size: 15px; color: var(--ink-dim); }
+.lb-code-row { display: flex; gap: 8px; align-items: center; }
+.lb-code-row code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-family: var(--mono); font-size: 12.5px; color: var(--ink); background: var(--ink-hole); border-radius: 6px; padding: 6px 8px; }
+.btn.tiny { padding: 4px 12px 3px; font-size: 15px; }
+
+/* a newer version went live while you were playing */
+.update-banner {
+  position: fixed; left: 50%; top: 62px; translate: -50% 0; z-index: 8100;
+  display: flex; align-items: center; gap: 14px; padding: 8px 10px 8px 16px;
+  background: #1d3a2a; border: 2px solid var(--green); border-radius: var(--r-md); font-size: 16px;
+  box-shadow: 0 10px 26px rgba(0,0,0,.5);
+}
+.update-banner b { font-family: var(--display); font-weight: 400; color: var(--green); letter-spacing: .05em; }
 
 /* The marbled backdrop (src/ui/backdrop.js) sits under everything, the
    stylesheet's own background showing through only if it could not start. */

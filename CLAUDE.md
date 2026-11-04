@@ -11,6 +11,20 @@ styles side by side.
 whichever branch carries the newest version. In a working copy you are developing in, start the
 server with `MC_NO_UPDATE_CHECK=1 NO_OPEN=1 node server.js` so it leaves your branch alone.
 
+## Two versions, one game
+
+`npm start` (server.js) is the local version. `server/hosted.mjs` is the hosted one (Render, see
+`render.yaml` and `docs/hosting-on-render.md`). It serves the same files plus a leaderboard API,
+and the game switches its leaderboards on only where `/api/health` reports boards
+(`src/net/online.js`). Render redeploys from the default branch on every merge, so shipping a
+version ships both.
+
+- **Keep the API backward compatible.** An open tab running the previous build talks to the new
+  server until it reloads.
+- **Leaderboard data lives outside the deploy** (Upstash or `DATA_DIR`). Never change its shape
+  without a migration in `normalizeDoc` (`server/leaderboard.mjs`).
+- **Boards** are `BOARDS` there. The game posts to them with `postBest()` in `main.js`.
+
 ## Shipping a patch — every time, without being asked
 
 The owner wants every patch on GitHub the moment it is done: merged, released, and visible on

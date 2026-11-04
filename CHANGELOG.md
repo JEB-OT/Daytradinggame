@@ -7,6 +7,69 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.14.0 — Going Live
+
+*2026-11-04*
+
+The game can now be put on the internet, with leaderboards that every player can see. The setup
+takes about 15 minutes and costs nothing. It is all in
+[docs/hosting-on-render.md](docs/hosting-on-render.md).
+
+### Two versions, one game
+
+- **The local version** is the one `npm start` runs, unchanged. It has no leaderboards.
+- **The hosted version** is `server/hosted.mjs`. It serves the very same files and adds a small
+  leaderboard API. The game checks for it when it starts, and switches its leaderboards on only
+  where that API answers.
+- **Both always carry the same game:**
+  - `npm start` updates the local version before opening it.
+  - Render redeploys the hosted one by itself whenever a new version is merged.
+- **The leaderboards survive every update.** They are kept in an Upstash Redis database (free),
+  outside the machine Render rebuilds, or on a Render disk.
+- **Players with the game open hear about an update.** A banner says a newer version is live and
+  offers a reload. Their run is saved, mid-deadline included.
+
+### The leaderboards
+
+- **THE CAMPAIGN**: the biggest single trade booked in weeks 1–8.
+- **ENDLESS**: the biggest single trade booked from week 9 on.
+- **OVERKILL**: the most a quota was ever buried by, as profit ÷ quota in one deadline. A ×37.2
+  means you booked 37 times what you needed.
+- **One place per trader on each board.** Beating your own best moves your entry up to the new
+  score and replaces the old one; it never adds a second. Nobody can fill a board.
+- **No sign-up.** Each browser becomes a trader with a random name like *Bullish Otter 42*.
+  - Rename yourself in **LEADERBOARDS**. Names are unique, in any mix of upper and lower case.
+  - A **trader code** carries you to another device.
+  - The server only ever stores a hash of the code.
+- **Bests go in the moment they happen.** Closing the tab never loses one, and if the connection
+  drops the best waits in the browser and is sent later. A new best gets a toast with the place
+  it took: *New best on THE CAMPAIGN — #3 of 41*.
+- **LEADERBOARDS** is on the title screen and in the in-game menu, on the hosted version only.
+
+### Running it
+
+- **`render.yaml`** is a Render Blueprint. Point Render at the repository and paste in two values
+  from Upstash. The guide walks through every click.
+- **Admin token.** Render makes one up. It lets you remove an entry, ban a trader, export a backup
+  and restore it (`/api/admin/*`).
+- **Built-in protection.**
+  - Rate limits per address.
+  - Names checked: letters in any alphabet, numbers, a few marks.
+  - Only the game's own files are served; never the server's code, its data, or `.git`.
+  - Nothing is ever saved before the stored boards have loaded, so a database that is briefly
+    unreachable cannot be overwritten with an empty board.
+- **`npm run hosted`** runs the hosted version on your own computer at `localhost:10000`, keeping
+  its boards in `data/` (ignored by git).
+- **No dependencies, still.** The server is Node's standard library, and Upstash is spoken over
+  `fetch`.
+- **11 new tests:**
+  - the one-entry rule, names, bans, pruning and schema upgrades;
+  - the file store, and the Upstash protocol against a fake server;
+  - a failed load never overwriting saved data;
+  - the whole API end to end, including a restart that keeps the boards;
+  - what the server refuses to serve;
+  - the rate limit.
+
 ## v1.13.0 — Fast Lane
 
 *2026-11-04*

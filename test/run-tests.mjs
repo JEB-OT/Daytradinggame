@@ -2214,6 +2214,13 @@ t('a version can be asked for with or without the leading v', () => {
   eq(notesFor('1.3.0').heading, notesFor('v1.3.0').heading);
 });
 
+// The hosted version's tests start real servers, so they run one at a time, after the rest.
+// (They need Node 18's fetch; the game itself runs on older Node, so skip rather than fail there.)
+const { hostedTests } = await import('./hosted-tests.mjs');
+for (const [name, fn] of typeof fetch === 'function' ? hostedTests({ eq, ok }) : []) {
+  try { await fn(); pass++; } catch (e) { fail++; failures.push(`${name}: ${e.message}`); }
+}
+
 console.log('');
 console.log(`  ${pass} passing, ${fail} failing`);
 if (failures.length) {

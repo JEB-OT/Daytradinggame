@@ -20,6 +20,8 @@ import * as SC from './ui/screens.js';
 import { loadKeys, saveKeys } from './engine/keys.js';
 import { loadSettings, saveSettings, cycle, tempoOf, SPEEDS } from './engine/settings.js';
 import { setTempo, installTempo, wait, dur } from './ui/tempo.js';
+import * as Online from './net/online.js';
+import { leaderboardScreen } from './ui/leaderboards.js';
 
 const $ = (id) => document.getElementById(id);
 /**
@@ -303,6 +305,34 @@ class Game {
     $('app').classList.add('liquidated');
     backdropMood('loss', { stir: 0.8 });
     setTimeout(() => OV.gameOverScreen(this, false, reason), dur(700));
+  }
+
+  /**
+   * Post a result to the online leaderboards, if this is the hosted version
+   * and it beats the trader's best there. A new best gets a toast with the
+   * place it took.
+   */
+  postBest(board, value) {
+    const st = this.state;
+    if (!Online.online.ready || !st) return;
+    Online.record(board, value, { week: st.week, seed: st.seed }).then((r) => {
+      if (!r?.improved) return;
+      const title = Online.online.health?.boards?.[board]?.title || board.toUpperCase();
+      toast(`New best on ${title} — #${r.rank} of ${r.total}`, 'good', 'lb-' + board);
+    }).catch(() => {});
+  }
+
+  openLeaderboards(back) { leaderboardScreen(this, back); }
+
+  /** A newer version went live while this tab was open: say so, and offer the reload. */
+  newVersionBanner(version, name) {
+    if (document.querySelector('.update-banner')) return;
+    const el = document.createElement('div');
+    el.className = 'update-banner';
+    el.innerHTML = `<span><b>${version}${name ? ' — ' + name : ''}</b> is live. Your run is saved.</span>
+      <button class="btn primary tiny" type="button">RELOAD</button>`;
+    el.querySelector('button').onclick = () => { this.save(); location.reload(); };
+    document.body.appendChild(el);
   }
 
   /** Back to an ordinary room after a run's verdict: colour, and a calm backdrop. */
@@ -966,6 +996,9 @@ class Game {
     // Saved the instant it resolves, not after the animation: a refresh while
     // the tape is still printing must not be a way to take a trade back.
     this.save();
+    // Online, a trade bigger than any before goes straight to the leaderboard:
+    // weeks 1–8 are the campaign, week 9 on is endless.
+    this.postBest(st.week > 8 ? 'endless' : 'campaign', res.pl);
 
     const area = $('played-candles');
     area.innerHTML = '';
@@ -1152,6 +1185,7 @@ class Game {
     M.bump($('dl-profit'), 1.4);
     await sleep(900);
     const payout = S.finishDeadline(this.state);
+    if (payout.quota > 0) this.postBest('overkill', Math.round((payout.profit / payout.quota) * 100) / 100);
     this.render();
     OV.payoutScreen(this, payout);
     this.save();
@@ -1352,5 +1386,13 @@ installTempo();
 const game = new Game();
 window.game = game;
 SC.homeScreen(game);
+// The hosted version answers /api/health: then the leaderboards switch on, the
+// title gains its LEADERBOARDS card, and a newer deploy is announced.
+Online.detectOnline().then((yes) => {
+  if (!yes) return;
+  document.documentElement.dataset.online = '1';
+  if (!game.state && document.querySelector('#overlay-root .home')) SC.homeScreen(game);
+  Online.watchVersion((v, name) => game.newVersionBanner(v, name));
+});
 // Tell the boot watchdog in index.html that the game came up.
 if (window.__MC_BOOT) window.__MC_BOOT.ok = true;
