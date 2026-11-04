@@ -258,6 +258,55 @@ t('a compounded multiplier is labelled to two places, not as a float', () => {
   ok(labels.length > 0, 'expected a multiplier step');
   for (const l of labels) ok(!/\.\d{3}/.test(l), `label ${l} carries float noise`);
 });
+// Mimic copies the broker to its right. It used to hand that broker's ability
+// its OWN instance, which has no counters — so anything with a running value
+// (Guttering Flame and friends) read undefined and made the whole trade NaN.
+t('Mimic can copy every broker in the game without breaking the maths', () => {
+  for (const key of BROKER_KEYS) {
+    if (BROKERS[key].copiesRight) continue;
+    for (const dir of ['LONG', 'SHORT']) {
+      const st = S.newRun('MIMIC-' + key);
+      st.brokers = [makeBroker('arbBot', null), makeBroker(key, null)];
+      S.computeMods(st);
+      S.startDeadline(st, 0);
+      const r = scoreTrade(st, {
+        played: st.session.board.slice(0, 3), held: st.session.board.slice(3), direction: dir, correct: true,
+        regimeMult: 1, rng: new RNG('mimic'), commit: false, tradeIndex: 0, tradesLeft: 4, greenStreak: 0, quota: 1000,
+      });
+      for (const v of [r.pl, r.volume, r.leverage]) ok(Number.isFinite(v), `Mimic copying ${key} (${dir}) scored ${v}`);
+      ok(!r.steps.some((x) => /NaN|undefined/.test(x.text)), `Mimic copying ${key} printed ${r.steps.map((x) => x.text).join(' ')}`);
+    }
+  }
+});
+
+t('a copied counter ticks once per trade, not twice', () => {
+  const st = S.newRun('MIMIC-TICK');
+  st.brokers = [makeBroker('arbBot', null), makeBroker('burnout', null)];
+  S.computeMods(st);
+  S.startDeadline(st, 0);
+  scoreTrade(st, {
+    played: st.session.board.slice(0, 2), held: [], direction: 'LONG', correct: true, regimeMult: 1,
+    rng: new RNG('tick'), commit: true, tradeIndex: 0, tradesLeft: 4, greenStreak: 0, quota: 1000,
+  });
+  eq(st.brokers[1].counters.x, 2.75, 'Guttering Flame should lose 0.25 once');
+  eq(Object.keys(st.brokers[0].counters).length, 0, 'Mimic should not grow counters of its own');
+});
+
+t('a copied ability lights up the Mimic, not the broker it copied', () => {
+  const st = S.newRun('MIMIC-NAME');
+  st.brokers = [makeBroker('arbBot', null), makeBroker('burnout', null)];
+  S.computeMods(st);
+  S.startDeadline(st, 0);
+  const r = scoreTrade(st, {
+    played: st.session.board.slice(0, 2), held: [], direction: 'LONG', correct: true, regimeMult: 1,
+    rng: new RNG('name'), commit: false, tradeIndex: 0, tradesLeft: 4, greenStreak: 0, quota: 1000,
+  });
+  const fromMimic = r.steps.filter((x) => x.brokerUid === st.brokers[0].uid);
+  const fromFlame = r.steps.filter((x) => x.brokerUid === st.brokers[1].uid);
+  eq(fromMimic.length, 1, 'the copy should be credited to the Mimic card');
+  eq(fromFlame.length, 1, 'and the original to its own card');
+});
+
 t('Sticky Note adds flat leverage', () => eq(scoreWith(['sticky'], [mk('TECH', 10), mk('CRYPTO', 10, false)]).leverage, 6));
 t('Block Tick adds 30 volume', () => {
   eq(scoreWith([], [mk('TECH', 10, true, { enhancement: 'bullion' }), mk('CRYPTO', 10, false)]).volume, 60);
@@ -850,9 +899,48 @@ t('a run saved at the payout screen resumes playable', () => {
   st.session.profit = st.session.quota;
   S.finishDeadline(st);                       // autosave fires here
   const back = S.deserialize(S.serialize(st));
+  // It comes back between the payout and the Floor — it used to skip the
+  // Floor visit entirely — and the Floor is the same one it would have been.
+  eq(back.phase, 'payout', 'a save at the payout should come back to the Floor');
+  const shelf = (x) => S.openShop(x).items.map((i) => i.key).join();
+  const fresh = S.deserialize(S.serialize(st));
+  eq(shelf(back), shelf(fresh), 'the Floor must not reroll on a reload');
+  S.advanceAfterDeadline(back);
   eq(back.deadlineIndex, 1, 'must have stepped off the cleared slot');
   ok(!back.upcoming[1].done, 'next deadline is playable');
   eq(S.startDeadline(back, 1).board.length, back.mods.handSize);
+});
+
+t('a run saved mid-deadline comes back to the same board, count and tape', () => {
+  const st = S.newRun('MIDDL');
+  S.startDeadline(st, 0);
+  const s = st.session;
+  for (const c of s.board.slice(0, 2)) S.toggleSelect(st, c.uid);
+  S.playTrade(st, 'LONG');
+  for (const c of s.board.slice(0, 1)) S.toggleSelect(st, c.uid);
+  const back = S.deserialize(S.serialize(st));
+  eq(back.phase, 'trading');
+  const b = back.session;
+  ok(b, 'the deadline should come back');
+  eq(b.profit, s.profit); eq(b.tradesLeft, s.tradesLeft); eq(b.quota, s.quota);
+  eq(b.board.map((c) => c.uid).join(), s.board.map((c) => c.uid).join());
+  eq(b.selected.join(), s.selected.join(), 'the selection survives');
+  ok(b.board.every((c) => back.book.includes(c)), 'board candles must be the book\'s own objects');
+  eq(b.market.pendingUp, s.market.pendingUp, 'the next tick must not reroll on a reload');
+  eq(b.market.candles.length, s.market.candles.length);
+  const r1 = S.playTrade(st, 'SHORT'), r2 = S.playTrade(back, 'SHORT');
+  eq(r2.pl, r1.pl, 'the same trade must score the same after a reload');
+  eq(r2.correct, r1.correct);
+});
+
+t('a save from before mid-deadline saves existed still loads, at the deadline list', () => {
+  const st = S.newRun('OLDSAVE');
+  S.startDeadline(st, 0);
+  const raw = JSON.parse(S.serialize(st));
+  delete raw.session;
+  const back = S.deserialize(JSON.stringify(raw));
+  eq(back.phase, 'select');
+  eq(back.session, null);
 });
 t('a run saved on the Floor resumes on the Floor with its stock', () => {
   const st = S.newRun('RES2');

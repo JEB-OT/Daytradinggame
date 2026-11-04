@@ -128,7 +128,8 @@ export function changelogScreen(game, back) {
       Stop the server, run <code>npm run update</code> in the game folder, then <code>npm start</code> again.</div>
     <div class="cl-list">${entries}</div>
     <div class="btn-row"><button class="btn" id="cl-back">BACK</button></div>`,
-    { dismissable: true, width: '680px' });
+    // From the title there is no run behind it, so it only closes through BACK.
+    { dismissable: !!game.state, width: '680px' });
   sheet.querySelector('#cl-back').onclick = () => (back ? back() : closeOverlay());
 }
 

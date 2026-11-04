@@ -1,7 +1,11 @@
 # MARGIN CALL — notes for Claude
 
 A browser roguelike deckbuilder. No build step and no dependencies: `npm start` serves the repo,
-`npm test` runs `test/run-tests.mjs`, `npm run sim` plays 200 bot runs for balance.
+`npm test` runs `test/run-tests.mjs`, `npm run sim` plays 200 bot runs for balance, and
+`npm run fuzz` plays 600 seeded runs at random against the engine's invariants (a failure prints
+the `SEED=` that replays it). `tools/` holds browser-driven checks that need Playwright:
+`monkey.mjs` (random UI play) and the Art Lab (`artlab.html`, `ab-capture.mjs`) for judging art
+styles side by side.
 
 `npm start` updates the folder before serving it — fetching, fast-forwarding and even switching to
 whichever branch carries the newest version. In a working copy you are developing in, start the
@@ -23,7 +27,7 @@ the repository page. A patch is not finished until all of this has happened.
    rewrite its two or three lines to say what changed. Tests fail if it, or the bold first row of
    the version table, names any other version. When the look of the game changes, retake
    `docs/screenshot.jpg` (the picture under it) from the real game.
-2. **Verify.** `npm test` green; `npm run sim` for anything touching balance; drive the real game in
+2. **Verify.** `npm test` green; `npm run fuzz` for anything touching the engine or saves; `npm run sim` for anything touching balance; drive the real game in
    a browser for anything visual.
 3. **One patch, one pull request.** Commit on the working branch, push, and open a pull request
    into the default branch (`claude/roguelike-day-trading-game-vy5qsg`). Never put two versions

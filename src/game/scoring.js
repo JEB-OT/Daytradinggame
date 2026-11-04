@@ -31,7 +31,7 @@ function containsSet(played, ev) {
   return set;
 }
 
-/** Resolve broker index -> {def, inst} honouring Arb Bot's copy-right. */
+/** Resolve broker index -> {def, inst} honouring Mimic's copy-right. */
 export function effectiveBroker(state, i) {
   const inst = state.brokers[i];
   if (!inst) return null;
@@ -39,7 +39,14 @@ export function effectiveBroker(state, i) {
   if (d?.copiesRight) {
     const right = state.brokers[i + 1];
     if (right && BROKERS[right.key] && !BROKERS[right.key].copiesRight) {
-      return { def: BROKERS[right.key], inst, copying: right, self: d };
+      // The copied ability runs on a throwaway clone of the original's
+      // counters. Mimic has none of its own, so a broker that keeps a running
+      // value (Guttering Flame's multiplier, any stacking counter) read
+      // `undefined` and turned the whole trade into NaN; and handing it the
+      // original's own counters would tick them twice a trade. The clone reads
+      // the value as it stands and forgets whatever the copy does to it.
+      const shadow = { ...inst, counters: JSON.parse(JSON.stringify(right.counters || {})) };
+      return { def: BROKERS[right.key], inst: shadow, copying: right, self: d };
     }
   }
   return { def: d, inst, self: d };
@@ -238,7 +245,7 @@ export function scoreTrade(state, o) {
     }
     const eb = effectiveBroker(state, i);
     if (!eb?.def || eb.inst.debuffed) continue;
-    const src = { name: (eb.copying ? 'Arb Bot → ' : '') + eb.def.name, art: eb.self.art, uid: eb.inst.uid };
+    const src = { name: (eb.copying ? eb.self.name + ' → ' : '') + eb.def.name, art: eb.self.art, uid: eb.inst.uid };
     if (eb.def.independent) eb.def.independent(ctx, eb.inst, src);
     if (eb.inst.edition === 'laminated') ctx.addVolume(50, src);
     else if (eb.inst.edition === 'holographic') ctx.addLeverage(10, src);

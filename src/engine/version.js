@@ -10,11 +10,25 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.11.0';
+export const VERSION = 'v1.11.1';
 export const VERSION_NAME = 'Quick Hands';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.11.1',
+    name: 'Quick Hands',
+    notes: [
+      'Reloading mid-deadline brings back the same board, trade count and tape — no more free re-deals',
+      'Reloading after a payout comes back to the Floor instead of skipping it',
+      'A board no trade can be made from now ends the run with the reason, instead of freezing',
+      'Mimic can copy any broker — copying Guttering Flame no longer breaks the maths',
+      'A board too wide for the table fans its cards in, instead of pushing GO SHORT off the screen',
+      'A trade key pressed during "quota met" can no longer play a trade on a deadline already won',
+      'Tooltips no longer stay stuck on screen after the card they describe is gone',
+      'Fixed cards made just after a reload sharing an id with one already in your book',
+    ],
+  },
   {
     version: 'v1.11.0',
     name: 'Quick Hands',

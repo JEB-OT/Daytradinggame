@@ -29,8 +29,12 @@ import { BROKERS } from '../game/brokers.js';
 import { CHARTS, CONTRACTS, RUMORS } from '../game/consumables.js';
 import { LICENSES } from '../game/licenses.js';
 import { BOSSES } from '../game/bosses.js';
+import { STYLE } from './artstyle.js';
 
-const INK = '#0a0e1a';
+// Every matter of taste below — ink weight, wobble, how a shadow is shaded —
+// is a knob in artstyle.js, so a variant can be drawn and judged against the
+// shipping look in the Art Lab (tools/artlab.html).
+const INK = STYLE.ink;
 
 // --- shared defs -------------------------------------------------------------
 const DEFS = `
@@ -48,9 +52,9 @@ const DEFS = `
   <stop offset="1" stop-color="#000" stop-opacity=".5"/>
 </linearGradient>
 <linearGradient id="mcCel" x1=".1" y1="0" x2=".9" y2="1">
-  <stop offset="0" stop-color="#fff" stop-opacity=".46"/>
-  <stop offset=".27" stop-color="#fff" stop-opacity=".46"/>
-  <stop offset=".29" stop-color="#fff" stop-opacity="0"/>
+  <stop offset="0" stop-color="#fff" stop-opacity="${STYLE.cel}"/>
+  <stop offset="${STYLE.celEnd}" stop-color="#fff" stop-opacity="${STYLE.cel}"/>
+  <stop offset="${STYLE.celEnd + 0.02}" stop-color="#fff" stop-opacity="0"/>
   <stop offset="1" stop-color="#fff" stop-opacity="0"/>
 </linearGradient>
 <linearGradient id="mcCelMetal" x1="0" y1="0" x2="1" y2="1">
@@ -64,8 +68,19 @@ const DEFS = `
 </linearGradient>
 <pattern id="mcInkHatch" width="3.6" height="3.6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
   <rect width="3.6" height="3.6" fill="#000" fill-opacity=".14"/>
-  <path d="M.9 0V3.6" stroke="#0a0e1a" stroke-width="1.15" stroke-opacity=".62"/>
+  <path d="M.9 0V3.6" stroke="${INK}" stroke-width="1.15" stroke-opacity="${STYLE.hatch}"/>
 </pattern>
+<pattern id="mcHalftone" width="3.4" height="3.4" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+  <circle cx="1.7" cy="1.7" r="1.05" fill="${INK}" fill-opacity="${STYLE.hatch}"/>
+</pattern>
+<linearGradient id="mcRimRamp" x1=".1" y1="0" x2=".9" y2="1">
+  <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".55" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".75" stop-color="#fff" stop-opacity="1"/>
+</linearGradient>
+<mask id="mcRimMask" maskContentUnits="objectBoundingBox">
+  <rect width="1" height="1" fill="url(#mcRimRamp)"/>
+</mask>
 <linearGradient id="mcShadowRamp" x1=".15" y1="0" x2=".85" y2="1">
   <stop offset=".56" stop-color="#000"/>
   <stop offset=".6" stop-color="#fff"/>
@@ -74,8 +89,8 @@ const DEFS = `
   <rect width="1" height="1" fill="url(#mcShadowRamp)"/>
 </mask>
 <filter id="mcInk" x="-12%" y="-12%" width="124%" height="124%">
-  <feTurbulence type="fractalNoise" baseFrequency="0.042" numOctaves="2" seed="5" result="wobble"/>
-  <feDisplacementMap in="SourceGraphic" in2="wobble" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
+  <feTurbulence type="fractalNoise" baseFrequency="${STYLE.wobbleFreq}" numOctaves="2" seed="5" result="wobble"/>
+  <feDisplacementMap in="SourceGraphic" in2="wobble" scale="${STYLE.wobble}" xChannelSelector="R" yChannelSelector="G"/>
 </filter>${/* the same wobble for the interface's own outlines (styles.css, "THE INK"):
    measured in CSS pixels rather than a 100-unit picture, with three seeds so
    a row of identical boxes does not wobble identically */ ''}${[11, 23, 37].map((seed, i) => `
@@ -106,6 +121,20 @@ const DEFS = `
 </pattern>
 <pattern id="mcDots" width="8" height="8" patternUnits="userSpaceOnUse">
   <circle cx="4" cy="4" r="1.1" fill="#fff" fill-opacity=".1"/>
+</pattern>
+<pattern id="mcRays" width="100" height="100" patternUnits="userSpaceOnUse">
+  ${Array.from({ length: 16 }, (_, i) => {
+    const a0 = (i / 16) * Math.PI * 2, a1 = a0 + Math.PI / 16;
+    const p = (a) => `${(50 + Math.cos(a) * 80).toFixed(1)} ${(50 + Math.sin(a) * 80).toFixed(1)}`;
+    return `<path d="M50 50 L${p(a0)} L${p(a1)} Z" fill="#fff" fill-opacity=".08"/>`;
+  }).join('')}
+</pattern>
+<radialGradient id="mcFade" cx=".5" cy=".5" r=".5">
+  <stop offset=".2" stop-color="#fff"/><stop offset="1" stop-color="#000"/>
+</radialGradient>
+<mask id="mcFadeMask" maskContentUnits="objectBoundingBox"><rect width="1" height="1" fill="url(#mcFade)"/></mask>
+<pattern id="mcHalftoneGround" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(20)">
+  <circle cx="2.5" cy="2.5" r="1.25" fill="#fff" fill-opacity=".16"/>
 </pattern>`;
 
 /**
@@ -126,12 +155,14 @@ export function ensureArtDefs() {
 // --- colour ------------------------------------------------------------------
 /** A palette derived from one hue: the item's own colour at five depths. */
 export function pal(h, s = 72) {
+  const sat = (v) => Math.max(0, Math.min(100, v + STYLE.sat));
+  const lit = (v) => Math.max(0, Math.min(100, v + STYLE.light));
   return {
     h,
-    light: `hsl(${h},${Math.min(100, s + 12)}%,76%)`,
-    base: `hsl(${h},${s}%,56%)`,
-    dark: `hsl(${h},${s - 6}%,36%)`,
-    deep: `hsl(${h},${s - 18}%,16%)`,
+    light: `hsl(${h},${sat(Math.min(100, s + 12))}%,${lit(76)}%)`,
+    base: `hsl(${h},${sat(s)}%,${lit(56)}%)`,
+    dark: `hsl(${h},${sat(s - 6)}%,${lit(36)}%)`,
+    deep: `hsl(${h},${sat(s - 18)}%,${lit(16)}%)`,
     glow: `hsl(${h},95%,66%)`,
   };
 }
@@ -149,20 +180,33 @@ const CYAN = '#40d9ff';
  * geometry attributes. The shade pass is skipped for small details, where a
  * gradient only muddies the colour.
  */
+const SHADE_FILL = { hatch: 'url(#mcInkHatch)', halftone: 'url(#mcHalftone)', tone: INK };
 function solid(tag, g, fill, o = {}) {
   const op = o.op != null ? ` opacity="${o.op}"` : '';
   let out = `<${tag} ${g} fill="${fill}"${op}/>`;
   if (!o.flat) {
-    // Metal takes polished cel bands and no hatching: rims and gold stay clean
-    // and bright, so the hand-inked texture lives in the picture, not the frame.
+    // Metal takes polished cel bands and no shadow texture: rims and gold stay
+    // clean and bright, so the hand-inked texture lives in the picture.
     out += `<${tag} ${g} fill="url(#${o.metal ? 'mcCelMetal' : 'mcCel'})"${op}/>`;
-    if (!o.metal) out += `<${tag} ${g} fill="url(#mcInkHatch)" mask="url(#mcShadowMask)"${op}/>`;
+    if (!o.metal && SHADE_FILL[STYLE.shade]) {
+      const tone = STYLE.shade === 'tone' ? ' fill-opacity=".26"' : '';
+      out += `<${tag} ${g} fill="${SHADE_FILL[STYLE.shade]}"${tone} mask="url(#mcShadowMask)"${op}/>`;
+    }
   }
   if (!o.noStroke) {
-    out += `<${tag} ${g} fill="none" stroke="${o.stroke || INK}" stroke-width="${(o.sw ?? 3) * 1.12}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const w = (o.sw ?? 3) * STYLE.inkWidth;
+    // A backlight on the shadow side: a light line just inside the ink, which
+    // the ink then covers half of. Reads as rim light in flat-colour work.
+    if (STYLE.rim && !o.flat) {
+      out += `<${tag} ${g} fill="none" stroke="#fff" stroke-opacity="${STYLE.rim}" stroke-width="${w * 2.1}" stroke-linejoin="round" mask="url(#mcRimMask)"/>`;
+    }
+    out += `<${tag} ${g} fill="none" stroke="${o.stroke || INK}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"/>`;
   }
   return out;
 }
+
+/** A frame's ground texture, per the style: the default dots and hatching, rays, or halftone. */
+const ground = (fallback) => STYLE.ground === 'rays' ? 'url(#mcRays)' : STYLE.ground === 'halftone' ? 'url(#mcHalftoneGround)' : fallback;
 const P = (d, fill, o) => solid('path', `d="${d}"`, fill, o);
 const C = (cx, cy, r, fill, o) => solid('circle', `cx="${cx}" cy="${cy}" r="${r}"`, fill, o);
 const E = (cx, cy, rx, ry, fill, o) => solid('ellipse', `cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"`, fill, o);
@@ -395,7 +439,7 @@ function medallion(glyph, p, rarity, effect) {
     for (const [x, y] of around(4, 42, 50, 50, -45)) s += C(f1(x), f1(y), 2.2, rim.light, { sw: 1.4 });
   }
   s += C(50, 50, 37, p.deep, { flat: true, sw: 2.6 })
-    + `<circle cx="50" cy="50" r="37" fill="url(#${rarity === 'common' ? 'mcDots' : 'mcHatch'})"/>`
+    + `<circle cx="50" cy="50" r="37" fill="${ground(`url(#${rarity === 'common' ? 'mcDots' : 'mcHatch'})`)}"/>`
     + `<circle cx="50" cy="50" r="37" fill="url(#mcDisc)"/>`
     + `<circle cx="50" cy="50" r="30" fill="${p.glow}" opacity=".16"/>`;
   s += place(glyph, 0.8, 50, 51);
@@ -446,7 +490,7 @@ function shield(glyph, p, tier = 1) {
   const di = 'M23 19 H77 V46 C77 65 64 77 50 85 C36 77 23 65 23 46 Z';
   let s = FE(50, 97, 28, 3, '#000', 0.4) + P(d, GOLD.base, { metal: true })
     + P(di, p.deep, { flat: true, sw: 2 })
-    + `<path d="${di}" fill="url(#mcHatch)"/><path d="${di}" fill="url(#mcDisc)"/>`
+    + `<path d="${di}" fill="${ground('url(#mcHatch)')}"/><path d="${di}" fill="url(#mcDisc)"/>`
     + place(glyph, 0.58, 50, 50);
   for (let i = 0; i < tier; i++) s += C(44 + i * 12 - (tier - 1) * 0, 12, 4.2, GOLD.light, { sw: 2 });
   return s;
@@ -457,7 +501,7 @@ function crest(glyph, p) {
   return FE(50, 96, 30, 3, '#000', 0.5)
     + P(starPath(14, 49, 39), '#8f1426', { metal: true })
     + C(50, 50, 38, '#2a0710', { flat: true, sw: 2.6 })
-    + `<circle cx="50" cy="50" r="38" fill="url(#mcHatch)"/><circle cx="50" cy="50" r="38" fill="url(#mcDisc)"/>`
+    + `<circle cx="50" cy="50" r="38" fill="${ground('url(#mcHatch)')}"/><circle cx="50" cy="50" r="38" fill="url(#mcDisc)"/>`
     + `<circle cx="50" cy="50" r="31" fill="${RED}" opacity=".16"/>`
     + place(glyph, 0.7, 50, 51);
 }

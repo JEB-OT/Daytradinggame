@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Art Lab — MARGIN CALL</title>
+<style>
+  /* The lab itself stays plain on purpose: nothing here should compete with
+     the two pictures being judged. */
+  :root { color-scheme: dark; --bg: #0b0f1a; --fg: #e8eefc; --dim: #8c9ab8; --line: #2a3654; --a: #40d9ff; --b: #ffb020; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; letter-spacing: .08em; }
+  label { color: var(--dim); font-size: 12px; display: flex; gap: 6px; align-items: center; }
+  select, button { background: #151d30; color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; font: inherit; }
+  button { cursor: pointer; }
+  button.pick-a { border-color: var(--a); } button.pick-b { border-color: var(--b); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 16px; }
+  .side { position: relative; border: 2px solid var(--line); border-radius: 8px; overflow: hidden; background: #000; }
+  .side.voted { border-color: #45e08d; }
+  .side h2 { position: absolute; z-index: 2; left: 8px; top: 6px; margin: 0; font-size: 13px; padding: 2px 8px; border-radius: 5px; background: #000c; }
+  .side.a h2 { color: var(--a); } .side.b h2 { color: var(--b); }
+  .frame { width: 1440px; height: 900px; border: 0; transform-origin: 0 0; display: block; }
+  .holder { position: relative; overflow: hidden; }
+  .tally { padding: 0 16px 16px; color: var(--dim); font-size: 13px; }
+  .tally table { border-collapse: collapse; margin-top: 6px; }
+  .tally td, .tally th { padding: 3px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+  kbd { background: #1d2740; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ART LAB</h1>
+  <label>A <select id="style-a"></select></label>
+  <label>B <select id="style-b"></select></label>
+  <label>Scene <select id="scene"></select></label>
+  <button id="swap" title="Show the same pair the other way round">swap sides</button>
+  <button class="pick-a" id="vote-a">A is better <kbd>←</kbd></button>
+  <button class="pick-b" id="vote-b">B is better <kbd>→</kbd></button>
+  <button id="export">copy results</button>
+</header>
+<div class="pair">
+  <div class="side a"><h2 id="label-a">A</h2><div class="holder"><iframe class="frame" id="frame-a"></iframe></div></div>
+  <div class="side b"><h2 id="label-b">B</h2><div class="holder"><iframe class="frame" id="frame-b"></iframe></div></div>
+</div>
+<div class="tally" id="tally"></div>
+
+<script type="module">
+// The Art Lab: the real game, twice, side by side — each frame drawn in a
+// different art style (src/ui/artstyle.js), both staged into the same scene.
+// Pick the better one; votes are kept on this device and can be copied out.
+//
+// Open it from a running game server: http://localhost:8080/tools/artlab.html
+// A style can also be forced from the address bar of the game itself:
+// http://localhost:8080/?artstyle=<name>
+import { STYLES } from '../src/ui/artstyle.js';
+import { SCENES } from './scenes.js';
+
+const $ = (id) => document.getElementById(id);
+const names = Object.keys(STYLES);
+const VOTES = 'margincall.artlab.votes';
+const votes = (() => { try { return JSON.parse(localStorage.getItem(VOTES) || '{}'); } catch { return {}; } })();
+
+for (const sel of [$('style-a'), $('style-b')]) {
+  sel.innerHTML = names.map((n) => `<option value="${n}">${n} — ${STYLES[n].label}</option>`).join('');
+}
+$('scene').innerHTML = Object.entries(SCENES).map(([k, s]) => `<option value="${k}">${s.label}</option>`).join('');
+const params = new URLSearchParams(location.search);
+$('style-a').value = params.get('a') || names[0];
+$('style-b').value = params.get('b') || names[Math.min(1, names.length - 1)];
+$('scene').value = params.get('scene') || 'desk';
+
+function fit() {
+  for (const side of ['a', 'b']) {
+    const holder = $('frame-' + side).parentElement;
+    const scale = holder.clientWidth / 1440;
+    $('frame-' + side).style.transform = `scale(${scale})`;
+    holder.style.height = 900 * scale + 'px';
+  }
+}
+addEventListener('resize', fit);
+
+async function load(side) {
+  const frame = $('frame-' + side);
+  const style = $('style-' + side).value;
+  $('label-' + side).textContent = `${side.toUpperCase()} · ${style}`;
+  await new Promise((done) => { frame.onload = done; frame.src = `../index.html?artstyle=${encodeURIComponent(style)}&lab=1`; });
+  const win = frame.contentWindow;
+  for (let i = 0; i < 100 && !win.game; i++) await new Promise((r) => setTimeout(r, 50));
+  await SCENES[$('scene').value].stage(win);
+}
+
+async function reload() {
+  document.querySelectorAll('.side').forEach((s) => s.classList.remove('voted'));
+  fit();
+  await Promise.all([load('a'), load('b')]);
+  const u = new URL(location.href);
+  u.searchParams.set('a', $('style-a').value); u.searchParams.set('b', $('style-b').value); u.searchParams.set('scene', $('scene').value);
+  history.replaceState(null, '', u);
+  document.body.dataset.ready = '1';
+}
+
+function vote(side) {
+  const win = $('style-' + side).value, lose = $('style-' + (side === 'a' ? 'b' : 'a')).value;
+  if (win === lose) return;
+  const key = `${$('scene').value}: ${win} > ${lose}`;
+  votes[key] = (votes[key] || 0) + 1;
+  try { localStorage.setItem(VOTES, JSON.stringify(votes)); } catch {}
+  document.querySelector('.side.' + side).classList.add('voted');
+  renderTally();
+}
+
+function renderTally() {
+  const score = {};
+  for (const [k, n] of Object.entries(votes)) {
+    const [, pair] = k.split(': ');
+    const [w, l] = pair.split(' > ');
+    score[w] = score[w] || { w: 0, l: 0 }; score[l] = score[l] || { w: 0, l: 0 };
+    score[w].w += n; score[l].l += n;
+  }
+  const rows = Object.entries(score).sort((x, y) => (y[1].w - y[1].l) - (x[1].w - x[1].l));
+  $('tally').innerHTML = rows.length
+    ? `Votes on this device <table><tr><th>style</th><th>wins</th><th>losses</th></tr>${rows.map(([n, s]) => `<tr><td>${n}</td><td>${s.w}</td><td>${s.l}</td></tr>`).join('')}</table>`
+    : 'No votes yet. Pick the better of the two with <kbd>←</kbd> / <kbd>→</kbd>.';
+}
+
+$('style-a').onchange = $('style-b').onchange = $('scene').onchange = reload;
+$('swap').onclick = () => { const a = $('style-a').value; $('style-a').value = $('style-b').value; $('style-b').value = a; reload(); };
+$('vote-a').onclick = () => vote('a');
+$('vote-b').onclick = () => vote('b');
+$('export').onclick = () => navigator.clipboard?.writeText(JSON.stringify(votes, null, 2));
+addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') vote('a'); if (e.key === 'ArrowRight') vote('b'); });
+renderTally();
+reload();
+</script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import { clamp } from '../engine/util.js';
+import { RNG } from '../engine/rng.js';
 
 // ---------------------------------------------------------------------------
 // The tape. Every trade you commit resolves against one hidden tick.
@@ -75,6 +76,29 @@ export class Market {
   }
 
   /** What the desk *shows* the player. May be a lie. */
+  /**
+   * The tape as it stands, to be picked up again after a reload. The signal's
+   * truth roll goes with it: re-rolling it on load would let a refresh shop
+   * for a better read.
+   */
+  snapshot() {
+    return {
+      rng: this.rng.snapshot(), regime: this.regime.key, symbol: this.symbol, price: this.price,
+      candles: this.candles, history: this.history, pendingUp: this.pendingUp, volScale: this.volScale,
+      cachedFor: this._cachedFor ?? null, truthRoll: this._truthRoll ?? null,
+    };
+  }
+
+  static restore(d) {
+    const m = Object.create(Market.prototype);
+    Object.assign(m, {
+      rng: RNG.restore(d.rng), regime: REGIMES[d.regime] || REGIMES.RANGE, symbol: d.symbol, price: d.price,
+      candles: d.candles || [], history: d.history || [], pendingUp: d.pendingUp, volScale: d.volScale ?? 1,
+    });
+    if (d.cachedFor != null) { m._cachedFor = d.cachedFor; m._truthRoll = d.truthRoll; }
+    return m;
+  }
+
   readSignal(accuracy, opts = {}) {
     const acc = clamp(accuracy + (this.regime.accuracy || 0), 0.05, 1);
     if (opts.perfect) return { up: this.pendingUp, accuracy: 1, truthful: true, perfect: true };

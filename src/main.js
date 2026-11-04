@@ -9,6 +9,7 @@ import { sortCandles } from './game/candles.js';
 import { ChartView } from './ui/chart.js';
 import { candleEl, brokerEl, consumableEl, hideTip, showTip } from './ui/components.js';
 import { artSvg, ensureArtDefs } from './ui/art.js';
+import { applyStyleFlags } from './ui/artstyle.js';
 import * as FX from './ui/fx.js';
 import { sfx, toast, shake, popText, particles } from './ui/fx.js';
 import * as OV from './ui/overlays.js';
@@ -121,8 +122,11 @@ class Game {
       this.lastCash = null;           // nor for the balance a save comes back with
       OV.closeOverlay();
       this.render();
-      // A run saved on the Floor picks up right there rather than losing the visit.
+      // A run picks up exactly where it was: on the Floor, mid-deadline, or
+      // between a payout and the Floor — not back at the deadline list.
       if (this.state.phase === 'shop' && this.state.shop) OV.shopScreen(this);
+      else if (this.state.phase === 'trading' && this.state.session) this.resumeDeadline();
+      else if (this.state.phase === 'payout') this.openFloor();
       else OV.deadlineSelect(this);
     } catch (e) {
       console.error(e); toast('Save is corrupt — starting fresh', 'bad'); this.startRun(null);
@@ -147,6 +151,34 @@ class Game {
     this.render();
     this.renderBoard(st.session.board.map((c) => c.uid));
     this.save();
+    this.checkDeadEnd();
+  }
+
+  /** Back into a deadline a save was made in the middle of. */
+  resumeDeadline() {
+    const st = this.state, s = st?.session;
+    this.sortMode = s.sortMode || this.sortMode;
+    this.chart.setMarket(s.market);
+    OV.closeOverlay();
+    this.render();
+    this.renderBoard(s.board.map((c) => c.uid));
+    // The save is taken the moment a trade resolves, so it can come back with
+    // the outcome already decided; play it out rather than strand it.
+    if (s.profit >= s.quota) return this.clearDeadline();
+    if (s.tradesLeft <= 0) return this.gameOver();
+    this.checkDeadEnd();
+  }
+
+  /**
+   * End the deadline if nothing the player can do will win it — an empty
+   * board, or a boss rule that forbids every trade with no sweeps left.
+   * Otherwise the game would sit there with nothing clickable.
+   * @returns {boolean} whether the run just ended.
+   */
+  checkDeadEnd(reason = S.deadEnd(this.state)) {
+    if (!reason) return false;
+    this.gameOver(reason);
+    return true;
   }
 
   skipDeadline(i) {
@@ -211,10 +243,10 @@ class Game {
     sheet.querySelector('#w-new').onclick = () => this.startRun(null);
   }
 
-  gameOver() {
+  gameOver(reason = null) {
     this.recordCareer();
     sfx.fail(); shake(true); this.clearSave();
-    setTimeout(() => OV.gameOverScreen(this, false), 700);
+    setTimeout(() => OV.gameOverScreen(this, false, reason), 700);
   }
 
   // ---------------------------------------------------------------- rendering
@@ -247,7 +279,7 @@ class Game {
   }
 
   renderDeadlineCard() {
-    const st = this.state, s = st.session;
+    const st = this.state, s = st?.session;
     const card = $('deadline-card');
     if (!s) {
       card.classList.remove('boss');
@@ -276,7 +308,7 @@ class Game {
   }
 
   renderResources() {
-    const st = this.state, s = st.session;
+    const st = this.state, s = st?.session;
     const set = (id, v, warn) => { const el = $(id); el.textContent = v; el.classList.toggle('zero', !!warn && v === 0); };
     set('r-trades', s ? s.tradesLeft : st.mods.trades, true);
     set('r-sweeps', s ? s.discardsLeft : st.mods.discards, true);
@@ -332,7 +364,7 @@ class Game {
   }
 
   renderMarket() {
-    const st = this.state, s = st.session;
+    const st = this.state, s = st?.session;
     if (!s) {
       $('ticker-sym').textContent = '—';
       $('ticker-price').textContent = '';
@@ -429,7 +461,7 @@ class Game {
   }
 
   renderBoard(animateNew = []) {
-    const st = this.state, s = st.session;
+    const st = this.state, s = st?.session;
     const row = $('board-row');
     row.innerHTML = '';
     this.renderPiles();
@@ -487,7 +519,30 @@ class Game {
       });
       row.appendChild(el);
     });
+    this.fitBoard();
     if (animateNew.length) this.dealIn(row, animateNew);
+  }
+
+  /**
+   * Fan the board in when it holds more candles than the table is wide. A big
+   * board (a +board broker, a fat Chart) used to push the whole right side of
+   * the desk past the edge of the window — the swept pile and GO SHORT with it.
+   * Now the cards overlap like a hand of cards instead, as little as they can.
+   */
+  fitBoard() {
+    const row = $('board-row'), area = $('board-area');
+    if (!row || !area) return;
+    row.classList.remove('fanned');
+    row.style.removeProperty('--fan');
+    const n = row.children.length;
+    if (n < 2) return;
+    const cardW = row.children[0].offsetWidth;
+    const piles = [...area.children].filter((e) => e !== row).reduce((w, e) => w + e.offsetWidth, 0);
+    const gap = parseFloat(getComputedStyle(area).columnGap) || 12;
+    const room = area.clientWidth - piles - gap * 2 - 12;
+    if (n * cardW + (n - 1) * 12 <= room) return;
+    row.classList.add('fanned');
+    row.style.setProperty('--fan', Math.max(-cardW * 0.66, (room - n * cardW) / (n - 1)).toFixed(1) + 'px');
   }
 
   // ------------------------------------------------------------------ piles
@@ -586,7 +641,7 @@ class Game {
   }
 
   updatePreview() {
-    const st = this.state, s = st.session;
+    const st = this.state, s = st?.session;
     const sel = s ? S.selectedCandles(st) : [];
     if (!s || !sel.length) {
       $('formation-name').textContent = '—';
@@ -626,7 +681,7 @@ class Game {
   }
 
   updateActions() {
-    const st = this.state, s = st.session;
+    const st = this.state, s = st?.session;
     const has = s && s.selected.length > 0;
     const canTrade = !!(has && s.tradesLeft > 0 && !this.busy);
     $('btn-long').disabled = !canTrade;
@@ -722,7 +777,7 @@ class Game {
   }
 
   arrange() {
-    const st = this.state, s = st.session;
+    const st = this.state, s = st?.session;
     if (!s || this.busy || s.selected.length < 2) return;
     const mode = S.ARRANGE_MODES[this.arrangeIndex % S.ARRANGE_MODES.length];
     S.arrangeSelection(st, mode.key);
@@ -734,7 +789,7 @@ class Game {
   }
 
   sortBoard() {
-    const st = this.state, s = st.session;
+    const st = this.state, s = st?.session;
     if (!s) return;
     this.sortMode = SORT_MODES[(SORT_MODES.indexOf(this.sortMode) + 1) % SORT_MODES.length];
     s.sortMode = this.sortMode;
@@ -746,7 +801,7 @@ class Game {
   }
 
   async sweep() {
-    const st = this.state, s = st.session;
+    const st = this.state, s = st?.session;
     if (!s || this.busy) return;
     if (!s.selected.length) { sfx.err(); return toast('Select candles to sweep', 'bad'); }
     if (s.discardsLeft <= 0) { sfx.err(); return toast('No sweeps left', 'bad'); }
@@ -771,6 +826,7 @@ class Game {
     const before = new Set(s.board.map((c) => c.uid));
     const r = S.sweepSelected(st);
     if (r.blocked) { this.busy = false; sfx.err(); return toast(r.blocked, 'bad'); }
+    this.save();
     const fresh = s.board.filter((c) => !before.has(c.uid)).map((c) => c.uid);
 
     this.render();
@@ -780,6 +836,7 @@ class Game {
     this.busy = false;
     this.updateActions();
     this.save();
+    this.checkDeadEnd(r.deadEnd);
   }
 
   useConsumable(inst) {
@@ -793,13 +850,13 @@ class Game {
         { inst, onDone: () => { OV.closeOverlay(); this.render(); this.save(); } });
     }
     const r = S.useConsumable(st, inst.uid, selected);
-    if (r.ok) { sfx.buy(); toast(r.msg, 'good'); this.render(); this.save(); }
+    if (r.ok) { sfx.buy(); toast(r.msg, 'good'); this.render(); this.save(); this.checkDeadEnd(); }
     else { sfx.err(); toast(r.msg, 'bad'); }
   }
 
   // ---------------------------------------------------------------- the trade
   async play(direction) {
-    const st = this.state, s = st.session;
+    const st = this.state, s = st?.session;
     if (!s || this.busy) return;
     const legal = S.checkTradeLegal(st, direction);
     if (legal?.block) { sfx.err(); shake(); return toast(legal.block, 'bad'); }
@@ -810,6 +867,9 @@ class Game {
 
     const res = S.playTrade(st, direction);
     if (res.blocked) { this.busy = false; sfx.err(); return toast(res.blocked, 'bad'); }
+    // Saved the instant it resolves, not after the animation: a refresh while
+    // the tape is still printing must not be a way to take a trade back.
+    this.save();
 
     const area = $('played-candles');
     area.innerHTML = '';
@@ -947,15 +1007,25 @@ class Game {
     area.innerHTML = '';
     $('board-row').classList.remove('settling');
     $('position-ghost').classList.remove('hide');
-    this.busy = false;
+    // A trade that clears the deadline keeps the desk locked straight through
+    // to the payout. Released here, a trade key pressed during the "quota met"
+    // beat played a trade on a deadline already won, and cleared it twice.
+    if (!res.cleared) this.busy = false;
     this.render();
     this.save();
 
     if (res.cleared) return this.clearDeadline();
-    if (res.busted) return this.gameOver();
+    if (res.busted) return this.gameOver(res.deadEnd);
   }
 
   async clearDeadline() {
+    if (this.clearing || !this.state?.session) return;
+    this.clearing = true;
+    this.busy = true;
+    try { await this.closeTheBooks(); } finally { this.clearing = false; this.busy = false; }
+  }
+
+  async closeTheBooks() {
     sfx.clear();
     const s = this.state.session;
     const area = $('play-area').getBoundingClientRect();
@@ -1117,14 +1187,21 @@ class Game {
       if (this.paint?.by === 'key' && e.key.toLowerCase() === this.paint.key) this.endPaint();
     });
     window.addEventListener('blur', () => this.endPaint());
+    window.addEventListener('resize', () => this.fitBoard());
 
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT') return;
       const st = this.state, s = st?.session;
       const k = e.key.toLowerCase();
       if (k === 'escape') {
-        if (OV.overlayOpen()) { if (OV.overlayDismissable()) OV.closeOverlay(); }
-        else if (st) OV.menuScreen(this);
+        if (OV.overlayOpen()) {
+          if (OV.overlayDismissable()) {
+            OV.closeOverlay();
+            // Nothing behind it but an empty desk: go back to the title instead.
+            if (!st) SC.homeScreen(this);
+          }
+        } else if (st) OV.menuScreen(this);
+        else SC.homeScreen(this);
         return;
       }
       if (k === 'm') { this.toggleMute(); toast(this.muted ? 'Muted' : 'Unmuted'); return; }
@@ -1157,6 +1234,7 @@ class Game {
 
 // The interface's own ink outlines run through filters kept with the card art,
 // so they have to be in the page before the first frame, not the first picture.
+applyStyleFlags();
 ensureArtDefs();
 const game = new Game();
 window.game = game;

@@ -35,6 +35,7 @@ export function hasResume() { return !!resume; }
 
 export function showOverlay(inner, opts = {}) {
   resume = null;
+  hideTip();
   const ov = document.createElement('div');
   ov.className = 'overlay';
   ov.dataset.dismissable = opts.dismissable === false ? '0' : '1';
@@ -819,7 +820,7 @@ export function runInfoScreen(game, back) {
 }
 
 // ---------------------------------------------------------------------------
-export function gameOverScreen(game, won) {
+export function gameOverScreen(game, won, reason = null) {
   const st = game.state;
   const s = st.session;
   const sheet = showOverlay(`
@@ -829,6 +830,7 @@ export function gameOverScreen(game, won) {
         ${won ? 'You beat the street and walked away clean.'
               : `You booked ${money(s ? s.profit : 0)} against a ${money(s ? s.quota : 0)} quota. Compliance is on the phone.`}
       </div>
+      ${reason ? `<div class="go-reason">${reason}</div>` : ''}
       <div class="go-stats">
         <div class="stat-box"><label>REACHED</label><b>Week ${st.week} · DL ${st.deadlineIndex + 1}</b></div>
         <div class="stat-box"><label>DEADLINES</label><b>${st.stats.deadlinesCleared}</b></div>

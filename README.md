@@ -10,12 +10,12 @@ starting pieces, a shop full of things that break the rules, and a deadline that
 No build step and no dependencies — just Node and a browser.
 
 <!-- latest-version: the test suite checks this names the current VERSION, so a release can never leave the front page behind -->
-> **Latest version: v1.11.0 — Quick Hands** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
+> **Latest version: v1.11.1 — Quick Hands** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
 >
-> **Hold the mouse button and slide across candles** to place every one you pass. **`E`** is
-> hover select — press it over a candle, or hold it and sweep — and **`X`** deselects them all;
-> both are yours to rebind in **Settings → Controls**. `npm start` keeps the game up to date by
-> itself, and the whole interface is hand-inked to match the cards.
+> **A bug-hunting patch.** A reload mid-deadline now comes back to the same board, trade count and
+> tape instead of re-dealing it; a board no trade can be made from ends the run with the reason
+> instead of freezing; Mimic can copy any broker without turning the trade into `NaN`. Slide across
+> candles to place them all, and `npm start` keeps the game up to date by itself.
 >
 > **Stuck on `You have uncommitted changes, so nothing was pulled`?** That is an old copy's updater
 > tripping over a stray file. Stop the game, then in the game folder run these three, once:
@@ -104,8 +104,9 @@ npm start -- 3000        # or:  PORT=3000 npm start
 ```bash
 npm run update           # pull the latest version of the game (npm start does this too)
 npm run release          # tag and publish this version (maintainers)
-npm test                 # 228 assertions, no dependencies
+npm test                 # 233 assertions, no dependencies
 npm run sim              # a bot plays 200 runs and prints the difficulty curve
+npm run fuzz             # 600 seeded runs of random play, checked against the engine's invariants
 ```
 
 ---
@@ -235,7 +236,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.11.0** — Quick Hands | Everything below, plus: slide across candles to place them all, `E` hover select, `X` deselect all — both rebindable in Settings |
+| **v1.11.1** — Quick Hands | Everything below, plus: a reload mid-deadline comes back to the same board; no more frozen boards; Mimic copies any broker |
+| v1.11.0 — Quick Hands | Everything below, plus: slide across candles to place them all, `E` hover select, `X` deselect all — both rebindable in Settings |
 | v1.10.2 — Inked | Everything below, plus: a stray `package-lock.json` no longer stops an update |
 | v1.10.1 — Inked | Everything below, plus: `npm start` updates the game itself before opening it |
 | v1.10.0 — Inked | Everything below, plus: the whole interface is hand-inked to match the cards, candles are cream playing cards, the lettering is hand-drawn, and the chart is chalked onto a slate |
@@ -832,13 +834,19 @@ src/game/
 src/ui/               canvas chart, particles/audio, candle components, overlays
   art.js              every card's illustration: the glyph library, frames and pips
 test/
-  run-tests.mjs       228 tests, no dependencies
+  run-tests.mjs       233 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
+  fuzz.mjs            random play against the engine's invariants, saves included
+tools/
+  monkey.mjs          drives the real game in a browser at random (needs Playwright)
+  artlab.html         the Art Lab: the game twice, in two art styles, to pick between
+  ab-capture.mjs      the same comparison, headless, saved as a picture
 ```
 
 ```bash
-npm test              # 228 assertions across formations, conviction, scoring, flow and content
+npm test              # 233 assertions across formations, conviction, scoring, flow and content
 node test/sim.mjs 200 # play 200 runs with a bot and print the difficulty curve
+npm run fuzz          # 600 runs of random play; a failure prints the SEED= that replays it
 ```
 
 The simulator is how the numbers were tuned — its bot picks placements by projected P/L and
