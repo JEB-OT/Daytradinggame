@@ -196,6 +196,7 @@ export function showTip(anchor, html) {
   if (!tipEl) return;
   tipAnchor = anchor;
   watchTip();
+  const fresh = tipEl.hidden;
   tipEl.innerHTML = html;
   tipEl.hidden = false;
   const a = anchor.getBoundingClientRect();
@@ -206,6 +207,11 @@ export function showTip(anchor, html) {
   left = Math.max(8, Math.min(window.innerWidth - t.width - 8, left));
   tipEl.style.left = left + 'px';
   tipEl.style.top = top + 'px';
+  // A tooltip springs open from the side it points at, rather than blinking on.
+  if (fresh && !document.body.classList.contains('no-motion')) {
+    tipEl.style.transformOrigin = `${a.left + a.width / 2 - left}px ${top > a.top ? 0 : t.height}px`;
+    tipEl.animate?.([{ opacity: 0, scale: '.9' }, { opacity: 1, scale: '1' }], { duration: 140, easing: 'cubic-bezier(.2,.9,.3,1.25)' });
+  }
 }
 export function hideTip() {
   tipEl = tipEl || document.getElementById('tooltip');

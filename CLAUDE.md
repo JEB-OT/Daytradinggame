@@ -67,3 +67,18 @@ anything new should be too:
   Hand). The display font has one weight, so bold does nothing there.
 - The chart (`src/ui/chart.js`) wobbles from seeded hashes, never `Math.random`, so it holds still
   between frames.
+- Matters of taste are knobs in `src/ui/artstyle.js` (ink weight, wobble, shading, palette shift,
+  interface flags like `bigart` and `marble`). Change the look by adding a candidate style there and
+  judging it against `current` in the Art Lab (`tools/artlab.html`, or `tools/ab-capture.mjs` for a
+  picture). When it wins, move it into `DEFAULT` and record the round in `docs/art-ab.md`.
+
+## Motion
+
+Movement lives in `src/ui/motion.js` (lean and glint, presses, deal-ins, flights, stamps,
+confetti), with the scoring spectacle in `src/ui/fx.js` and the backdrop's moods in
+`src/ui/backdrop.js`. Motion is decoration over state that has already changed: never make game
+logic wait on an animation, and keep every effect a no-op under `M.calm()` (Settings → Ambient Motion off,
+or the system's reduced-motion setting). Animate the independent `translate` / `rotate` / `scale`
+properties with Web Animations wherever an element may also have a CSS animation or a hover
+transform, so the two compose instead of fighting. Hover rules fold in the lean as
+`perspective(...) rotateX(var(--rx)) rotateY(var(--ry))`, so a new hoverable card should too.

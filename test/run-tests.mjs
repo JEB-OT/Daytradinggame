@@ -12,6 +12,7 @@ import { VERSION, VERSION_NAME, CHANGELOG } from '../src/engine/version.js';
 import { notesFor, versionsInChangelog } from '../scripts/release-notes.mjs';
 import { compareVersions } from '../scripts/version-check.mjs';
 import { artSvg, artKeys, hasGlyph, brokerEffect } from '../src/ui/art.js';
+import { DEFAULT as STYLE_DEFAULT, STYLES } from '../src/ui/artstyle.js';
 import { LICENSES as LIC_ALL } from '../src/game/licenses.js';
 import { BONUSES as BONUS_ALL, PACKS as PACK_ALL } from '../src/game/state.js';
 import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
@@ -2141,6 +2142,33 @@ t('every picture the README shows is in the repo', () => {
   for (const [, src] of readme.matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)) {
     if (/^https?:/.test(src)) continue;
     ok(existsSync(join(REPO_ROOT, src)), `README.md shows ${src}, which does not exist`);
+  }
+});
+
+t('every art style only turns knobs that exist', () => {
+  // A typo in a candidate (inkwidth for inkWidth) would silently draw the
+  // default and lose its Art Lab round for the wrong reason.
+  const FLAGS = ['bigart', 'marble'];
+  const css = readFileSync(join(REPO_ROOT, 'src/styles.css'), 'utf8');
+  const main = readFileSync(join(REPO_ROOT, 'src/main.js'), 'utf8');
+  for (const f of FLAGS) ok(css.includes(`data-art~="${f}"`) || main.includes(`'${f}'`), `flag ${f} is read by nothing`);
+  ok(STYLES.current && STYLES.classic, 'the shipping look and v1.11 must both stay pickable');
+  for (const [name, st] of Object.entries(STYLES)) {
+    ok(typeof st.label === 'string' && st.label, `${name} has no label for the Art Lab`);
+    for (const k of Object.keys(st)) {
+      if (k === 'label' || k === 'replaceFlags') continue;
+      ok(k in STYLE_DEFAULT, `style ${name} sets ${k}, which is not a knob`);
+      if (k !== 'flags') eq(typeof st[k], typeof STYLE_DEFAULT[k], `style ${name}: ${k} has the wrong type`);
+    }
+    for (const f of st.flags || []) ok(FLAGS.includes(f), `style ${name} turns on unknown flag ${f}`);
+  }
+  for (const f of STYLE_DEFAULT.flags) ok(FLAGS.includes(f), `the default turns on unknown flag ${f}`);
+});
+
+t('the Art Lab record shows only pictures that exist', () => {
+  const doc = readFileSync(join(REPO_ROOT, 'docs/art-ab.md'), 'utf8');
+  for (const [, src] of doc.matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)) {
+    ok(existsSync(join(REPO_ROOT, 'docs', src)), `docs/art-ab.md shows ${src}, which does not exist`);
   }
 });
 

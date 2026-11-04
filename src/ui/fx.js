@@ -289,6 +289,20 @@ export const sfx = {
   err:    () => { voice({ freq: 150, dur: 0.14, type: 'sawtooth', gain: 0.05 }); voice({ freq: 140, dur: 0.14, type: 'square', gain: 0.03, detune: 30 }); },
   open:   () => [392, 523, 659].forEach((f, i) => voice({ freq: f, dur: 0.13, type: 'triangle', gain: 0.05, delay: i * 0.07 })),
   tick:   () => voice({ freq: 1200, dur: 0.02, type: 'square', gain: 0.02 }),
+  /** The projected P/L would clear the quota: a match struck. */
+  ignite: () => { noise({ from: 2400, to: 700, dur: 0.16, gain: 0.035, q: 0.6 }); voice({ freq: 660, slideTo: 990, dur: 0.14, type: 'triangle', gain: 0.03, delay: 0.04 }); },
+  /** A rubber stamp hitting the desk. */
+  stamp:  () => { noise({ type: 'lowpass', from: 900, to: 90, dur: 0.22, gain: 0.09, q: 0.7 }); voice({ freq: 90, slideTo: 50, dur: 0.18, type: 'sine', gain: 0.09 }); },
+  /** The pointer coming onto a card: a paper tick, barely there. */
+  hover:  () => {
+    // Never the sound that wakes the audio up: before the first click the
+    // browser has not allowed it, and would only log a complaint.
+    if (!ac || ac.state !== 'running') return;
+    const now = performance.now();
+    if (now - (sfx.lastHover || 0) < 70) return;
+    sfx.lastHover = now;
+    voice({ freq: 1500 + Math.random() * 400, dur: 0.018, type: 'triangle', gain: 0.012 });
+  },
   /** Paper being swept off the desk. */
   sweep:  (n = 1) => {
     noise({ from: 2600, to: 500, dur: 0.26, gain: 0.05, q: 0.8 });

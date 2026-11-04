@@ -8,14 +8,22 @@ import { REGIMES } from '../game/market.js';
 import { SECTORS, MAX_BODY } from '../game/candles.js';
 import * as S from '../game/state.js';
 import { candleEl, brokerEl, consumableEl, hideTip } from './components.js';
-import { sfx, toast } from './fx.js';
+import { sfx, toast, countUp } from './fx.js';
+import * as M from './motion.js';
 import { artSvg, consumableArt } from './art.js';
 import { VERSION, VERSION_NAME } from '../engine/version.js';
 import { keyLabel } from '../engine/keys.js';
 
 const root = () => document.getElementById('overlay-root');
 
-export function closeOverlay() { root().innerHTML = ''; hideTip(); }
+export function closeOverlay() {
+  const ov = root().firstElementChild;
+  root().innerHTML = '';
+  hideTip();
+  // Fade the closed screen out as a picture of itself — unless another screen
+  // took its place in the same breath, which brings its own entrance.
+  if (ov) setTimeout(() => { if (!overlayOpen()) M.ghostOut(ov); }, 0);
+}
 export function overlayOpen() { return root().children.length > 0; }
 export function overlayDismissable() { return root().firstElementChild?.dataset.dismissable === '1'; }
 
@@ -36,8 +44,15 @@ export function hasResume() { return !!resume; }
 export function showOverlay(inner, opts = {}) {
   resume = null;
   hideTip();
+  // The same screen drawn again — a buy, a sell, a reroll — keeps its place:
+  // no second entrance, and the scroll position it had.
+  const prev = root().firstElementChild;
+  const sig = (opts.width || '') + '|' + ((/<h2[^>]*>([^<]*)/.exec(inner) || /class="go-title[^"]*">([^<]*)/.exec(inner) || [])[1] || '');
+  const refresh = !!prev && prev.dataset.sig === sig;
+  const scroll = refresh ? prev.scrollTop : 0;
   const ov = document.createElement('div');
-  ov.className = 'overlay';
+  ov.className = 'overlay' + (prev ? ' swap' : '') + (refresh ? ' refresh' : '');
+  ov.dataset.sig = sig;
   ov.dataset.dismissable = opts.dismissable === false ? '0' : '1';
   const sheet = document.createElement('div');
   sheet.className = 'sheet';
@@ -47,6 +62,8 @@ export function showOverlay(inner, opts = {}) {
   if (opts.dismissable !== false) ov.addEventListener('click', (e) => { if (e.target === ov) closeOverlay(); });
   root().innerHTML = '';
   root().appendChild(ov);
+  if (refresh) ov.scrollTop = scroll;
+  else M.dealIn(sheet);
   return sheet;
 }
 
@@ -101,6 +118,11 @@ export function deadlineSelect(game) {
       <button class="btn ghost" id="dl-menu">MENU</button>
     </div>`, { dismissable: false, width: '900px' });
 
+  // A new week is an event: its number is stamped on, once.
+  if (game.weekShown !== st.week) {
+    if (game.weekShown != null) M.stamp(sheet.querySelector('h2'));
+    game.weekShown = st.week;
+  }
   sheet.querySelectorAll('[data-play]').forEach((b) => b.onclick = () => { sfx.open(); game.beginDeadline(+b.dataset.play); });
   sheet.querySelectorAll('[data-skip]').forEach((b) => b.onclick = () => { sfx.buy(); game.skipDeadline(+b.dataset.skip); });
   sheet.querySelector('#dl-book').onclick = () => bookScreen(game, () => deadlineSelect(game));
@@ -137,6 +159,17 @@ export function payoutScreen(game, payout) {
     <div style="text-align:center"><button class="btn primary" id="p-ok">HIT THE FLOOR</button></div>`,
     { dismissable: false, width: '520px' });
   sheet.querySelector('#p-ok').onclick = () => { sfx.buy(); game.openFloor(); };
+  // Each line lands with a coin; then the total rolls up to what you are owed.
+  const rows = sheet.querySelectorAll('.payout-line');
+  const at = (i) => 70 + i * 55 + 300;
+  rows.forEach((_, i) => setTimeout(() => sfx.coin(i), at(i)));
+  const total = sheet.querySelector('.payout-total b');
+  if (total && !M.calm()) {
+    total.textContent = '+$0';
+    setTimeout(() => countUp(total, 0, payout.total, 520, (v) => '+$' + Math.round(v)).then(() => {
+      M.bump(total, 1.4); sfx.cash();
+    }), at(rows.length));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -210,8 +243,10 @@ function wireFloorBar(game, sheet, rerender) {
     });
     el.addEventListener('contextmenu', (e) => {
       e.preventDefault();
+      const snap = M.snapshot(el);
       const r = S.sellBroker(st, b.uid);
-      if (r.ok) { sfx.cash(); toast(`Sold for $${r.value}`, 'good'); rerender(); game.render(); }
+      if (r.ok) { sfx.cash(); toast(`Sold for $${r.value}`, 'good'); rerender(); game.render(); M.spinAway(snap); }
+      else M.nope(el);
     });
     desk.appendChild(el);
   });
@@ -232,7 +267,9 @@ function wireFloorBar(game, sheet, rerender) {
       else { sfx.err(); toast(r.msg || 'Nothing for it to work on right now', 'bad'); }
     };
     el.addEventListener('contextmenu', (e) => {
-      e.preventDefault(); S.sellConsumable(st, c.uid); sfx.cash(); rerender(); game.render();
+      e.preventDefault();
+      const snap = M.snapshot(el);
+      S.sellConsumable(st, c.uid); sfx.cash(); rerender(); game.render(); M.spinAway(snap);
     });
     cons.appendChild(el);
   });
@@ -333,8 +370,17 @@ export function shopScreen(game) {
   wireFloorBar(game, sheet, () => shopScreen(game));
 
   sheet.querySelectorAll('[data-buy]').forEach((b) => b.onclick = () => {
+    const slot = b.closest('.shop-slot');
+    const owned = (root) => [...root.querySelectorAll('#shop-desk [data-uid], #shop-cons [data-uid]')];
+    const before = new Set(owned(sheet).map((e) => e.dataset.uid));
     const r = S.buyShopItem(st, +b.dataset.buy);
-    if (r.ok) { sfx.buy(); shopScreen(game); game.render(); } else { sfx.err(); toast(r.blocked, 'bad'); }
+    if (!r.ok) { sfx.err(); M.nope(slot); return toast(r.blocked, 'bad'); }
+    const snap = M.snapshot(slot.querySelector('.s-art'));
+    sfx.buy();
+    const next = shopScreen(game);
+    game.render();
+    // Whatever is new on the desk is what was bought: the picture flies to it.
+    M.flyTo(snap, owned(next).find((e) => !before.has(e.dataset.uid)));
   });
   sheet.querySelectorAll('[data-pack]').forEach((b) => b.onclick = () => {
     const r = S.buyPack(st, +b.dataset.pack);
@@ -347,11 +393,16 @@ export function shopScreen(game) {
   });
   sheet.querySelector('#shop-reroll').onclick = () => {
     const r = S.rerollShop(st);
-    if (r.ok) { sfx.select(); shopScreen(game); game.render(); } else { sfx.err(); toast(r.blocked, 'bad'); }
+    if (!r.ok) { sfx.err(); return toast(r.blocked, 'bad'); }
+    sfx.select();
+    const next = shopScreen(game);
+    game.render();
+    M.flipIn(next.querySelectorAll('.shop-slot:not(.sold):not(.kind-pack):not(.kind-licence)'));
   };
   sheet.querySelector('#shop-book').onclick = () => bookScreen(game, () => shopScreen(game));
   sheet.querySelector('#shop-form').onclick = () => formationScreen(game, () => shopScreen(game));
   sheet.querySelector('#shop-next').onclick = () => { sfx.open(); game.leaveFloor(); };
+  return sheet;
 }
 
 // ---------------------------------------------------------------------------
@@ -391,25 +442,37 @@ export function packScreen(game) {
   const wrap = sheet.querySelector('#pack-opts');
   open.options.forEach((opt, i) => {
     let el;
-    if (opt.type === 'candle') { el = candleEl(opt.candle, { reveal: true }); el.style.transform = 'scale(1.15)'; el.style.margin = '8px 10px'; }
+    // `scale`, not `transform`: an inline transform outranks the hover rule,
+    // so pack cards used to ignore the pointer entirely.
+    if (opt.type === 'candle') { el = candleEl(opt.candle, { reveal: true }); el.style.scale = '1.15'; el.style.margin = '8px 10px'; }
     else if (opt.type === 'broker') {
       el = brokerEl(opt.inst, st, { hideSell: true });
-      el.style.transform = 'scale(1.3)'; el.style.margin = '12px 18px';
+      el.style.scale = '1.3'; el.style.margin = '12px 18px';
       if (S.alreadyEmployed(st, opt.key)) el.classList.add('taken');
     }
-    else { el = consumableEl({ key: opt.key, uid: 'pk' + i }, st); el.style.transform = 'scale(1.3)'; el.style.margin = '12px 16px'; }
+    else { el = consumableEl({ key: opt.key, uid: 'pk' + i }, st); el.style.scale = '1.3'; el.style.margin = '12px 16px'; }
     el.classList.add('pack-opt');
     if (opt.taken) el.classList.add('taken');
     el.onclick = () => {
+      const owned = (root) => [...root.querySelectorAll('#shop-desk [data-uid], #shop-cons [data-uid]')];
+      const before = new Set(owned(sheet).map((e) => e.dataset.uid));
+      const snap = M.snapshot(el);
       const r = S.pickFromPack(st, i);
-      if (r.ok) { sfx.buy(); if (st.shop.pack) packScreen(game); else shopScreen(game); game.render(); }
-      else { sfx.err(); toast(r.blocked, 'bad'); }
+      if (!r.ok) { sfx.err(); M.nope(el); return toast(r.blocked, 'bad'); }
+      sfx.buy();
+      const next = st.shop.pack ? packScreen(game) : shopScreen(game);
+      game.render();
+      // A broker or Chart lands on the desk; a candle goes into the book.
+      const landed = owned(next).find((e) => !before.has(e.dataset.uid));
+      if (landed) M.flyTo(snap, landed);
+      else M.flyTo(snap, next.querySelector('#fb-book') || next.querySelector('#shop-book'), { keep: true });
     };
     wrap.appendChild(el);
   });
   setResume(() => packScreen(game));
   wireFloorBar(game, sheet, () => packScreen(game));
   sheet.querySelector('#pack-skip').onclick = () => { S.closePack(st); shopScreen(game); };
+  return sheet;
 }
 
 // ---------------------------------------------------------------------------
@@ -846,6 +909,7 @@ export function gameOverScreen(game, won, reason = null) {
         <button class="btn ghost" id="go-title">MAIN MENU</button>
       </div>
     </div>`, { dismissable: false, width: '640px' });
+  M.stamp(sheet.querySelector('.go-title'));
   sheet.querySelector('#go-again').onclick = () => game.startRun(null);
   sheet.querySelector('#go-same').onclick = () => game.startRun(st.seed);
   sheet.querySelector('#go-title').onclick = () => game.toHome();
