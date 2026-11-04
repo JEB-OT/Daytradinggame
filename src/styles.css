@@ -174,7 +174,7 @@ body::after {
        .pl-readout label, .res b, .res label, .tape-title, .tape-call b, .tape-row .t-pl, .tape-row .t-conv,
        .strip-label, .bk-name, .bk-ctr, .cs-name, #ticker-sym, #regime-name, #signal-box label, .signal-arrow,
        .pile-count, .pile-label, .cd-num, .cd-foot, .cd-tag, .cd-order, .act, .pop, .burst, .cash-delta,
-       .cashbit, .fly, .tooltip h4, .tt-rarity, .sheet h2, .sheet h3, .c-name, .c-quota, .c-reward, .btn,
+       .fly, .tooltip h4, .tt-rarity, .sheet h2, .sheet h3, .c-name, .c-quota, .c-reward, .btn,
        .s-kind, .s-name, .s-price, .s-rarity, .s-yield, .fb-label, .fb-cash, .fb-title, .bk-total b,
        .bk-total label, .bc-title, .bc-band, .bt-head, .bt-body, .bt-n, .bk-secname, .bk-seccount, .bk-tab,
        .comp-tab, .bk-where b, .stat-box b, .stat-box label, .pat-table th, .payout-total, .payout-line b,
@@ -861,23 +861,6 @@ body.no-motion .candle.dealing { animation-duration: .14s; }
 .burst.gold { color: var(--gold); text-shadow: var(--outline), 0 6px 0 var(--pen), 0 0 44px rgba(255,210,74,.6) }
 .burst small { display: block; font-size: 18px; letter-spacing: .14em; opacity: .95; margin-top: 4px }
 .particle { position: absolute; width: 5px; height: 5px; border-radius: 1px; pointer-events: none; }
-
-/* Cash is thrown from the Volume and Leverage chips, which sit in the left
-   sidebar — well outside #fx-layer, whose parent #chart-wrap clips its
-   overflow. So it gets its own viewport-level layer with nothing to clip it,
-   sitting above the board but below the overlays and toasts. */
-#cash-layer {
-  position: fixed; inset: 0; pointer-events: none; overflow: visible; z-index: 6000;
-}
-
-/* cash thrown out of a number that beat its quota */
-.cashbit {
-  position: absolute; pointer-events: none; z-index: 30;
-  line-height: 1; will-change: transform, opacity;
-  color: var(--green);
-  text-shadow: var(--outline-sm), 0 0 14px rgba(69,224,141,.6);
-}
-.cashbit.note { text-shadow: 0 2px 6px rgba(0,0,0,.7); filter: drop-shadow(0 0 10px rgba(69,224,141,.55)); }
 
 /* Above the overlays, because most spending happens inside one, but below the
    toasts. Deltas point at whichever cash readout is currently on screen. */
@@ -1769,6 +1752,74 @@ html[data-quality="low"] :is(.candle, .broker, .consumable, .shop-slot, .dl-choi
   box-shadow: 0 10px 26px rgba(0,0,0,.5);
 }
 .update-banner b { font-family: var(--display); font-weight: 400; color: var(--green); letter-spacing: .05em; }
+
+/* ==========================================================================
+   THE BELL (src/ui/celebrate.js) — a quota met, centre stage
+   ========================================================================== */
+#celebrate { position: fixed; inset: 0; z-index: 7300; pointer-events: none; overflow: hidden; perspective: 700px; }
+#celebrate.out { opacity: 0; transition: opacity .3s; }
+.cb-flash { position: absolute; inset: 0; z-index: 4; background: #fff3c4; mix-blend-mode: screen; opacity: 0; }
+/* the ribbon of ink the verdict sits on — the money bursts out from behind it */
+.cb-band {
+  position: absolute; z-index: 2; left: -5%; width: 110%; top: var(--cy); height: clamp(170px, 24vh, 230px);
+  transform: translateY(-50%) rotate(-2deg); transform-origin: 50% 50%; opacity: 0;
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 2px, transparent 2px 9px),
+    rgba(10,14,26,.84);
+  border-top: 5px solid var(--gold); border-bottom: 5px solid var(--gold);
+  box-shadow: 0 -4px 0 var(--pen), 0 4px 0 var(--pen), 0 14px 0 rgba(10,14,26,.55);
+}
+.cb-band.lvl-2 { border-color: #ff9d2e; } .cb-band.lvl-3 { border-color: #ff5cf0; }
+/* hard gold rays, flat wedges in two inks — no airbrush */
+.cb-rays {
+  position: absolute; left: var(--cx); top: var(--cy); width: 150vmax; height: 150vmax;
+  background: repeating-conic-gradient(from 0deg, rgba(255,210,74,.30) 0deg 9deg, rgba(255,176,32,.0) 9deg 18deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0 18%, transparent 52%);
+          mask-image: radial-gradient(circle, #000 0 18%, transparent 52%);
+  opacity: 0;
+}
+.cb-banner {
+  position: absolute; z-index: 3; left: var(--cx); top: var(--cy); text-align: center; white-space: nowrap;
+  transform: translate(-50%,-50%) rotate(-2deg); opacity: 0;
+}
+.cb-tag {
+  display: inline-block; margin-bottom: 4px; padding: 3px 14px 2px; border-radius: 8px;
+  font-family: var(--display); font-size: 22px; letter-spacing: .14em; color: #fff;
+  background: var(--pen); border: 3px solid var(--gold); text-shadow: var(--outline-sm);
+}
+.cb-title {
+  font-family: var(--display); font-size: clamp(64px, 9vw, 128px); line-height: .95; letter-spacing: .05em;
+  color: var(--gold);
+  text-shadow: -4px -4px 0 var(--pen), 4px -4px 0 var(--pen), -4px 4px 0 var(--pen), 4px 4px 0 var(--pen),
+               0 -4px 0 var(--pen), 0 4px 0 var(--pen), -4px 0 0 var(--pen), 4px 0 0 var(--pen),
+               0 11px 0 var(--pen), 0 12px 0 #a66a00;
+}
+.cb-banner.lvl-1 .cb-title { color: #ffe26a; }
+.cb-banner.lvl-2 .cb-title { color: #ff9d2e; }
+.cb-banner.lvl-3 .cb-title { color: #ff5cf0; }
+.cb-sub {
+  margin-top: 8px; font-family: var(--display); font-size: clamp(20px, 2.3vw, 30px); letter-spacing: .08em;
+  color: #fff; text-shadow: var(--outline);
+}
+.cb-sub b { font-weight: 400; color: var(--green); display: inline-block; }
+/* the money: drawn, in flat colour and the same pen as the cards */
+.cb-bill, .cb-coin { position: absolute; z-index: 1; display: grid; place-items: center; font-style: normal; will-change: transform; }
+.cb-bill {
+  width: 46px; height: 25px; border-radius: 4px; background: #4fcf86;
+  border: 2.5px solid var(--pen); box-shadow: inset 0 0 0 3px #2a8c56, 0 3px 0 var(--pen);
+}
+.cb-coin {
+  width: 25px; height: 25px; border-radius: 50%; background: var(--gold);
+  border: 2.5px solid var(--pen); box-shadow: inset -3px -3px 0 #d0901a, inset 2px 2px 0 #fff3b0, 0 3px 0 var(--pen);
+}
+.cb-bill::after, .cb-coin::after {
+  content: '$'; font-family: var(--display); line-height: 1; text-shadow: none;
+}
+.cb-bill::after { font-size: 16px; color: #eafff2; -webkit-text-stroke: 1px var(--pen); }
+.cb-coin::after { font-size: 14px; color: #8a5a00; }
+/* the hit-stop: one breath where the desk flares before the verdict lands */
+.app.hitstop { filter: brightness(1.45) saturate(1.2); }
+html[data-quality="low"] .cb-rays { display: none; }
 
 /* The marbled backdrop (src/ui/backdrop.js) sits under everything, the
    stylesheet's own background showing through only if it could not start. */

@@ -13,6 +13,7 @@ import { artSvg, ensureArtDefs } from './ui/art.js';
 import { applyStyleFlags, STYLE } from './ui/artstyle.js';
 import { initBackdrop, setBackdropStill, setBackdropQuality, backdropMood, backdropStir } from './ui/backdrop.js';
 import * as M from './ui/motion.js';
+import * as Celebrate from './ui/celebrate.js';
 import * as FX from './ui/fx.js';
 import { sfx, toast, shake, popText, particles } from './ui/fx.js';
 import * as OV from './ui/overlays.js';
@@ -676,21 +677,6 @@ class Game {
     paint('swept-pile', 'swept-stack', 'swept-count', swept);
   }
 
-  /**
-   * Throw cash out of the given elements. Splitting the spray between the
-   * emitters keeps the total the same as one burst while making it obvious
-   * which numbers the money came out of.
-   */
-  cashFrom(ids, power) {
-    const live = ids.map((id) => $(id)).filter((el) => el && el.getBoundingClientRect().width);
-    if (!live.length) return;
-    live.forEach((el) => {
-      const r = el.getBoundingClientRect();
-      FX.moneyBurst(r.left + r.width / 2, r.top + r.height * 0.4, power,
-        { scale: 1 / live.length, aim: 0.34 });
-    });
-  }
-
   /** Kick a pile so it reacts to cards leaving or landing. */
   kickPile(id) {
     const el = $(id);
@@ -1160,30 +1146,25 @@ class Game {
   }
 
   async closeTheBooks() {
-    sfx.clear();
     const s = this.state.session;
-    const area = $('play-area').getBoundingClientRect();
-    particles(area.left + area.width / 2, area.top + area.height / 2, '#ffd94a', 40, 220);
-    // Scaled by the overshoot: scraping the quota gets a handful of dollars,
-    // burying it by 6x buries the screen. Full power is deliberately reached
-    // well short of the biggest builds, so the ceiling is a spectacle to chase
-    // rather than a wall everything looks the same past.
     if (this.lastScore) {
       $('sc-volume').textContent = bignum(this.lastScore.volume);
       $('sc-leverage').textContent = bignum(this.lastScore.leverage);
     }
-    const over = s?.quota > 0 ? s.profit / s.quota : 1;
-    const power = Math.max(0, Math.min(1, (over - 1) / 5));
-    // Thrown by the two numbers that earned it — Volume and Leverage — rather
-    // than from nowhere in particular. Each chip gets half the spray, aimed up
-    // and to the right so it crosses the table instead of the sidebar edge.
-    this.cashFrom(['sc-volume', 'sc-leverage'], power);
-    for (let i = 0; i < Math.round(2 + power * 6); i++) setTimeout(() => sfx.coin(i), dur(120 + i * 90));
-    FX.burst('QUOTA MET', 'CLOSE THE BOOKS', 'gold');
+    hideTip();
     backdropMood('bigwin', { stir: 1, fade: 3.5 });
     M.ringAround($('dl-progress'), '#ffd24a', 1.3);
     M.bump($('dl-profit'), 1.4);
-    await sleep(900);
+    // The bell (ui/celebrate.js): the verdict centre stage over the table, a
+    // fountain of money out of it, and more of everything the deeper the
+    // quota was buried. The payout comes up as it settles.
+    const boss = s?.boss ? BOSSES[s.boss] : null;
+    await Celebrate.quotaMet({
+      profit: s?.profit || 0,
+      quota: s?.quota || 0,
+      tag: boss ? `${boss.name.toUpperCase()} BEATEN` : s?.slot?.name ? `${s.slot.name.toUpperCase()} CLEARED` : '',
+      stage: $('table'),
+    });
     const payout = S.finishDeadline(this.state);
     if (payout.quota > 0) this.postBest('overkill', Math.round((payout.profit / payout.quota) * 100) / 100);
     this.render();

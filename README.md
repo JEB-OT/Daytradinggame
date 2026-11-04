@@ -10,12 +10,12 @@ starting pieces, a shop full of things that break the rules, and a deadline that
 No build step and no dependencies — just Node and a browser.
 
 <!-- latest-version: the test suite checks this names the current VERSION, so a release can never leave the front page behind -->
-> **Latest version: v1.14.0 — Going Live** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
+> **Latest version: v1.15.0 — Ring the Bell** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
 >
-> **Play it online, with leaderboards.** The game can now be hosted on Render for free, with three
-> boards everyone can see: THE CAMPAIGN, ENDLESS and OVERKILL. Each trader holds one place per
-> board, and every update redeploys it without touching the scores. Set it up in 15 minutes with
-> [docs/hosting-on-render.md](docs/hosting-on-render.md).
+> **Meeting a quota is a moment now.** The verdict slams onto a ribbon in the middle of the table,
+> a fountain of money bursts out behind it, and the deeper you bury the quota the bigger it gets,
+> up to TOTAL OVERKILL and a money storm. Also: play it online with leaderboards, set up in
+> 15 minutes with [docs/hosting-on-render.md](docs/hosting-on-render.md).
 >
 > **Stuck on `You have uncommitted changes, so nothing was pulled`?** That is an old copy's updater
 > tripping over a stray file. Stop the game, then in the game folder run these three, once:
@@ -253,7 +253,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.14.0** — Going Live | Everything below, plus: a hosted version for Render with online leaderboards (CAMPAIGN, ENDLESS, OVERKILL), one place per trader per board |
+| **v1.15.0** — Ring the Bell | Everything below, plus: a quota met is a centre-stage moment: the verdict on a ribbon, a fountain of money, bigger with the overkill |
+| v1.14.0 — Going Live | Everything below, plus: a hosted version for Render with online leaderboards (CAMPAIGN, ENDLESS, OVERKILL), one place per trader per board |
 | v1.13.0 — Fast Lane | Everything below, plus: Graphics HIGH / MEDIUM / LOW, game speed up to 8× (button in the top bar), Animations FULL / REDUCED / OFF, and an FPS counter |
 | v1.12.0 — Showtime | Everything below, plus: a marbled backdrop behind the desk, bigger card art, cards that lean toward the pointer, and the P/L on fire when a placement clears the quota |
 | v1.11.1 — Quick Hands | Everything below, plus: a reload mid-deadline comes back to the same board; no more frozen boards; Mimic copies any broker |
@@ -635,6 +636,14 @@ in the colour of what they add as they fire. The projected P/L catches fire when
 would clear the quota. Behind it all, a marbled ink backdrop drifts and takes the mood of the room.
 Settings → Animations (or the system's reduced-motion setting) turns all of it off.
 
+### Ringing the bell
+
+Meeting a quota stops the desk. The verdict slams onto a ribbon in the middle of the table, and a
+fountain of money bursts out from behind it. It grows with how far you beat the quota: **QUOTA
+MET**, **QUOTA SMASHED**, **OVERKILL**, then **TOTAL OVERKILL**.
+
+![TOTAL OVERKILL: the verdict on its ribbon, money bursting out behind it](docs/bell.jpg)
+
 ### Running slow? Running too slow?
 
 **Settings → Performance** has four switches, all saved on your device:
@@ -892,6 +901,7 @@ src/ui/               canvas chart, particles/audio, candle components, overlays
   backdrop.js         the marbled ink backdrop (a small WebGL shader)
   motion.js           lean and glint, presses, deal-ins, flights, stamps, confetti, the FPS counter
   tempo.js            the game speed setting, applied to every wait and one-shot animation
+  celebrate.js        the bell: what happens when a quota is met
 test/
   run-tests.mjs       249 tests, no dependencies
   sim.mjs             headless bot that plays whole runs, for balance
