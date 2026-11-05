@@ -2156,9 +2156,10 @@ t('settings: defaults, bad values, and the old motion switch carried across', ()
   eq(odd.quality, 'high'); eq(odd.speed, 1); eq(odd.animations, 'full'); eq(odd.fps, false);
   eq(cleanSettings({ speed: '8' }).speed, 8, 'a speed saved as text still counts');
   const st = store();
-  saveSettings({ quality: 'low', speed: 4, animations: 'off', fps: true }, st);
+  saveSettings({ quality: 'low', speed: 4, animations: 'off', fps: true, concise: true }, st);
   const back = loadSettings(st);
-  eq(back.quality, 'low'); eq(back.speed, 4); eq(back.animations, 'off'); eq(back.fps, true);
+  eq(back.quality, 'low'); eq(back.speed, 4); eq(back.animations, 'off'); eq(back.fps, true); eq(back.concise, true);
+  eq(cleanSettings({ concise: 'yes' }).concise, false, 'LESS TEXT is only on when it was switched on');
 });
 
 t('settings: cycling steps through every value and wraps', () => {
@@ -2176,6 +2177,19 @@ t('settings: animations off makes the game instant, otherwise the speed is the s
   eq(tempoOf({ speed: 4, animations: 'full' }).speed, 4);
   ok(!tempoOf({ speed: 4, animations: 'reduced' }).instant);
   ok(tempoOf({ speed: 1, animations: 'off' }).instant);
+});
+
+t('LESS TEXT only hides explanations: every .verbose has a reason, and nothing that states a rule is hidden', () => {
+  const css = readFileSync(join(REPO_ROOT, 'src/styles.css'), 'utf8');
+  ok(/html\[data-concise\] \.verbose \{ display: none/.test(css), 'the stylesheet hides .verbose under LESS TEXT');
+  // What a card, broker or boss DOES must never be marked verbose.
+  for (const f of ['src/ui/components.js', 'src/ui/overlays.js', 'src/ui/screens.js', 'src/main.js']) {
+    const src = readFileSync(join(REPO_ROOT, f), 'utf8');
+    for (const forbidden of ['brokerText(', 'consumableText(', 'consumableDownside(', 'boss.blurb', 'e.desc', '.desc}']) {
+      const bad = src.split('\n').find((line) => line.includes('verbose') && line.includes(forbidden));
+      ok(!bad, `${f}: an effect is marked verbose — ${bad?.trim().slice(0, 90)}`);
+    }
+  }
 });
 
 t('every art style only turns knobs that exist', () => {

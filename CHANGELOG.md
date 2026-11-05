@@ -7,6 +7,39 @@ screen — if yours is lower, you are running an old copy, so see
 Each released version has a matching git tag, so any version on this page can be downloaded or
 checked out on its own: see [Getting a specific version](README.md#getting-a-specific-version).
 
+## v1.16.0 — Tear It Open
+
+*2026-11-05*
+
+- **Opening a pack is a moment.** It takes about a second at 1×, and less at a higher game speed:
+  1. The pack flies in from the Floor slot you bought it from, and gives a little shake.
+  2. A strip tears off across its top along a zigzag, with a rip and a ring of gold.
+  3. The wrapper drops away, and the cards inside are dealt out of it one after another, turning
+     face-up as they land in their places.
+
+  It is decoration only: the cards can be picked while it plays. It only happens when a pack is
+  bought; a second pick from the same pack, or coming back to it from the book, just shows it.
+  With Animations REDUCED or OFF the cards are simply there.
+- **LESS TEXT** (Settings) is for players who know the game and would rather read less.
+  - **It drops the explanations:**
+    - the first-time coaching tips;
+    - the "how to" lines (*right-click to sell*, *drag to reorder*, *then click to use*);
+    - the Floor's *How you earn* panel, and what each kind of pack is for;
+    - the week screen's rules line, and the deadline and pack screens' reminders;
+    - the hover explanations of Volume, Leverage, Projected P/L, Conviction, trades, sweeps and
+      greens;
+    - the longer halves of the quota, deck, swept-pile, signal and formation tips;
+    - the flavour lines on the game-over and win screens;
+    - the title screen's card captions.
+  - **A candle's tooltip folds down to one line**, such as *Spinner · 2 Vol · Tech ▲ · BULL*.
+  - **It keeps everything you need to decide:**
+    - every card, broker, Chart, Rumor, boss and licence effect;
+    - every enhancement, edition and stamp;
+    - every cost and downside, sell values and levels;
+    - the warnings that change what you should do, such as *Your desk is full*.
+
+  A test makes sure no effect text can ever be marked as hideable.
+
 ## v1.15.0 — Ring the Bell
 
 *2026-11-04*

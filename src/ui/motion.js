@@ -17,6 +17,7 @@
 // ---------------------------------------------------------------------------
 
 import { sfx } from './fx.js';
+import { paced, dur } from './tempo.js';
 
 const reduceQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 /** True when motion should stand down. */
@@ -303,6 +304,76 @@ export function spinAway(snap) {
     { transform: 'translateY(-70px) rotate(200deg) scale(.2)', opacity: 0, filter: 'brightness(2)' },
   ], { duration: 520, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'forwards' });
   if (a) a.onfinish = () => snap.g.remove(); else snap.g.remove();
+}
+
+/**
+ * A pack opened. The pack flies in from the Floor slot it was bought from,
+ * gives a little shake, and a strip tears off across its top; then the cards
+ * inside are dealt out of it, turning face-up as they land in their places.
+ * Under a second, at the game's speed — and only decoration: the cards are
+ * on the screen and can be picked the whole time.
+ *
+ * @param packSvg the pack's own picture (art.js)
+ * @param from    where it was bought (a rect), or null to rise from below
+ * @param cards   the option elements, already in place
+ */
+export function openPack(packSvg, from, cards) {
+  if (calm() || !cards.length) return;
+  const row = cards[0].parentElement.getBoundingClientRect();
+  const cx = row.left + row.width / 2, cy = row.top + row.height / 2;
+  const SIZE = 118;
+  const g = document.createElement('div');
+  g.className = 'pack-ghost';
+  g.style.cssText = `left:${cx}px;top:${cy}px;width:${SIZE}px;height:${SIZE}px`;
+  g.innerHTML = `<div class="pk-half pk-top">${packSvg}</div><div class="pk-half pk-body">${packSvg}</div>`;
+  layer().appendChild(g);
+  const sx = from ? from.left + from.width / 2 - cx : 0;
+  const sy = from ? from.top + from.height / 2 - cy : 90;
+  const s0 = from ? Math.max(0.3, from.width / SIZE) : 0.5;
+
+  // 1 — in from the shelf, then a shake: something is in there
+  paced(g.animate([
+    { transform: `translate(-50%,-50%) translate(${sx}px,${sy}px) scale(${s0}) rotate(0deg)`, opacity: from ? 1 : 0 },
+    { transform: 'translate(-50%,-50%) translate(0,-8px) scale(1.06) rotate(-4deg)', opacity: 1, offset: 0.55 },
+    { transform: 'translate(-50%,-50%) translate(0,0) scale(1) rotate(5deg)', offset: 0.7 },
+    { transform: 'translate(-50%,-50%) translate(0,0) scale(1) rotate(-4deg)', offset: 0.82 },
+    { transform: 'translate(-50%,-50%) translate(0,0) scale(1) rotate(0deg)', opacity: 1 },
+  ], { duration: 420, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'forwards' }));
+
+  // 2 — the tear: the strip flies off, the wrapper drops away
+  const TEAR = 400;
+  setTimeout(() => {
+    sfx.tear();
+    inkRing(cx, cy - SIZE * 0.24, '#ffd24a', SIZE * 1.6, 5);
+    paced(g.querySelector('.pk-top').animate([
+      { transform: 'translate(0,0) rotate(0deg)', opacity: 1 },
+      { transform: 'translate(46px,-70px) rotate(28deg)', opacity: 1, offset: 0.6 },
+      { transform: 'translate(70px,-96px) rotate(40deg)', opacity: 0 },
+    ], { duration: 360, easing: 'cubic-bezier(.2,.8,.4,1)', fill: 'forwards' }));
+    // gone by the time the first card is clear of it, so the cards come out of the pack, not from behind it
+    paced(g.querySelector('.pk-body').animate([
+      { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      { transform: 'translate(0,8px) scale(1.04)', opacity: 0.85, offset: 0.3 },
+      { transform: 'translate(0,40px) scale(.9)', opacity: 0 },
+    ], { duration: 230, easing: 'ease-in', fill: 'forwards' }));
+    setTimeout(() => g.remove(), dur(560));
+  }, dur(TEAR));
+
+  // 3 — the cards come out of it, one after another, turning face-up into place
+  const DEAL = TEAR + 60;
+  setTimeout(() => sfx.deal(cards.length), dur(DEAL));
+  cards.forEach((el, i) => {
+    const r = el.getBoundingClientRect();
+    const dx = cx - (r.left + r.width / 2), dy = cy - (r.top + r.height / 2);
+    const base = parseFloat(el.style.scale) || 1;
+    const tilt = (i - (cards.length - 1) / 2) * 6;
+    paced(el.animate([
+      { translate: `${dx}px ${dy}px`, scale: String(base * 0.3), rotate: `${tilt * 2}deg`, opacity: 0, transform: 'perspective(600px) rotateY(80deg)' },
+      { opacity: 1, offset: 0.2 },
+      { translate: '0 -12px', scale: String(base * 1.06), rotate: `${-tilt * 0.3}deg`, opacity: 1, offset: 0.78, transform: 'perspective(600px) rotateY(-6deg)' },
+      { translate: '0 0', scale: String(base), rotate: '0deg', opacity: 1, transform: 'perspective(600px) rotateY(0deg)' },
+    ], { duration: 440, delay: dur(DEAL + i * 75), easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'backwards' }));
+  });
 }
 
 /**

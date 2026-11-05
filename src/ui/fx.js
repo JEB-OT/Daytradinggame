@@ -238,6 +238,12 @@ export const sfx = {
   tick:   () => voice({ freq: 1200, dur: 0.02, type: 'square', gain: 0.02 }),
   /** The projected P/L would clear the quota: a match struck. */
   ignite: () => { noise({ from: 2400, to: 700, dur: 0.16, gain: 0.035, q: 0.6 }); voice({ freq: 660, slideTo: 990, dur: 0.14, type: 'triangle', gain: 0.03, delay: 0.04 }); },
+  /** Foil tearing: a quick rip, high to low, and a little pop as it gives. */
+  tear:   () => {
+    noise({ from: 5200, to: 1400, dur: 0.16, gain: 0.05, q: 0.7 });
+    noise({ from: 2400, to: 600, dur: 0.08, gain: 0.03, q: 1.1, delay: 0.1 });
+    voice({ freq: 880, slideTo: 1320, dur: 0.1, type: 'triangle', gain: 0.03, delay: 0.12 });
+  },
   /** The till: a bright two-note cha-ching with the drawer sliding under it. */
   register: () => {
     noise({ from: 3000, to: 900, dur: 0.18, gain: 0.04, q: 0.9 });

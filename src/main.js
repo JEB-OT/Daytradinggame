@@ -112,6 +112,9 @@ class Game {
     const s = this.settings;
     document.body.classList.toggle('no-motion', this.reducedMotion);
     document.documentElement.dataset.quality = s.quality;
+    // LESS TEXT: the stylesheet hides everything marked .verbose and shows its
+    // .terse stand-in, so no screen has to know about the setting itself.
+    document.documentElement.toggleAttribute('data-concise', s.concise);
     setTempo(tempoOf(s));
     // The backdrop costs the most, so quality decides it first: animated on
     // HIGH, one still frame on MEDIUM, not there at all on LOW.
@@ -132,6 +135,8 @@ class Game {
    * three toasts on screen together is just noise.
    */
   hint(key, msg) {
+    // first-time coaching is exactly the text a player who knows the game turned off
+    if (this.settings?.concise) return;
     if (this.coach.has(key)) return;
     const seen = SC.career().hints || {};
     if (seen[key]) return;
@@ -281,7 +286,7 @@ class Game {
     const sheet = OV.showOverlay(`
       <div class="title-wrap">
         <div class="go-title win">CASHED OUT</div>
-        <div class="sub" style="margin-top:12px">Eight weeks. Every quota met. You survived the desk — most don't.</div>
+        <div class="sub verbose" style="margin-top:12px">Eight weeks. Every quota met. You survived the desk — most don't.</div>
         <div class="go-stats">
           <div class="stat-box"><label>DEADLINES</label><b>${st.stats.deadlinesCleared}</b></div>
           <div class="stat-box"><label>BOSSES</label><b>${st.stats.bossesCleared}</b></div>
@@ -750,7 +755,7 @@ class Game {
       $('sc-leverage').textContent = '0';
       $('sc-pl').textContent = '$0';
       this.markClears(false);
-      $('conviction-label').innerHTML = '<span style="color:var(--ink-faint)">place candles to read conviction</span>';
+      $('conviction-label').innerHTML = '<span class="verbose" style="color:var(--ink-faint)">place candles to read conviction</span>';
       this.updateActions();
       return;
     }
@@ -1174,10 +1179,11 @@ class Game {
 
   /** Explain the HUD. Every number on screen should be able to say what it is. */
   bindExplainers() {
-    const tip = (id, fn) => {
+    /** @param explainOnly a tip that only explains — nothing in it the player cannot see — is off with LESS TEXT */
+    const tip = (id, fn, explainOnly = false) => {
       const el = $(id);
       if (!el) return;
-      el.addEventListener('mouseenter', () => showTip(el, fn()));
+      el.addEventListener('mouseenter', () => { if (!(explainOnly && this.settings.concise)) showTip(el, fn()); });
       el.addEventListener('mouseleave', hideTip);
     };
     const st = () => this.state;
@@ -1185,20 +1191,20 @@ class Game {
       <div class="tt-rarity" style="color:var(--cyan)">THE SIZE OF THE POSITION</div>
       <div class="tt-body">The formation sets a base, then <b>every candle that prints adds its body</b> on top.
       Anything that reads <em>+X Volume</em> lands here.</div>
-      <div class="tt-foot">Volume × Leverage = P/L</div>`);
+      <div class="tt-foot">Volume × Leverage = P/L</div>`, true);
     tip('sc-leverage', () => `<h4>Leverage</h4>
       <div class="tt-rarity" style="color:var(--red)">THE MULTIPLIER</div>
       <div class="tt-body"><em>+X Leverage</em> adds to this number. <em>×X Leverage</em> multiplies whatever has
       already been added — which is why the order of your brokers changes the result.</div>
-      <div class="tt-foot">Once Volume is large, a ×2 beats any +50</div>`);
+      <div class="tt-foot">Once Volume is large, a ×2 beats any +50</div>`, true);
     tip('sc-pl', () => `<h4>Projected P/L</h4>
       <div class="tt-body">Volume × Leverage, before the tape resolves. Book enough of it to clear the quota
-      before your trades run out.</div>`);
+      before your trades run out.</div>`, true);
     tip('conviction-row', () => `<h4>Conviction</h4>
       <div class="tt-rarity" style="color:var(--gold)">YOUR CANDLES BACKING YOUR CALL</div>
       <div class="tt-body">Every printed candle that agrees with the direction you call pays you for it.
       <b>All of them agree</b> is <em>×1.5 Leverage</em>; <b>most of them</b> is <em>×1.2</em>.</div>
-      <div class="tt-foot">▲ is what LONG pays · ▼ is what SHORT pays</div>`);
+      <div class="tt-foot">▲ is what LONG pays · ▼ is what SHORT pays</div>`, true);
     tip('formation-name', () => {
       const s = st()?.session;
       const sel = s ? S.selectedCandles(st()) : [];
@@ -1208,8 +1214,8 @@ class Game {
       return `<h4>${f.name}</h4>
         <div class="tt-rarity" style="color:var(--cyan)">LEVEL ${pv.level}</div>
         <div class="tt-body">Made of <b>${f.made}</b>.</div>
-        <div class="tt-body">Base <em>${pv.volume ? f.volume : f.volume} Volume</em> × <em>${f.leverage} Leverage</em> at level 1.
-        Contracts level it permanently.</div>`;
+        <div class="tt-body">Base <em>${f.volume} Volume</em> × <em>${f.leverage} Leverage</em> at level 1.<span class="verbose">
+        Contracts level it permanently.</span></div>`;
     });
     tip('signal-box', () => {
       const m = st()?.mods;
@@ -1217,7 +1223,7 @@ class Game {
       if (m.hideSignal) return `<h4>Desk signal</h4><div class="tt-body">Hidden by the boss this deadline. You are calling it blind.</div>`;
       return `<h4>Desk signal</h4>
         <div class="tt-rarity" style="color:var(--ink-dim)">${m.perfectSignal ? 'ALWAYS TRUTHFUL' : Math.round(m.accuracy * 100) + '% TRUTHFUL'}</div>
-        <div class="tt-body">The arrow points where the tape goes next — but it lies the rest of the time.
+        <div class="tt-body verbose">The arrow points where the tape goes next — but it lies the rest of the time.
         Terminals, feeds and burner phones raise the number.</div>`;
     });
     tip('dl-quota', () => {
@@ -1233,33 +1239,33 @@ class Game {
       return `<h4>Quota</h4>
         <div class="tt-body">Book <em>${money(s.quota)}</em> in P/L before your trades run out.
         You have booked <b>${money(s.profit)}</b> with <b>${s.tradesLeft}</b> trade${s.tradesLeft === 1 ? '' : 's'} left.</div>
-        ${curve}
-        <div class="tt-foot">Miss it and the run ends</div>`;
+        <div class="verbose">${curve}</div>
+        <div class="tt-foot verbose">Miss it and the run ends</div>`;
     });
     tip('draw-pile', () => {
       const s = st()?.session;
       const n = s ? s.drawPile.length : (st()?.book.length ?? 0);
       return `<h4>The deck</h4>
         <div class="tt-rarity" style="color:var(--cyan)">${n} CANDLE${n === 1 ? '' : 'S'} LEFT TO DEAL</div>
-        <div class="tt-body">Your whole book is shuffled in here at the bell, and the board is topped up off the
+        <div class="tt-body verbose">Your whole book is shuffled in here at the bell, and the board is topped up off the
         top of it. Once it runs dry the board only shrinks.</div>
-        <div class="tt-foot">Click to see exactly which candles are still in here</div>`;
+        <div class="tt-foot verbose">Click to see exactly which candles are still in here</div>`;
     });
     tip('swept-pile', () => {
       const s = st()?.session;
       const n = s ? s.swept.length : 0;
       return `<h4>The swept pile</h4>
         <div class="tt-rarity" style="color:var(--ink-dim)">${n} CANDLE${n === 1 ? '' : 'S'} SPENT</div>
-        <div class="tt-body">Everything you have traded or swept this deadline lands here. It does not shuffle
+        <div class="tt-body verbose">Everything you have traded or swept this deadline lands here. It does not shuffle
         back in — what is gone is gone until the next bell.</div>
-        <div class="tt-foot">Click to open your book</div>`;
+        <div class="tt-foot verbose">Click to open your book</div>`;
     });
     tip('r-trades', () => `<h4>Trades</h4><div class="tt-body">One placement plus one call each. Unused trades pay
-      <em>$1</em> apiece when you clear the deadline.</div>`);
+      <em>$1</em> apiece when you clear the deadline.</div>`, true);
     tip('r-sweeps', () => `<h4>Sweeps</h4><div class="tt-body">Throw candles back and draw replacements without
-      spending a trade. Use them to chase a better formation.</div>`);
+      spending a trade. Use them to chase a better formation.</div>`, true);
     tip('r-greens', () => `<h4>Green trades</h4><div class="tt-body">Calls you got right this deadline. Several
-      brokers scale off a green streak.</div>`);
+      brokers scale off a green streak.</div>`, true);
     tip('regime-badge', () => {
       const s = st()?.session;
       if (!s) return '<h4>Market regime</h4>';

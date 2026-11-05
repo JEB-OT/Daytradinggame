@@ -56,27 +56,27 @@ export function homeScreen(game) {
         <nav class="home-menu" aria-label="Main menu">
           <button class="home-card ${seenTutorial ? '' : 'flag'}" id="h-tutorial">
             <span class="hc-art">🎓</span>
-            <span class="hc-body"><b>TUTORIAL</b><small>Learn Volume, Leverage and the call</small></span>
+            <span class="hc-body"><b>TUTORIAL</b><small class="verbose">Learn Volume, Leverage and the call</small></span>
           </button>
           <button class="home-card" id="h-rules">
             <span class="hc-art">📖</span>
-            <span class="hc-body"><b>HOW TO PLAY</b><small>The full rules and controls</small></span>
+            <span class="hc-body"><b>HOW TO PLAY</b><small class="verbose">The full rules and controls</small></span>
           </button>
           <button class="home-card" id="h-compendium">
             <span class="hc-art">🗂️</span>
-            <span class="hc-body"><b>COMPENDIUM</b><small>Candles, brokers, formations, bosses</small></span>
+            <span class="hc-body"><b>COMPENDIUM</b><small class="verbose">Candles, brokers, formations, bosses</small></span>
           </button>
           <button class="home-card" id="h-glossary">
             <span class="hc-art">📔</span>
-            <span class="hc-body"><b>GLOSSARY</b><small>Every term the game uses</small></span>
+            <span class="hc-body"><b>GLOSSARY</b><small class="verbose">Every term the game uses</small></span>
           </button>
           ${Online.online.ready ? `<button class="home-card online" id="h-leaderboards">
             <span class="hc-art">🏆</span>
-            <span class="hc-body"><b>LEADERBOARDS</b><small>Every trader's best, on three boards</small></span>
+            <span class="hc-body"><b>LEADERBOARDS</b><small class="verbose">Every trader's best, on three boards</small></span>
           </button>` : ''}
           <button class="home-card" id="h-settings">
             <span class="hc-art">🎛️</span>
-            <span class="hc-body"><b>SETTINGS</b><small>Sound, speed and graphics</small></span>
+            <span class="hc-body"><b>SETTINGS</b><small class="verbose">Sound, speed, graphics and text</small></span>
           </button>
         </nav>
       </div>
@@ -518,6 +518,15 @@ export function glossaryScreen(game, back) {
 // SETTINGS
 // ---------------------------------------------------------------------------
 /** The performance rows of the settings screen: each click steps to the next value. */
+/** How much the game explains itself. */
+const TEXT_ROWS = [
+  { key: 'concise', label: 'LESS TEXT', values: [false, true], show: (v) => (v ? 'ON' : 'OFF'),
+    notes: {
+      false: 'For players who know the game: drops the explanations, keeps what cards and brokers do',
+      true: 'On: no coaching tips or how-to lines; every effect, cost and modifier is still shown',
+    } },
+];
+
 const PERF_ROWS = [
   { key: 'quality', label: 'GRAPHICS', values: QUALITIES, show: (v) => v.toUpperCase(),
     notes: {
@@ -543,6 +552,10 @@ export function settingsScreen(game, back) {
     <div class="sub">Saved on this device.</div>
     <div class="settings">
       <button class="set-row" id="s-sound"><b>SOUND</b><span id="s-sound-v">${game.muted ? 'OFF' : 'ON'}</span></button>
+      ${TEXT_ROWS.map((r) => `
+        <button class="set-row perf" data-perf="${r.key}">
+          <b>${r.label}<small data-perf-note>${r.notes[game.settings[r.key]] || ''}</small></b><span data-perf-v>${r.show(game.settings[r.key])}</span>
+        </button>`).join('')}
       <button class="set-row danger" id="s-wipe"><b>ERASE SAVED RUN &amp; STATS</b><span>&nbsp;</span></button>
     </div>
     <h3>PERFORMANCE</h3>
@@ -567,7 +580,7 @@ export function settingsScreen(game, back) {
     sheet.querySelector('#s-sound-v').textContent = game.muted ? 'OFF' : 'ON';
   };
   sheet.querySelectorAll('[data-perf]').forEach((row) => row.onclick = () => {
-    const r = PERF_ROWS.find((x) => x.key === row.dataset.perf);
+    const r = [...PERF_ROWS, ...TEXT_ROWS].find((x) => x.key === row.dataset.perf);
     game.cycleSetting(r.key, r.values);
     const v = game.settings[r.key];
     row.querySelector('[data-perf-v]').textContent = r.show(v);
