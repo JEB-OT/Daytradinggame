@@ -10,11 +10,20 @@
  *
  * Bump VERSION and add a CHANGELOG entry whenever a patch ships.
  */
-export const VERSION = 'v1.15.0';
-export const VERSION_NAME = 'Ring the Bell';
+export const VERSION = 'v1.16.0';
+export const VERSION_NAME = 'Tear It Open';
 
 /** Newest first. Kept short — the README carries the detail. */
 export const CHANGELOG = [
+  {
+    version: 'v1.16.0',
+    name: 'Tear It Open',
+    notes: [
+      'Opening a pack: it flies in from the Floor, a strip tears off the top, and the cards are dealt out of it',
+      'LESS TEXT (Settings): drops the explanations and coaching for players who know the game',
+      'Everything a card, broker or boss does is still shown, with every modifier and cost',
+    ],
+  },
   {
     version: 'v1.15.0',
     name: 'Ring the Bell',

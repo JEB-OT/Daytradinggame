@@ -70,10 +70,14 @@ function candleTip(c) {
     bits.push(`<div class="tt-special" style="--ec:${e.color}"><b>${e.name}</b><span>${e.desc}</span></div>`);
   }
   const band = bandOf(c.body);
-  bits.push(`<div class="tt-body">A <b>${band.name}</b> — its body is worth <em>${baseVolume(c)} Volume</em>, added when it prints.</div>`);
-  bits.push(`<div class="tt-body"><b>${SECTORS[c.sector].name} ${SECTORS[c.sector].glyph}</b> — five of one sector on the board prints a Sector Cluster.</div>`);
-  if (c.enhancement !== 'obsidian') {
-    bits.push(`<div class="tt-body"><b style="color:${c.bull ? 'var(--green)' : 'var(--red)'}">${c.bull ? 'BULL' : 'BEAR'}</b> — agrees with a <b>${c.bull ? 'LONG' : 'SHORT'}</b> call, which is what earns Conviction.</div>`);
+  const side = c.enhancement !== 'obsidian'
+    ? `<b style="color:${c.bull ? 'var(--green)' : 'var(--red)'}">${c.bull ? 'BULL' : 'BEAR'}</b>` : '';
+  // LESS TEXT: the same facts on one line, without what each one means
+  bits.push(`<div class="tt-body terse"><b>${band.name}</b> · <em>${baseVolume(c)} Vol</em> · <b>${SECTORS[c.sector].name} ${SECTORS[c.sector].glyph}</b>${side ? ' · ' + side : ''}</div>`);
+  bits.push(`<div class="tt-body verbose">A <b>${band.name}</b> — its body is worth <em>${baseVolume(c)} Volume</em>, added when it prints.</div>`);
+  bits.push(`<div class="tt-body verbose"><b>${SECTORS[c.sector].name} ${SECTORS[c.sector].glyph}</b> — five of one sector on the board prints a Sector Cluster.</div>`);
+  if (side) {
+    bits.push(`<div class="tt-body verbose">${side} — agrees with a <b>${c.bull ? 'LONG' : 'SHORT'}</b> call, which is what earns Conviction.</div>`);
   }
   if (c.edition) bits.push(`<div class="tt-body"><b>${EDITIONS[c.edition].name}</b> — ${EDITIONS[c.edition].desc}</div>`);
   if (c.stamp) bits.push(`<div class="tt-body"><b>${STAMPS[c.stamp].name}</b> — ${STAMPS[c.stamp].desc}</div>`);
@@ -117,11 +121,11 @@ export function brokerTip(inst, state, opts = {}) {
   const ed = inst.edition
     ? `<div class="tt-body" style="color:var(--gold)"><b>${EDITIONS[inst.edition].name}</b> — ${EDITIONS[inst.edition].desc}`
       + (inst.editionSealed
-        ? ' <em style="font-style:normal;color:var(--ink-dim)">· sealed — nothing can replace it, and it lasts until you sell this broker</em>'
+        ? ' <em style="font-style:normal;color:var(--ink-dim)">· sealed<span class="verbose"> — nothing can replace it, and it lasts until you sell this broker</span></em>'
         : '')
       + '</div>'
     : '';
-  const foot = opts.hideSell ? '' : `<div class="tt-foot">Sells for $${brokerSellValue(inst, state)} · drag to reorder · right-click to sell</div>`;
+  const foot = opts.hideSell ? '' : `<div class="tt-foot">Sells for $${brokerSellValue(inst, state)}<span class="verbose"> · drag to reorder · right-click to sell</span></div>`;
   return `<h4>${d.name}</h4>
     <div class="tt-rarity" style="color:${rar.color}">${rar.name.toUpperCase()} BROKER</div>
     <div class="tt-body">${brokerText(inst, state)}</div>${ed}${foot}`;
@@ -153,9 +157,9 @@ export function consumableTip(inst, state) {
     const lv = state.formations[d.formation]?.level ?? 1;
     extra = `<div class="tt-foot">Currently level ${lv} → ${lv + 1}</div>`;
   } else if (d.select && d.select[1] > 0) {
-    extra = `<div class="tt-foot">Select ${d.select[0]}${d.select[1] > d.select[0] ? '-' + d.select[1] : ''} candle(s), then click to use</div>`;
+    extra = `<div class="tt-foot">Select ${d.select[0]}${d.select[1] > d.select[0] ? '-' + d.select[1] : ''} candle(s)<span class="verbose">, then click to use</span></div>`;
   } else {
-    extra = '<div class="tt-foot">Click to use · right-click to sell</div>';
+    extra = '<div class="tt-foot verbose">Click to use · right-click to sell</div>';
   }
   const down = consumableDownside(d, state);
   return `<h4>${d.name}</h4><div class="tt-rarity" style="color:${col}">${fam}</div>

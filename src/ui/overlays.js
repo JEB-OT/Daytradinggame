@@ -109,7 +109,7 @@ export function deadlineSelect(game) {
   const sheet = showOverlay(`
     <h2>WEEK ${st.week}</h2>
     ${actLine}
-    <div class="sub">Three deadlines. Clear all three to reach next week. Skipping trades the cash for a bonus.</div>
+    <div class="sub verbose">Three deadlines. Clear all three to reach next week. Skipping trades the cash for a bonus.</div>
     <div class="dl-choices">${cards}</div>
     <div class="btn-row">
       <button class="btn ghost" id="dl-book">BOOK</button>
@@ -204,7 +204,7 @@ function floorBarHtml(st, title, book = false) {
       <div class="fb-group fb-tools">
         ${book ? `<span class="fb-cash" data-cash-readout>${money(st.cash)}</span>` : ''}
         ${book ? '<button class="btn tiny" id="fb-book">BOOK</button>' : ''}
-        <span class="fb-hint">right-click to sell &middot; click a chart to use it &middot; drag to reorder</span>
+        <span class="fb-hint verbose">right-click to sell &middot; click a chart to use it &middot; drag to reorder</span>
       </div>
     </div>`;
 }
@@ -322,7 +322,7 @@ export function shopScreen(game) {
       <div class="s-art">${artSvg('pack', p.key)}</div>
       <div class="s-name">${p.name}</div>
       <div class="s-yield">${S.packSummary(p)}</div>
-      <div class="s-desc">${c.blurb}</div>
+      <div class="s-desc verbose">${c.blurb}</div>
       <div class="s-price">$${price}</div>
       <button class="btn" data-pack="${i}" ${st.cash < price ? 'disabled' : ''}>OPEN</button>
     </div>`);
@@ -345,11 +345,11 @@ export function shopScreen(game) {
   const rerollCost = Math.max(0, shop.rerollCost - st.mods.rerollDiscount);
   const sheet = showOverlay(`
     <div class="sheet-head">
-      <div><h2>THE FLOOR</h2><div class="sub" style="margin:0">Week ${st.week} · spend it before the bell</div></div>
+      <div><h2>THE FLOOR</h2><div class="sub" style="margin:0">Week ${st.week}<span class="verbose"> · spend it before the bell</span></div></div>
       <div data-cash-readout class="floor-cash">${money(st.cash)}</div>
     </div>
     <div class="floor-grid" style="margin-top:14px">${tiles.join('')}</div>
-    <div class="floor-earn">
+    <div class="floor-earn verbose">
       <b>HOW YOU EARN</b>
       <span><i>$4&ndash;$7</i> for clearing a deadline</span>
       <span><i>$1</i> for every trade you did not need</span>
@@ -383,9 +383,10 @@ export function shopScreen(game) {
     M.flyTo(snap, owned(next).find((e) => !before.has(e.dataset.uid)));
   });
   sheet.querySelectorAll('[data-pack]').forEach((b) => b.onclick = () => {
+    const from = b.closest('.shop-slot')?.querySelector('.s-art')?.getBoundingClientRect() || null;
     const r = S.buyPack(st, +b.dataset.pack);
     // game.render() so the cash you just spent animates off the topbar too.
-    if (r.ok) { sfx.open(); packScreen(game); game.render(); } else { sfx.err(); toast(r.blocked, 'bad'); }
+    if (r.ok) { sfx.open(); packScreen(game, { opening: from }); game.render(); } else { sfx.err(); toast(r.blocked, 'bad'); }
   });
   sheet.querySelector('#buy-lic')?.addEventListener('click', () => {
     const r = S.buyLicense(st);
@@ -406,7 +407,14 @@ export function shopScreen(game) {
 }
 
 // ---------------------------------------------------------------------------
-export function packScreen(game) {
+/**
+ * @param opts.opening  set when the pack has just been bought: the rect of the
+ *                      shop picture it was bought from, so it can be shown
+ *                      flying in and tearing open. Every other way here (a pick
+ *                      from a multi-pick pack, back from the book, a reload)
+ *                      just shows the pack.
+ */
+export function packScreen(game, opts = {}) {
   const st = game.state;
   const open = st.shop.pack;
   if (!open) return shopScreen(game);
@@ -427,16 +435,16 @@ export function packScreen(game) {
     <div style="text-align:center">
       <h2>${open.pack.name.toUpperCase()}</h2>
       <div class="pack-lead">
-        <b>${open.picks}</b> more to keep &mdash; ${contents.blurb}
+        <b>${open.picks}</b> more to keep<span class="verbose"> &mdash; ${contents.blurb}</span>
       </div>
-      <div class="sub" style="margin-bottom:4px">${open.pack.choose > 1
+      <div class="sub verbose" style="margin-bottom:4px">${open.pack.choose > 1
         ? `This pack lets you keep <b>${open.pack.choose}</b>. Anything you do not take is gone.`
         : 'Anything you do not take is gone.'}</div>
       ${warn}
       <div class="pack-options" id="pack-opts"></div>
       <button class="btn ghost" id="pack-skip">${open.picks < open.pack.choose ? 'DONE' : 'SKIP'}</button>
     </div>
-    ${floorBarHtml(st, 'YOUR DESK &amp; CHARTS &mdash; sell or use them right here, without losing the pack', true)}`,
+    ${floorBarHtml(st, 'YOUR DESK &amp; CHARTS<span class="verbose"> &mdash; sell or use them right here, without losing the pack</span>', true)}`,
     { dismissable: false, width: '900px' });
 
   const wrap = sheet.querySelector('#pack-opts');
@@ -472,6 +480,12 @@ export function packScreen(game) {
   setResume(() => packScreen(game));
   wireFloorBar(game, sheet, () => packScreen(game));
   sheet.querySelector('#pack-skip').onclick = () => { S.closePack(st); shopScreen(game); };
+  if ('opening' in opts) {
+    // the pack's own entrance replaces the screen's usual deal-in of its cards
+    const cards = [...wrap.children];
+    cards.forEach((el) => el.getAnimations().forEach((a) => a.cancel()));
+    M.openPack(artSvg('pack', open.pack.key), opts.opening, cards);
+  }
   return sheet;
 }
 
@@ -891,7 +905,7 @@ export function gameOverScreen(game, won, reason = null) {
       <div class="go-title ${won ? 'win' : ''}">${won ? 'CASHED OUT' : 'LIQUIDATED'}</div>
       <div class="sub" style="text-align:center;margin-top:10px">
         ${won ? 'You beat the street and walked away clean.'
-              : `You booked ${money(s ? s.profit : 0)} against a ${money(s ? s.quota : 0)} quota. Compliance is on the phone.`}
+              : `You booked ${money(s ? s.profit : 0)} against a ${money(s ? s.quota : 0)} quota.<span class="verbose"> Compliance is on the phone.</span>`}
       </div>
       ${reason ? `<div class="go-reason">${reason}</div>` : ''}
       <div class="go-stats">

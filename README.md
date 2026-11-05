@@ -10,12 +10,12 @@ starting pieces, a shop full of things that break the rules, and a deadline that
 No build step and no dependencies — just Node and a browser.
 
 <!-- latest-version: the test suite checks this names the current VERSION, so a release can never leave the front page behind -->
-> **Latest version: v1.15.0 — Ring the Bell** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
+> **Latest version: v1.16.0 — Tear It Open** &nbsp;·&nbsp; [release notes](https://github.com/JEB-OT/Daytradinggame/releases/latest) &nbsp;·&nbsp; [every version](CHANGELOG.md)
 >
-> **Meeting a quota is a moment now.** The verdict slams onto a ribbon in the middle of the table,
-> a fountain of money bursts out behind it, and the deeper you bury the quota the bigger it gets,
-> up to TOTAL OVERKILL and a money storm. Also: play it online with leaderboards, set up in
-> 15 minutes with [docs/hosting-on-render.md](docs/hosting-on-render.md).
+> **Packs tear open.** A pack flies in from the Floor, a strip rips off the top, and its cards are
+> dealt out of it. **LESS TEXT** in Settings drops the explanations and coaching for players who
+> know the game, and keeps every effect, cost and modifier. Also new: a centre-stage moment when
+> you meet a quota, and [online leaderboards](docs/hosting-on-render.md).
 >
 > **Stuck on `You have uncommitted changes, so nothing was pulled`?** That is an old copy's updater
 > tripping over a stray file. Stop the game, then in the game folder run these three, once:
@@ -253,7 +253,8 @@ npm start
 
 | Version | What you should see |
 |---|---|
-| **v1.15.0** — Ring the Bell | Everything below, plus: a quota met is a centre-stage moment: the verdict on a ribbon, a fountain of money, bigger with the overkill |
+| **v1.16.0** — Tear It Open | Everything below, plus: packs tear open and deal their cards out; LESS TEXT in Settings for players who know the game |
+| v1.15.0 — Ring the Bell | Everything below, plus: a quota met is a centre-stage moment: the verdict on a ribbon, a fountain of money, bigger with the overkill |
 | v1.14.0 — Going Live | Everything below, plus: a hosted version for Render with online leaderboards (CAMPAIGN, ENDLESS, OVERKILL), one place per trader per board |
 | v1.13.0 — Fast Lane | Everything below, plus: Graphics HIGH / MEDIUM / LOW, game speed up to 8× (button in the top bar), Animations FULL / REDUCED / OFF, and an FPS counter |
 | v1.12.0 — Showtime | Everything below, plus: a marbled backdrop behind the desk, bigger card art, cards that lean toward the pointer, and the P/L on fire when a placement clears the quota |
@@ -654,6 +655,10 @@ MET**, **QUOTA SMASHED**, **OVERKILL**, then **TOTAL OVERKILL**.
 | **Game speed** | 1× · 2× · 4× · 8× | Trades, deals, sweeps and payouts play out faster. Also the speed button in the top bar |
 | **Animations** | FULL · REDUCED · OFF | REDUCED stops the ambient motion. OFF stops everything and resolves each trade at once |
 | **Show FPS** | ON · OFF | A frame-rate counter in the bottom-right corner |
+
+**Less Text** (Settings, under Sound) is for players who know the game. It drops the explanations
+and coaching: tips, how-to lines, rules reminders and hover explanations. It keeps every effect,
+cost and modifier on every card, broker and boss.
 
 ### One of each
 

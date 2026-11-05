@@ -8,6 +8,8 @@
 //                                      Motion: off"); off: no motion at all, and
 //                                      trades resolve at once
 //   fps         true | false           a frame-rate counter in the corner
+//   concise     true | false           LESS TEXT: for players who know the game —
+//                                      the explanations go, what things DO stays
 //
 // Saved on this device. Pure: no DOM here, so the tests can hold it to account.
 // ---------------------------------------------------------------------------
@@ -20,7 +22,7 @@ export const SETTINGS_KEY = 'margincall.settings';
 /** The one setting there used to be, before this module. */
 const LEGACY_MOTION_KEY = 'margincall.motion';
 
-export const DEFAULT_SETTINGS = { quality: 'high', speed: 1, animations: 'full', fps: false };
+export const DEFAULT_SETTINGS = { quality: 'high', speed: 1, animations: 'full', fps: false, concise: false };
 
 /** Anything unknown or malformed falls back to the default for that field. */
 export function cleanSettings(raw = {}) {
@@ -29,6 +31,7 @@ export function cleanSettings(raw = {}) {
   if (SPEEDS.includes(Number(raw.speed))) s.speed = Number(raw.speed);
   if (ANIMATIONS.includes(raw.animations)) s.animations = raw.animations;
   s.fps = raw.fps === true;
+  s.concise = raw.concise === true;
   return s;
 }
 

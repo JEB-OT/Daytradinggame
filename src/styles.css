@@ -1821,6 +1821,26 @@ html[data-quality="low"] :is(.candle, .broker, .consumable, .shop-slot, .dl-choi
 .app.hitstop { filter: brightness(1.45) saturate(1.2); }
 html[data-quality="low"] .cb-rays { display: none; }
 
+/* a pack being torn open (motion.js openPack): two copies of its picture,
+   cut along one zigzag — the strip that tears off, and the wrapper below */
+.pack-ghost { position: fixed; z-index: 3; pointer-events: none; transform: translate(-50%,-50%); filter: drop-shadow(0 10px 14px rgba(0,0,0,.5)); }
+.pack-ghost .pk-half { position: absolute; inset: 0; }
+.pack-ghost .pk-half svg { width: 100%; height: 100%; display: block; }
+.pack-ghost .pk-top {
+  clip-path: polygon(0 0, 100% 0, 100% 27%, 92% 31%, 84% 26%, 76% 31%, 68% 26%, 60% 31%, 52% 26%, 44% 31%,
+                     36% 26%, 28% 31%, 20% 26%, 12% 31%, 4% 26%, 0 29%);
+}
+.pack-ghost .pk-body {
+  clip-path: polygon(0 29%, 4% 26%, 12% 31%, 20% 26%, 28% 31%, 36% 26%, 44% 31%, 52% 26%, 60% 31%, 68% 26%,
+                     76% 31%, 84% 26%, 92% 31%, 100% 27%, 100% 100%, 0 100%);
+}
+
+/* LESS TEXT (Settings; html[data-concise]): explanations are marked .verbose and
+   go; where the facts still need saying, a shorter .terse line stands in */
+.terse { display: none; }
+html[data-concise] .terse { display: revert; }
+html[data-concise] .verbose { display: none !important; }
+
 /* The marbled backdrop (src/ui/backdrop.js) sits under everything, the
    stylesheet's own background showing through only if it could not start. */
 #backdrop { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -2; pointer-events: none; display: block; }
